@@ -165,6 +165,47 @@ http://localhost:4000/auth/google/callback
 
 ---
 
+## 📚 Swagger API Documentation
+
+The backend includes **Swagger UI** for interactive API testing and documentation.
+
+### Access Swagger UI
+
+Once the backend is running:
+
+```
+http://localhost:4000/api
+```
+
+### Features
+
+- 📖 **Full API Documentation** → All endpoints with request/response schemas
+- 🧪 **Try It Out** → Test endpoints directly from browser
+- 🔐 **Bearer Auth** → Authenticate with JWT tokens for protected endpoints
+- 📝 **Request/Response Examples** → See what data to send and expect
+
+### How to Use Swagger
+
+1. Start backend: `npm run start:dev`
+2. Open browser: `http://localhost:4000/api`
+3. For protected endpoints:
+   - Click **🔓 Authorize** button (top right)
+   - Enter your JWT token: `Bearer <your_token_here>`
+   - Click **Authorize** → Now you can test protected endpoints
+
+### Available Endpoints in Swagger
+
+- **Auth Endpoints**
+  - `GET /auth/google` — Sign in with Google
+  - `GET /auth/google/callback` — Callback from Google OAuth
+  - `POST /auth/signout` — Sign out (protected)
+  - `GET /auth/me` — Get current user (protected)
+
+- **Users Endpoints**
+  - `GET /users` — List all users with online/offline status (protected)
+
+---
+
 ## 🗃️ Database — Users Collection
 
 | Field | Type | Description |
