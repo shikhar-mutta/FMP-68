@@ -20,6 +20,7 @@ backend/prisma/migrations/
 # Logs
 *.log
 npm-debug.log*
+package-lock.json
 
 # OS
 .DS_Store
