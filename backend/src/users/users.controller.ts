@@ -16,7 +16,7 @@ export class UsersController {
   /** GET /users/me — current authenticated user */
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getMe(@Req() req) {
+  async getMe(@Req() req: any) {
     return req.user;
   }
 }

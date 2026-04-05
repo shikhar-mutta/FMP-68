@@ -20,7 +20,7 @@ export class PathsController {
   // Create a new path
   @Post()
   @UseGuards(JwtAuthGuard)
-  async createPath(@Request() req, @Body() createPathDto: CreatePathDto) {
+  async createPath(@Request() req: any, @Body() createPathDto: CreatePathDto) {
     return this.pathsService.createPath(req.user.id, createPathDto);
   }
 
@@ -39,28 +39,29 @@ export class PathsController {
   // Get paths published by current user
   @Get('published/my-paths')
   @UseGuards(JwtAuthGuard)
-  async getMyPublishedPaths(@Request() req) {
+  async getMyPublishedPaths(@Request() req: any) {
     return this.pathsService.getPublishedPathsByUser(req.user.id);
   }
 
   // Get paths followed by current user
   @Get('followed/my-paths')
   @UseGuards(JwtAuthGuard)
-  async getMyFollowedPaths(@Request() req) {
+  async getMyFollowedPaths(@Request() req: any) {
     return this.pathsService.getFollowedPathsByUser(req.user.id);
   }
 
-  // Follow a path
+  // Follow a path (Use /follow-requests endpoint instead for requesting to follow)
+  // This endpoint is used internally after a follow request is approved
   @Post(':id/follow')
   @UseGuards(JwtAuthGuard)
-  async followPath(@Request() req, @Param('id') pathId: string) {
+  async followPath(@Request() req: any, @Param('id') pathId: string) {
     return this.pathsService.followPath(req.user.id, pathId);
   }
 
   // Unfollow a path
   @Post(':id/unfollow')
   @UseGuards(JwtAuthGuard)
-  async unfollowPath(@Request() req, @Param('id') pathId: string) {
+  async unfollowPath(@Request() req: any, @Param('id') pathId: string) {
     return this.pathsService.unfollowPath(req.user.id, pathId);
   }
 

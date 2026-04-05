@@ -37,7 +37,7 @@ export class AuthController {
    */
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  async googleCallback(@Req() req, @Res() res: Response) {
+  async googleCallback(@Req() req: any, @Res() res: Response) {
     const { accessToken } = await this.authService.loginWithGoogle(req.user);
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -53,7 +53,7 @@ export class AuthController {
   @Post('signout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async signOut(@Req() req) {
+  async signOut(@Req() req: any) {
     return this.authService.signOut(req.user.id);
   }
 
@@ -63,7 +63,7 @@ export class AuthController {
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMe(@Req() req) {
+  getMe(@Req() req: any) {
     return req.user;
   }
 }

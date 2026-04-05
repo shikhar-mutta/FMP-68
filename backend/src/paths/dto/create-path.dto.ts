@@ -4,7 +4,7 @@ export class CreatePathDto {
   @IsString({ message: 'Title must be a string' })
   @MinLength(1, { message: 'Title cannot be empty' })
   @MaxLength(100, { message: 'Title cannot exceed 100 characters' })
-  title: string;
+  title!: string;
 
   @IsOptional()
   @IsString({ message: 'Description must be a string' })
