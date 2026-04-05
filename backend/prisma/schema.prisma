@@ -44,6 +44,9 @@ model Path {
 
   // Array of user IDs following this path
   followerIds     String[] @db.ObjectId @default([])
+  
+  // Array of user IDs requesting to follow (pending requests)
+  followRequests  String[] @db.ObjectId @default([])
 
   @@map("paths")
 }
