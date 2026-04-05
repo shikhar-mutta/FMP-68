@@ -5,6 +5,8 @@ import Navbar from '../components/Navbar';
 import UserCard from '../components/UserCard';
 import PathPublishForm from '../components/PathPublishForm';
 import PathCard from '../components/PathCard';
+import RequestSummaryModalPanel from '../components/RequestSummaryModalPanel';
+import SentRequestsPanel from '../components/SentRequestsPanel';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
@@ -16,7 +18,8 @@ export default function DashboardPage() {
   const [paths, setPaths] = useState([]);
   const [followedPathIds, setFollowedPathIds] = useState([]);
   const [loadingPaths, setLoadingPaths] = useState(true);
-  const [activeTab, setActiveTab] = useState('paths'); // 'paths' or 'users'
+  const [activeTab, setActiveTab] = useState('paths'); // 'paths', 'users', 'received-requests', 'sent-requests'
+  const [refreshRequests, setRefreshRequests] = useState(0);
 
   // ── Fetch other users ────────────────────────────────────
   useEffect(() => {
@@ -79,6 +82,12 @@ export default function DashboardPage() {
     }
   };
 
+  // ── Handle request sent ──────────────────────────────────
+  const handleRequestSent = (pathId) => {
+    // Optionally trigger a refresh
+    console.log('Request sent for path:', pathId);
+  };
+
   // ── Auto sign-out after 30 min inactivity ────────────────
   useEffect(() => {
     let timer;
@@ -138,6 +147,18 @@ export default function DashboardPage() {
             >
               👥 Users ({users.length})
             </button>
+            <button
+              className={`tab-button ${activeTab === 'received-requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('received-requests')}
+            >
+              📬 Requests
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'sent-requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('sent-requests')}
+            >
+              📤 My Requests
+            </button>
           </div>
 
           {/* Paths Tab */}
@@ -149,7 +170,7 @@ export default function DashboardPage() {
                 <div className="spinner-overlay">
                   <div className="spinner" />
                 </div>
-              ) : paths.length === 0 ? (
+                ) : paths.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">📍</div>
                   <p className="empty-title">No paths yet</p>
@@ -164,6 +185,7 @@ export default function DashboardPage() {
                       isFollowing={followedPathIds.includes(path.id)}
                       onFollowChange={handleFollowChange}
                       currentUserId={user?.id}
+                      onRequestSent={handleRequestSent}
                     />
                   ))}
                 </div>
@@ -193,8 +215,26 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* Received Follow Requests Tab */}
+          {activeTab === 'received-requests' && (
+            <div className="tab-content">
+              <RequestSummaryModalPanel />
+            </div>
+          )}
+
+          {/* Sent Follow Requests Tab */}
+          {activeTab === 'sent-requests' && (
+            <div className="tab-content">
+              <SentRequestsPanel
+                currentUserId={user?.id}
+                onRefresh={refreshRequests}
+              />
+            </div>
+          )}
         </div>
       </main>
     </>
   );
 }
+
