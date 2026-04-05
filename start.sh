@@ -35,7 +35,13 @@ start_terminal() {
     fi
 }
 
+echo -e "\e[32m[BACKEND] Generating Prisma Client...\e[0m"
+cd "$BACKEND_DIR"
+npx prisma generate
+npx prisma db push --skip-generate
+
 echo -e "\e[32m[BACKEND] Starting NestJS...\e[0m"
+cd "$ROOT_DIR"
 start_terminal "Backend Server" "cd \"$BACKEND_DIR\" && echo -e '\e[32m[BACKEND] Starting NestJS...\e[0m' && npm run start:dev"
 
 sleep 2

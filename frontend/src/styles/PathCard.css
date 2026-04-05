@@ -1,0 +1,153 @@
+/* Path Card */
+.path-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.path-card:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 16px rgba(74, 144, 226, 0.15);
+  transform: translateY(-2px);
+}
+
+.path-card-header {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+}
+
+.path-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.path-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.path-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--accent-blue) 0%, #4a90e2 100%);
+  color: white;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.path-description {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  word-break: break-word;
+}
+
+.path-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.path-publisher {
+  color: var(--text-secondary);
+}
+
+.path-publisher strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.path-followers {
+  color: var(--accent-green);
+  font-weight: 500;
+}
+
+.path-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.path-date {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.follow-button {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--accent-green);
+  background: transparent;
+  color: var(--accent-green);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.follow-button:hover:not(:disabled) {
+  background: var(--accent-green);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.follow-button.following {
+  background: var(--accent-green);
+  color: white;
+}
+
+.follow-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .path-card {
+    padding: 1rem;
+  }
+
+  .path-title {
+    font-size: 1rem;
+  }
+
+  .path-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: start;
+  }
+
+  .path-card-footer {
+    flex-direction: column;
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .follow-button {
+    width: 100%;
+    text-align: center;
+  }
+}
