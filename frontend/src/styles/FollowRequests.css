@@ -1,0 +1,269 @@
+/* Follow Requests Panel Styles */
+
+.requests-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.requests-panel h3 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary, #333);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.request-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  background: var(--bg-light, #f9f9f9);
+  transition: all 0.2s ease;
+}
+
+.request-item:hover {
+  border-color: var(--accent-color, #007bff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.request-info {
+  flex: 1;
+}
+
+.requester-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.requester-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-color, #007bff);
+}
+
+.requester-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.requester-details strong {
+  color: var(--text-primary, #333);
+  margin: 0;
+}
+
+.requester-details small {
+  color: var(--text-secondary, #666);
+  font-size: 12px;
+}
+
+.request-path {
+  color: var(--text-primary, #333);
+  margin: 6px 0 0 0;
+  font-size: 14px;
+}
+
+.request-path strong {
+  color: var(--accent-color, #007bff);
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+.btn-approve,
+.btn-reject {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.btn-approve {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-approve:hover:not(:disabled) {
+  background-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.btn-reject {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background-color: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.no-requests {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-secondary, #666);
+  font-style: italic;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  border: 1px solid #f5c6cb;
+}
+
+/* Sent Requests Panel Styles */
+
+.sent-requests-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.sent-requests-panel h3 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary, #333);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sent-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.sent-request-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  background: var(--bg-light, #f9f9f9);
+  transition: all 0.2s ease;
+}
+
+.sent-request-item:hover {
+  border-color: var(--accent-color, #007bff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sent-request-info {
+  flex: 1;
+}
+
+.request-path {
+  color: var(--text-primary, #333);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.sent-request-info small {
+  color: var(--text-secondary, #666);
+  font-size: 12px;
+  display: block;
+  margin-top: 4px;
+}
+
+.sent-request-status {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-left: 20px;
+}
+
+.status-badge {
+  background-color: #ffc107;
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background-color: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+
+@media (max-width: 768px) {
+  .request-item,
+  .sent-request-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .request-actions,
+  .sent-request-status {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .request-actions {
+    justify-content: flex-end;
+  }
+
+  .requester-info {
+    width: 100%;
+  }
+
+  .btn-approve,
+  .btn-reject,
+  .btn-cancel {
+    flex: 1;
+  }
+}

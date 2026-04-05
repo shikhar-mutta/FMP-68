@@ -49,6 +49,20 @@
   white-space: nowrap;
 }
 
+.requests-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ff6b5b 0%, #ee5a4a 100%);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(255, 107, 91, 0.3);
+}
+
 .path-description {
   color: var(--text-secondary);
   font-size: 0.95rem;
@@ -119,7 +133,94 @@
   color: white;
 }
 
+.follow-button.requested {
+  border-color: #ffc107;
+  color: #ffc107;
+  background: transparent;
+}
+
+.follow-button.requested:hover:not(:disabled) {
+  background: #ffc107;
+  color: #333;
+  transform: translateY(-1px);
+}
+
 .follow-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 107, 91, 0.1);
+  border: 2px solid rgba(255, 107, 91, 0.4);
+  border-radius: 8px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cancel-confirmation p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.confirmation-buttons {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.confirm-cancel-btn,
+.confirm-keep-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.confirm-cancel-btn {
+  background: #ff6b5b;
+  color: white;
+}
+
+.confirm-cancel-btn:hover:not(:disabled) {
+  background: #ee5a4a;
+  transform: translateY(-1px);
+}
+
+.confirm-keep-btn {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.confirm-keep-btn:hover:not(:disabled) {
+  background: #3d7ec9;
+  transform: translateY(-1px);
+}
+
+.confirm-cancel-btn:disabled,
+.confirm-keep-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
