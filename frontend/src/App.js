@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import PathDetailPage from './pages/PathDetailPage';
 import AuthCallback from './pages/AuthCallback';
 
 function PrivateRoute({ children }) {
@@ -43,6 +44,14 @@ export default function App() {
           element={
             <PrivateRoute>
               <DashboardPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/path/:pathId"
+          element={
+            <PrivateRoute>
+              <PathDetailPage />
             </PrivateRoute>
           }
         />
