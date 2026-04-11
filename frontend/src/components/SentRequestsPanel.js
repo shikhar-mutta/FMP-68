@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getSentFollowRequests, cancelFollowRequest } from '../services/followRequestService';
+import { POLLING_INTERVALS, REQUEST_STATUSES } from '../config/constants';
 import '../styles/FollowRequests.css';
 
 const SentRequestsPanel = ({ currentUserId, onRefresh }) => {
@@ -7,12 +8,9 @@ const SentRequestsPanel = ({ currentUserId, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+  const pollingRef = useRef(null);
 
   // Fetch sent follow requests
-  useEffect(() => {
-    fetchSentRequests();
-  }, [onRefresh]);
-
   const fetchSentRequests = async () => {
     setLoading(true);
     setError(null);
@@ -27,14 +25,39 @@ const SentRequestsPanel = ({ currentUserId, onRefresh }) => {
     }
   };
 
+  // Setup polling for real-time synchronization
+  useEffect(() => {
+    fetchSentRequests();
+
+    // Auto-poll every 2 seconds to detect when requests are approved/rejected
+    pollingRef.current = setInterval(() => {
+      getSentFollowRequests()
+        .then((requests) => setSentRequests(requests))
+        .catch((err) => console.error('Polling error:', err));
+    }, POLLING_INTERVALS.SENT_REQUESTS);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [onRefresh]);
+
   const handleCancel = async (pathId) => {
     setProcessingId(pathId);
     try {
       await cancelFollowRequest(pathId);
       // Remove from sent list
       setSentRequests(sentRequests.filter((req) => req.pathId !== pathId));
+      // Show success toast
+      if (window.showToast) {
+        window.showToast('Request cancelled', 'success');
+      }
     } catch (err) {
       setError(err.toString());
+      if (window.showToast) {
+        window.showToast('Failed to cancel request', 'error');
+      }
       console.error('Error cancelling request:', err);
     } finally {
       setProcessingId(null);
@@ -67,14 +90,18 @@ const SentRequestsPanel = ({ currentUserId, onRefresh }) => {
               </div>
 
               <div className="sent-request-status">
-                <div className="status-badge">No response yet</div>
-                <button
-                  className="btn-cancel"
-                  onClick={() => handleCancel(request.pathId)}
-                  disabled={processingId === request.pathId}
-                >
-                  Cancel
-                </button>
+                <div className={`status-badge status-${request.status?.toLowerCase() || REQUEST_STATUSES.PENDING.toLowerCase()}`}>
+                  {request.status === REQUEST_STATUSES.APPROVED ? '✓ Approved' : '⏳ Pending'}
+                </div>
+                {request.status === REQUEST_STATUSES.PENDING && (
+                  <button
+                    className="btn-cancel"
+                    onClick={() => handleCancel(request.pathId)}
+                    disabled={processingId === request.pathId}
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             </div>
           ))}
