@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PathsModule } from './paths/paths.module';
 import { FollowRequestsModule } from './follow-requests/follow-requests.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { FollowRequestsModule } from './follow-requests/follow-requests.module';
     UsersModule,
     PathsModule,
     FollowRequestsModule,
+    TrackingModule,
   ],
 })
 export class AppModule {}
