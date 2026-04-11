@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   getPendingFollowRequests,
   approveFollowRequest,
   rejectFollowRequest,
 } from '../services/followRequestService';
+import { POLLING_INTERVALS } from '../config/constants';
 import '../styles/FollowRequests.css';
 
 const FollowRequestsPanel = ({ currentUserId, onRefresh }) => {
@@ -11,12 +12,9 @@ const FollowRequestsPanel = ({ currentUserId, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+  const pollingRef = useRef(null);
 
   // Fetch pending follow requests
-  useEffect(() => {
-    fetchPendingRequests();
-  }, [onRefresh]);
-
   const fetchPendingRequests = async () => {
     setLoading(true);
     setError(null);
@@ -31,6 +29,24 @@ const FollowRequestsPanel = ({ currentUserId, onRefresh }) => {
     }
   };
 
+  // Setup polling for real-time synchronization
+  useEffect(() => {
+    fetchPendingRequests();
+
+    // Auto-poll every 2 seconds for real-time sync
+    pollingRef.current = setInterval(() => {
+      getPendingFollowRequests()
+        .then((requests) => setPendingRequests(requests))
+        .catch((err) => console.error('Polling error:', err));
+    }, POLLING_INTERVALS.PENDING_REQUESTS);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [onRefresh]);
+
   const handleApprove = async (pathId, userId) => {
     setProcessingId(`${pathId}-${userId}`);
     try {
@@ -39,8 +55,15 @@ const FollowRequestsPanel = ({ currentUserId, onRefresh }) => {
       setPendingRequests(
         pendingRequests.filter((req) => !(req.pathId === pathId && req.followerId === userId))
       );
+      // Show success toast
+      if (window.showToast) {
+        window.showToast('✓ Follow request approved!', 'success');
+      }
     } catch (err) {
       setError(err.toString());
+      if (window.showToast) {
+        window.showToast('Failed to approve request', 'error');
+      }
       console.error('Error approving request:', err);
     } finally {
       setProcessingId(null);
@@ -55,8 +78,15 @@ const FollowRequestsPanel = ({ currentUserId, onRefresh }) => {
       setPendingRequests(
         pendingRequests.filter((req) => !(req.pathId === pathId && req.followerId === userId))
       );
+      // Show success toast
+      if (window.showToast) {
+        window.showToast('✕ Follow request rejected', 'warning');
+      }
     } catch (err) {
       setError(err.toString());
+      if (window.showToast) {
+        window.showToast('Failed to reject request', 'error');
+      }
       console.error('Error rejecting request:', err);
     } finally {
       setProcessingId(null);
