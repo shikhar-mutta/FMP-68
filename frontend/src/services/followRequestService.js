@@ -1,101 +1,104 @@
-import axios from 'axios';
-
-const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-
-const getAuthHeader = () => ({
-  Authorization: `Bearer ${localStorage.getItem('fmp68_token')}`,
-});
+import apiClient from './api';
 
 // Create a follow request
 export const sendFollowRequest = async (pathId, publisherId) => {
   try {
-    const response = await axios.post(
-      `${API}/follow-requests`,
-      { pathId, publisherId },
-      { headers: getAuthHeader() }
-    );
+    if (!pathId || !publisherId) {
+      throw new Error('Invalid pathId or publisherId');
+    }
+    const response = await apiClient.post('/follow-requests', {
+      pathId,
+      publisherId,
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to send follow request';
+    const message = error.response?.data?.message || error.message || 'Failed to send follow request';
+    throw new Error(message);
   }
 };
 
 // Get pending follow requests for current user's paths
 export const getPendingFollowRequests = async () => {
   try {
-    const response = await axios.get(
-      `${API}/follow-requests/pending`,
-      { headers: getAuthHeader() }
-    );
+    const response = await apiClient.get('/follow-requests/pending');
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch pending requests';
+    const message = error.response?.data?.message || error.message || 'Failed to fetch pending requests';
+    throw new Error(message);
   }
 };
 
 // Get follow requests sent by current user
 export const getSentFollowRequests = async () => {
   try {
-    const response = await axios.get(
-      `${API}/follow-requests/sent`,
-      { headers: getAuthHeader() }
-    );
+    const response = await apiClient.get('/follow-requests/sent');
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch sent requests';
+    const message = error.response?.data?.message || error.message || 'Failed to fetch sent requests';
+    throw new Error(message);
   }
 };
 
 // Get follow requests for a specific path
 export const getFollowRequestsForPath = async (pathId) => {
   try {
-    const response = await axios.get(
-      `${API}/follow-requests/path/${pathId}`,
-      { headers: getAuthHeader() }
-    );
+    if (!pathId) {
+      throw new Error('pathId is required');
+    }
+    const response = await apiClient.get(`/follow-requests/path/${pathId}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch path requests';
+    const message = error.response?.data?.message || error.message || 'Failed to fetch path requests';
+    throw new Error(message);
   }
 };
 
 // Approve a follow request
 export const approveFollowRequest = async (pathId, userId) => {
   try {
-    const response = await axios.post(
-      `${API}/follow-requests/approve`,
-      { pathId, userId },
-      { headers: getAuthHeader() }
-    );
+    if (!pathId || !userId) {
+      throw new Error('Invalid pathId or userId');
+    }
+    const response = await apiClient.post('/follow-requests/approve', {
+      pathId,
+      userId,
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to approve request';
+    const message = error.response?.data?.message || error.message || 'Failed to approve request';
+    throw new Error(message);
   }
 };
 
 // Reject a follow request
 export const rejectFollowRequest = async (pathId, userId) => {
   try {
-    const response = await axios.post(
-      `${API}/follow-requests/reject`,
-      { pathId, userId },
-      { headers: getAuthHeader() }
-    );
+    if (!pathId || !userId) {
+      throw new Error('Invalid pathId or userId');
+    }
+    const response = await apiClient.post('/follow-requests/reject', {
+      pathId,
+      userId,
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to reject request';
+    const message = error.response?.data?.message || error.message || 'Failed to reject request';
+    throw new Error(message);
   }
 };
 
 // Cancel a sent follow request
 export const cancelFollowRequest = async (pathId) => {
   try {
-    const response = await axios.delete(
-      `${API}/follow-requests?pathId=${pathId}`,
-      { headers: getAuthHeader() }
-    );
+    if (!pathId) {
+      throw new Error('pathId is required');
+    }
+    const response = await apiClient.delete('/follow-requests', {
+      params: { pathId },
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to cancel request';
+    const message = error.response?.data?.message || error.message || 'Failed to cancel request';
+    throw new Error(message);
   }
 };
