@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FollowRequestsService } from './follow-requests.service';
 import { CreateFollowRequestDto } from './dto/create-follow-request.dto';
+import { ApproveFollowRequestDto } from './dto/approve-follow-request.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('follow-requests')
@@ -118,19 +119,22 @@ export class FollowRequestsController {
   @Post('approve')
   @UseGuards(JwtAuthGuard)
   async approveFollowRequest(
-    @Body() body: { pathId: string; userId: string },
+    @Request() req: any,
+    @Body() dto: ApproveFollowRequestDto,
   ) {
     try {
-      this.logger.log(`Approving follow request for user ${body.userId} to path ${body.pathId}`);
+      this.logger.log(`Approving follow request for user ${dto.userId} to path ${dto.pathId}`);
+      // Security: Verify that req.user is the path publisher
       const result = await this.followRequestsService.approveFollowRequest(
-        body.pathId,
-        body.userId,
+        dto.pathId,
+        dto.userId,
+        req.user.id, // Pass publisher ID for authorization check
       );
       this.logger.log('Follow request approved successfully');
       return result;
     } catch (error: unknown) {
-      this.logger.error('Error approving follow request:', error);
       const message = error instanceof Error ? error.message : 'Failed to approve follow request';
+      this.logger.error(`Error approving follow request: ${message}`);
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -146,19 +150,22 @@ export class FollowRequestsController {
   @Post('reject')
   @UseGuards(JwtAuthGuard)
   async rejectFollowRequest(
-    @Body() body: { pathId: string; userId: string },
+    @Request() req: any,
+    @Body() dto: ApproveFollowRequestDto,
   ) {
     try {
-      this.logger.log(`Rejecting follow request for user ${body.userId} to path ${body.pathId}`);
+      this.logger.log(`Rejecting follow request for user ${dto.userId} to path ${dto.pathId}`);
+      // Security: Verify that req.user is the path publisher
       const result = await this.followRequestsService.rejectFollowRequest(
-        body.pathId,
-        body.userId,
+        dto.pathId,
+        dto.userId,
+        req.user.id, // Pass publisher ID for authorization check
       );
       this.logger.log('Follow request rejected successfully');
       return result;
     } catch (error: unknown) {
-      this.logger.error('Error rejecting follow request:', error);
       const message = error instanceof Error ? error.message : 'Failed to reject follow request';
+      this.logger.error(`Error rejecting follow request: ${message}`);
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
