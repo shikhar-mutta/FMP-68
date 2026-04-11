@@ -69,63 +69,65 @@ export class PathsService {
     }));
   }
 
-  // Follow a path
+  // Follow a path — syncs both Path.followerIds and User.followedPathIds
   async followPath(userId: string, pathId: string) {
-    const path = await this.prisma.path.findUnique({
-      where: { id: pathId },
-    });
+    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
+    if (!path) throw new Error('Path not found');
 
-    if (!path) {
-      throw new Error('Path not found');
-    }
-
-    // Check if user is already following
-    if (path.followerIds?.includes(userId)) {
+    if (path.followerIds?.includes(userId))
       throw new Error('Already following this path');
-    }
 
-    const updated = await this.prisma.path.update({
-      where: { id: pathId },
-      data: {
-        followerIds: {
-          push: userId,
-        },
-      },
-      include: {
-        publisher: true,
-      },
-    });
+    const [updatedPath] = await this.prisma.$transaction([
+      // 1. Add userId to Path.followerIds
+      this.prisma.path.update({
+        where: { id: pathId },
+        data: { followerIds: { push: userId } },
+        include: { publisher: true },
+      }),
+      // 2. Add pathId to User.followedPathIds
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { followedPathIds: { push: pathId } },
+      }),
+    ]);
 
     return {
-      ...updated,
-      followers: updated.followerIds || [],
+      ...updatedPath,
+      followers: updatedPath.followerIds ?? [],
     };
   }
 
-  // Unfollow a path
+  // Unfollow a path — syncs both Path.followerIds and User.followedPathIds
   async unfollowPath(userId: string, pathId: string) {
-    const path = await this.prisma.path.findUnique({
-      where: { id: pathId },
-    });
+    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
+    if (!path) throw new Error('Path not found');
 
-    if (!path) {
-      throw new Error('Path not found');
-    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
 
-    // Remove userId from followerIds array
-    const updated = await this.prisma.path.update({
-      where: { id: pathId },
-      data: {
-        followerIds: path.followerIds?.filter((id) => id !== userId) || [],
-      },
-      include: {
-        publisher: true,
-      },
-    });
+    const [updatedPath] = await this.prisma.$transaction([
+      // 1. Remove userId from Path.followerIds
+      this.prisma.path.update({
+        where: { id: pathId },
+        data: {
+          followerIds: (path.followerIds ?? []).filter((id) => id !== userId),
+        },
+        include: { publisher: true },
+      }),
+      // 2. Remove pathId from User.followedPathIds
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          followedPathIds: (user.followedPathIds ?? []).filter(
+            (id) => id !== pathId,
+          ),
+        },
+      }),
+    ]);
 
     return {
-      ...updated,
-      followers: updated.followerIds || [],
+      ...updatedPath,
+      followers: updatedPath.followerIds ?? [],
     };
   }
 
@@ -171,6 +173,68 @@ export class PathsService {
     return {
       ...updated,
       followers: updated.followerIds || [],
+    };
+  }
+
+  // Get followers of a path with their details
+  async getFollowersWithDetails(pathId: string) {
+    const path = await this.prisma.path.findUnique({
+      where: { id: pathId },
+    });
+
+    if (!path) throw new Error('Path not found');
+
+    const followerIds = path.followerIds || [];
+    if (followerIds.length === 0) return [];
+
+    const followers = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: followerIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        picture: true,
+      },
+    });
+
+    return followers;
+  }
+
+  // Remove a follower from a path
+  async removeFollower(pathId: string, followerId: string) {
+    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
+    if (!path) throw new Error('Path not found');
+
+    const user = await this.prisma.user.findUnique({ where: { id: followerId } });
+    if (!user) throw new Error('Follower not found');
+
+    const [updatedPath] = await this.prisma.$transaction([
+      // 1. Remove followerId from Path.followerIds
+      this.prisma.path.update({
+        where: { id: pathId },
+        data: {
+          followerIds: (path.followerIds ?? []).filter((id) => id !== followerId),
+        },
+        include: { publisher: true },
+      }),
+      // 2. Remove pathId from User.followedPathIds
+      this.prisma.user.update({
+        where: { id: followerId },
+        data: {
+          followedPathIds: (user.followedPathIds ?? []).filter(
+            (id) => id !== pathId,
+          ),
+        },
+      }),
+    ]);
+
+    return {
+      ...updatedPath,
+      followers: updatedPath.followerIds ?? [],
     };
   }
 }
