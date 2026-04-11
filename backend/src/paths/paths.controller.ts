@@ -81,4 +81,30 @@ export class PathsController {
   async deletePath(@Param('id') pathId: string) {
     return this.pathsService.deletePath(pathId);
   }
+
+  // Get followers of a path with their details
+  @Get(':id/followers')
+  async getFollowers(@Param('id') pathId: string) {
+    return this.pathsService.getFollowersWithDetails(pathId);
+  }
+
+  // Remove a follower from a path (only publisher can remove)
+  @Delete(':id/followers/:followerId')
+  @UseGuards(JwtAuthGuard)
+  async removeFollower(
+    @Request() req: any,
+    @Param('id') pathId: string,
+    @Param('followerId') followerId: string,
+  ) {
+    // Verify that the requester is the publisher
+    const path = await this.pathsService.getPathById(pathId);
+    if (!path) {
+      throw new Error('Path not found');
+    }
+    if (path.publisherId !== req.user.id) {
+      throw new Error('Only the publisher can remove followers');
+    }
+
+    return this.pathsService.removeFollower(pathId, followerId);
+  }
 }

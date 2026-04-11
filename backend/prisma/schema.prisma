@@ -48,5 +48,23 @@ model Path {
   // Array of user IDs requesting to follow (pending requests)
   followRequests  String[] @db.ObjectId @default([])
 
+  // GPS tracking data
+  coordinates     Json[]   @default([])    // Array of {lat, lng, timestamp}
+  status          String   @default("idle") // idle | recording | paused | ended
+  isLive          Boolean  @default(false)  // Is currently broadcasting live
+
   @@map("paths")
+}
+
+model TrackingSession {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  pathId          String   @db.ObjectId
+  userId          String   @db.ObjectId
+  role            String   // "publisher" | "follower"
+  coordinates     Json[]   @default([])    // Array of {lat, lng, timestamp}
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  isActive        Boolean  @default(true)
+
+  @@map("tracking_sessions")
 }
