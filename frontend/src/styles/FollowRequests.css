@@ -214,6 +214,21 @@
   font-weight: 500;
 }
 
+.status-badge.status-pending {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.status-badge.status-approved {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-badge.status-rejected {
+  background-color: #dc3545;
+  color: white;
+}
+
 .btn-cancel {
   padding: 8px 16px;
   background-color: #6c757d;
