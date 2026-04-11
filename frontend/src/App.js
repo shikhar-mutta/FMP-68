@@ -1,10 +1,13 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useToast } from './context/ToastContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PathDetailPage from './pages/PathDetailPage';
+import LiveTrackingPage from './pages/LiveTrackingPage';
 import AuthCallback from './pages/AuthCallback';
+import Toast from './components/Toast';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -20,6 +23,12 @@ function PrivateRoute({ children }) {
 
 export default function App() {
   const { user, loading } = useAuth();
+  const { addToast } = useToast();
+
+  // Store addToast globally for components that can't use hooks
+  React.useEffect(() => {
+    window.showToast = addToast;
+  }, [addToast]);
 
   if (loading) {
     return (
@@ -33,6 +42,7 @@ export default function App() {
 
   return (
     <div className="app-wrapper">
+      <Toast />
       <Routes>
         <Route
           path="/login"
@@ -55,8 +65,17 @@ export default function App() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/path/:pathId/live"
+          element={
+            <PrivateRoute>
+              <LiveTrackingPage />
+            </PrivateRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );
 }
+
