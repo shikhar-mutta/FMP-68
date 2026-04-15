@@ -9,7 +9,7 @@ import LiveTrackingPage from './pages/LiveTrackingPage';
 import AuthCallback from './pages/AuthCallback';
 import Toast from './components/Toast';
 
-function PrivateRoute({ children }) {
+export function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
