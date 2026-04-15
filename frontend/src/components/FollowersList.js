@@ -10,8 +10,6 @@ const FollowersList = ({ followers, isPublisher, onRemoveFollower, loading }) =>
   };
 
   const confirmRemove = async () => {
-    if (!showConfirmation) return;
-
     setRemovingId(showConfirmation.followerId);
     try {
       await onRemoveFollower(showConfirmation.followerId);
