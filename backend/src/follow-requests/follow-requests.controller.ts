@@ -59,7 +59,7 @@ export class FollowRequestsController {
   @UseGuards(JwtAuthGuard)
   async getPendingFollowRequests(@Request() req: any) {
     try {
-      return this.followRequestsService.getPendingFollowRequestsForPublisher(
+      return await this.followRequestsService.getPendingFollowRequestsForPublisher(
         req.user.id,
       );
     } catch (error: unknown) {
@@ -81,7 +81,7 @@ export class FollowRequestsController {
   @UseGuards(JwtAuthGuard)
   async getSentFollowRequests(@Request() req: any) {
     try {
-      return this.followRequestsService.getFollowRequestsSentByUser(req.user.id);
+      return await this.followRequestsService.getFollowRequestsSentByUser(req.user.id);
     } catch (error: unknown) {
       this.logger.error('Error getting sent requests:', error);
       const message = error instanceof Error ? error.message : 'Failed to get sent requests';
@@ -100,7 +100,7 @@ export class FollowRequestsController {
   @Get('path/:pathId')
   async getFollowRequestsForPath(@Param('pathId') pathId: string) {
     try {
-      return this.followRequestsService.getFollowRequestsForPath(pathId);
+      return await this.followRequestsService.getFollowRequestsForPath(pathId);
     } catch (error: unknown) {
       this.logger.error('Error getting requests for path:', error);
       const message = error instanceof Error ? error.message : 'Failed to get requests for path';
