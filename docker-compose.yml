@@ -1,0 +1,246 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FMP-68 — Microservices Architecture
+#
+#   API Gateway (Load Balancer)  :4000
+#       ├── Auth Svc             :4001  (Google OAuth + JWT)
+#       ├── User Svc             :4002  (User profiles — Redis cache)
+#       ├── Paths Svc            :4003  (Path CRUD)
+#       ├── Follow Svc           :4004  (Follow requests — RabbitMQ publisher)
+#       └── Tracking Svc         :4005  (WebSocket real-time)
+#   Infrastructure:
+#       ├── Redis                :6379  (Cache)
+#       ├── RabbitMQ             :5672  (Message Broker)
+#       └── MongoDB              :27017 (Shared DB with replica set)
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  fmp68-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:
+
+services:
+
+  # ── MongoDB ──────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: fmp68-mongodb
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── Replica Set Init (one-shot) ──────────────────────────────────────────
+  mongo-init:
+    image: mongo:7
+    container_name: fmp68-mongo-init
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - fmp68-net
+    entrypoint: >
+      mongosh --host mongodb:27017 --eval
+      "try { rs.status().ok } catch(e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }) }"
+
+  # ── Redis (Cache) ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: fmp68-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ── RabbitMQ (Message Broker) ─────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: fmp68-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: fmp68
+      RABBITMQ_DEFAULT_PASS: fmp68pass
+    ports:
+      - "15672:15672"   # Management UI (http://localhost:15672)
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ── Auth Service ─────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: fmp68-auth
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 4001
+      DATABASE_URL: mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: http://localhost:4000/auth/google/callback
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:3000
+    expose:
+      - "4001"
+    networks:
+      - fmp68-net
+
+  # ── User Service ──────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: fmp68-users
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 4002
+      DATABASE_URL: mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    expose:
+      - "4002"
+    networks:
+      - fmp68-net
+
+  # ── Paths Service ─────────────────────────────────────────────────────────
+  paths-service:
+    build:
+      context: ./services/paths-service
+      dockerfile: Dockerfile
+    container_name: fmp68-paths
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 4003
+      DATABASE_URL: mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ${JWT_SECRET}
+    expose:
+      - "4003"
+    networks:
+      - fmp68-net
+
+  # ── Follow Service ────────────────────────────────────────────────────────
+  follow-service:
+    build:
+      context: ./services/follow-service
+      dockerfile: Dockerfile
+    container_name: fmp68-follow
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 4004
+      DATABASE_URL: mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ${JWT_SECRET}
+      RABBITMQ_URL: amqp://fmp68:fmp68pass@rabbitmq:5672
+    expose:
+      - "4004"
+    networks:
+      - fmp68-net
+
+  # ── Tracking Service ──────────────────────────────────────────────────────
+  tracking-service:
+    build:
+      context: ./services/tracking-service
+      dockerfile: Dockerfile
+    container_name: fmp68-tracking
+    restart: unless-stopped
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 4005
+      DATABASE_URL: mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true
+      FRONTEND_URL: http://localhost:3000
+    expose:
+      - "4005"
+    networks:
+      - fmp68-net
+
+  # ── API Gateway (Load Balancer) ───────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: fmp68-gateway
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - user-service
+      - paths-service
+      - follow-service
+      - tracking-service
+    environment:
+      PORT: 4000
+      FRONTEND_URL: http://localhost:3000
+      AUTH_SERVICE_URL:     http://auth-service:4001
+      USER_SERVICE_URL:     http://user-service:4002
+      PATHS_SERVICE_URL:    http://paths-service:4003
+      FOLLOW_SERVICE_URL:   http://follow-service:4004
+      TRACKING_SERVICE_URL: http://tracking-service:4005
+    ports:
+      - "4000:4000"
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ── Frontend ──────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:4000
+        REACT_APP_SOCKET_URL: http://localhost:4000
+    container_name: fmp68-frontend
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    ports:
+      - "3000:3000"
+    networks:
+      - fmp68-net
