@@ -1,0 +1,35 @@
+{
+  "name": "tracking-service",
+  "version": "1.0.0",
+  "description": "FMP-68 Real-time Tracking Microservice (WebSocket)",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start": "NODE_OPTIONS=--no-deprecation nest start",
+    "start:dev": "NODE_OPTIONS=--no-deprecation nest start --watch",
+    "start:prod": "NODE_OPTIONS=--no-deprecation node dist/main",
+    "prisma:generate": "npx prisma generate",
+    "prisma:push": "npx prisma db push"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^3.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.1.18",
+    "@nestjs/websockets": "^11.1.18",
+    "@prisma/client": "^5.10.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/node": "^20.0.0",
+    "prisma": "^5.10.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.3"
+  }
+}
