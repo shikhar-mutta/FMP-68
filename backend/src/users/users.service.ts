@@ -1,3 +1,4 @@
+// User service with enhanced logging and monitoring
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
