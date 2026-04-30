@@ -1,3 +1,4 @@
+// Enhanced JWT validation for secure authentication
 import {
   Controller,
   Get,
