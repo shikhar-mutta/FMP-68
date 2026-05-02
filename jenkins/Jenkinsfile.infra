@@ -1,0 +1,54 @@
+// FMP-68 — Jenkins Pipeline: Infrastructure (ELK + Vault + K8s)
+// Job name: fmp68-infra
+// Trigger: Manual only (infra changes are rare)
+pipeline {
+    agent any
+    environment {
+        NOTIFY_EMAIL = 'shikharmutta67@gmail.com'
+    }
+    options { timeout(time:45,unit:'MINUTES'); buildDiscarder(logRotator(numToKeepStr:'5')) }
+
+    parameters {
+        choice(name:'DEPLOY_TARGET', choices:['elk','vault','k8s','all'], description:'What to deploy')
+        booleanParam(name:'SKIP_K8S', defaultValue:false, description:'Skip Kubernetes apply')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { script { try{checkout scm}catch(e){currentBuild.description="Checkout failed";throw e} } }
+        }
+
+        stage('Deploy ELK Stack') {
+            when { expression { params.DEPLOY_TARGET in ['elk','all'] } }
+            steps { script {
+                try {
+                    sh 'ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-elk.yml -v'
+                } catch(e) { currentBuild.description="ELK deploy failed: ${e.getMessage()}"; throw e }
+            } }
+        }
+
+        stage('Deploy Vault') {
+            when { expression { params.DEPLOY_TARGET in ['vault','all'] } }
+            steps { script {
+                try {
+                    sh 'ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-vault.yml -v'
+                } catch(e) { currentBuild.description="Vault deploy failed: ${e.getMessage()}"; throw e }
+            } }
+        }
+
+        stage('Deploy Kubernetes') {
+            when { expression { params.DEPLOY_TARGET in ['k8s','all'] && !params.SKIP_K8S } }
+            steps { script {
+                try {
+                    sh 'bash k8s/deploy.sh'
+                } catch(e) { currentBuild.description="K8s deploy failed: ${e.getMessage()}"; throw e }
+            } }
+        }
+    }
+
+    post {
+        success { mail to:"${NOTIFY_EMAIL}",subject:"✅ SUCCESS: fmp68-infra — Build #${env.BUILD_NUMBER}",body:"Infrastructure deployed.\nURL: ${env.BUILD_URL}" }
+        failure { script { def i=currentBuild.description?:'Unknown';
+            mail to:"${NOTIFY_EMAIL}",subject:"❌ FAILURE: fmp68-infra — Build #${env.BUILD_NUMBER}",body:"${i}\nConsole: ${env.BUILD_URL}console" } }
+    }
+}
