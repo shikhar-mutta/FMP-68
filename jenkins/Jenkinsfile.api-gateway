@@ -3,7 +3,6 @@
 pipeline {
     agent any
 
-    tools { nodejs 'NodeJS-20' }
 
     environment {
         SERVICE_NAME     = 'api-gateway'

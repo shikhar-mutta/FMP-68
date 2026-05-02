@@ -2,7 +2,6 @@
 pipeline {
     agent any
 
-    tools { nodejs 'NodeJS-20' }
     environment {
         SERVICE_NAME     = 'tracking-service'
         SERVICE_DIR      = 'services/tracking-service'

@@ -2,7 +2,6 @@
 pipeline {
     agent any
 
-    tools { nodejs 'NodeJS-20' }
     environment {
         SERVICE_NAME     = 'auth-service'
         SERVICE_DIR      = 'services/auth-service'
