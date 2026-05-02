@@ -19,6 +19,7 @@
     - name: Deploy Core Infrastructure (Vault, Mongo, Redis, RabbitMQ)
       shell: |
         cd "{{ project_root }}" && \
+        docker compose rm -f vault mongodb redis rabbitmq 2>/dev/null || true && \
         docker compose up -d vault mongodb redis rabbitmq
       register: core_output
 

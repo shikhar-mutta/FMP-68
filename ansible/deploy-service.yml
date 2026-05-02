@@ -14,6 +14,18 @@
         msg: "Please provide service_name via -e 'service_name=...'"
       when: service_name == ""
 
+    - name: Set container name fact
+      set_fact:
+        container_name: >-
+          {% if service_name == 'api-gateway' %}fmp68-gateway
+          {% elif service_name == 'auth-service' %}fmp68-auth
+          {% elif service_name == 'user-service' %}fmp68-users
+          {% elif service_name == 'paths-service' %}fmp68-paths
+          {% elif service_name == 'follow-service' %}fmp68-follow
+          {% elif service_name == 'tracking-service' %}fmp68-tracking
+          {% elif service_name == 'frontend' %}fmp68-frontend
+          {% else %}{{ service_name }}{% endif %}
+
     - name: "Deployment for {{ service_name }}"
       block:
         - name: Ensure JWT_SECRET is set (even if dummy)
@@ -26,20 +38,11 @@
           args:
             executable: /bin/bash
 
-        - name: "Force remove existing container for {{ service_name }}"
+        - name: "Force remove existing container"
           shell: |
             cd "{{ playbook_dir }}/.."
-            # Try compose removal first
             docker compose rm -f -s -v {{ service_name }} || true
-            # Also try explicit removal of the known container name to handle cross-project conflicts
-            # Mapping service names to container_names from docker-compose.yml
-            if [ "{{ service_name }}" == "api-gateway" ]; then docker rm -f fmp68-gateway || true; fi
-            if [ "{{ service_name }}" == "auth-service" ]; then docker rm -f fmp68-auth || true; fi
-            if [ "{{ service_name }}" == "user-service" ]; then docker rm -f fmp68-users || true; fi
-            if [ "{{ service_name }}" == "paths-service" ]; then docker rm -f fmp68-paths || true; fi
-            if [ "{{ service_name }}" == "follow-service" ]; then docker rm -f fmp68-follow || true; fi
-            if [ "{{ service_name }}" == "tracking-service" ]; then docker rm -f fmp68-tracking || true; fi
-            if [ "{{ service_name }}" == "frontend" ]; then docker rm -f fmp68-frontend || true; fi
+            docker rm -f {{ container_name }} || true
           failed_when: false
 
         - name: "Pull latest image for {{ service_name }}"
@@ -55,13 +58,13 @@
           register: up_output
 
         - name: Verify container is running
-          shell: "docker ps --filter 'name={{ service_name }}' --filter 'status=running' --quiet"
+          shell: "docker ps --filter 'name={{ container_name }}' --filter 'status=running' --quiet"
           register: ps_output
           failed_when: ps_output.stdout == ""
 
         - name: Show Success
           debug:
-            msg: "Successfully deployed {{ service_name }} with tag {{ image_tag }}"
+            msg: "Successfully deployed {{ service_name }} (container: {{ container_name }}) with tag {{ image_tag }}"
 
       rescue:
         - name: Deployment Failed
