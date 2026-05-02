@@ -8,8 +8,19 @@
     "start": "NODE_OPTIONS=--no-deprecation nest start",
     "start:dev": "NODE_OPTIONS=--no-deprecation nest start --watch",
     "start:prod": "NODE_OPTIONS=--no-deprecation node dist/main",
+    "test": "jest --passWithNoTests --forceExit",
+    "test:cov": "jest --coverage --passWithNoTests --forceExit",
     "prisma:generate": "npx prisma generate",
     "prisma:push": "npx prisma db push"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+    "collectCoverageFrom": ["**/*.(t|j)s", "!**/node_modules/**"],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
