@@ -1,0 +1,34 @@
+---
+- name: Deploy Infrastructure
+  hosts: localhost
+  gather_facts: no
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+
+  tasks:
+    - name: Ensure .env exists
+      shell: |
+        if [ ! -f "{{ project_root }}/.env" ]; then
+          echo "JWT_SECRET=fmp68_super_secret_jwt_key_for_development_only_replace_in_production" > "{{ project_root }}/.env"
+          echo "GOOGLE_CLIENT_ID=placeholder" >> "{{ project_root }}/.env"
+          echo "GOOGLE_CLIENT_SECRET=placeholder" >> "{{ project_root }}/.env"
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Deploy Core Infrastructure (Vault, Mongo, Redis, RabbitMQ)
+      shell: |
+        cd "{{ project_root }}" && \
+        docker compose up -d vault mongodb redis rabbitmq
+      register: core_output
+
+    - name: Wait for MongoDB
+      shell: "docker ps --filter 'name=fmp68-mongodb' --filter 'status=running' --quiet"
+      register: mongo_check
+      until: mongo_check.stdout != ""
+      retries: 5
+      delay: 5
+
+    - name: Show Success
+      debug:
+        msg: "Infrastructure core services are up."

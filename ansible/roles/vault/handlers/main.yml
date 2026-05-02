@@ -1,6 +1,0 @@
----
-# Handlers for vault role
-
-- name: wait for vault
-  pause:
-    seconds: 5

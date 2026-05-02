@@ -1,0 +1,60 @@
+---
+- name: Deploy Microservice
+  hosts: localhost
+  gather_facts: no
+  vars:
+    # Defaults (should be overridden by extra_vars)
+    service_name: ""
+    image_tag: "latest"
+    project_root: "{{ playbook_dir }}/.."
+
+  tasks:
+    - name: Fail if service_name is not provided
+      fail:
+        msg: "Please provide service_name via -e 'service_name=...'"
+      when: service_name == ""
+
+    - name: "Deployment for {{ service_name }}"
+      block:
+        - name: Ensure JWT_SECRET is set (even if dummy)
+          shell: |
+            if [ ! -f "{{ project_root }}/.env" ]; then
+              echo "JWT_SECRET=fmp68_super_secret_jwt_key_for_development_only_replace_in_production" > "{{ project_root }}/.env"
+              echo "GOOGLE_CLIENT_ID=placeholder" >> "{{ project_root }}/.env"
+              echo "GOOGLE_CLIENT_SECRET=placeholder" >> "{{ project_root }}/.env"
+            fi
+          args:
+            executable: /bin/bash
+
+        - name: "Force remove existing container for {{ service_name }}"
+          shell: |
+            cd "{{ project_root }}" && \
+            docker compose rm -f -s -v {{ service_name }}
+          register: rm_output
+          failed_when: false
+
+        - name: "Pull latest image for {{ service_name }}"
+          shell: |
+            cd "{{ project_root }}" && \
+            IMAGE_TAG={{ image_tag }} docker compose pull {{ service_name }}
+          register: pull_output
+
+        - name: "Start {{ service_name }} container"
+          shell: |
+            cd "{{ project_root }}" && \
+            IMAGE_TAG={{ image_tag }} docker compose up -d --no-deps --no-build {{ service_name }}
+          register: up_output
+
+        - name: Verify container is running
+          shell: "docker ps --filter 'name={{ service_name }}' --filter 'status=running' --quiet"
+          register: ps_output
+          failed_when: ps_output.stdout == ""
+
+        - name: Show Success
+          debug:
+            msg: "Successfully deployed {{ service_name }} with tag {{ image_tag }}"
+
+      rescue:
+        - name: Deployment Failed
+          fail:
+            msg: "Failed to deploy {{ service_name }}. Check logs."

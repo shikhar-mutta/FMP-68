@@ -1,9 +1,0 @@
----
-# FMP-68 — Deploy ELK Stack
-# ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-elk.yml
-
-- name: Deploy ELK monitoring stack
-  hosts: fmp68_servers
-  gather_facts: yes
-  roles:
-    - role: monitoring

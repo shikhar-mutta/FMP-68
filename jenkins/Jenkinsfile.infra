@@ -18,31 +18,16 @@ pipeline {
             steps { script { try{checkout scm}catch(e){currentBuild.description="Checkout failed";throw e} } }
         }
 
-        stage('Deploy ELK Stack') {
-            when { expression { params.DEPLOY_TARGET in ['elk','all'] } }
-            steps { script {
-                try {
-                    sh 'ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-elk.yml -v'
-                } catch(e) { currentBuild.description="ELK deploy failed: ${e.getMessage()}"; throw e }
-            } }
-        }
-
-        stage('Deploy Vault') {
-            when { expression { params.DEPLOY_TARGET in ['vault','all'] } }
-            steps { script {
-                try {
-                    sh 'ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-vault.yml -v'
-                } catch(e) { currentBuild.description="Vault deploy failed: ${e.getMessage()}"; throw e }
-            } }
-        }
-
-        stage('Deploy Kubernetes') {
-            when { expression { params.DEPLOY_TARGET in ['k8s','all'] && !params.SKIP_K8S } }
-            steps { script {
-                try {
-                    sh 'bash k8s/deploy.sh'
-                } catch(e) { currentBuild.description="K8s deploy failed: ${e.getMessage()}"; throw e }
-            } }
+        stage('Deploy Core Infrastructure') {
+            steps {
+                script {
+                    if (sh(script: 'which ansible-playbook', returnStatus: true) == 0) {
+                        sh "ansible-playbook ansible/deploy-infra.yml -v"
+                    } else {
+                        echo 'WARNING: ansible-playbook not found'
+                    }
+                }
+            }
         }
     }
 

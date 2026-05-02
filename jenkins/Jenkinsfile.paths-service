@@ -72,15 +72,18 @@ pipeline {
                 script {
                     try {
                         if (sh(script: 'which ansible-playbook', returnStatus: true) == 0) {
-                            sh "ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"
+                            sh "ansible-playbook ansible/deploy-service.yml -e 'service_name=paths-service image_tag=${DOCKER_TAG}' -v"
                         } else {
-                            echo 'WARNING: ansible-playbook not found — skipping deploy. Run: sudo apt install ansible'
+                            echo 'WARNING: ansible-playbook not found — skipping deploy'
                         }
-                    } catch (e) { currentBuild.description = "Failed: Deploy — Ansible error"; throw e }
+                    } catch (e) {
+                        currentBuild.description = 'Failed: Deploy — Ansible error';
+                        throw e
+                    }
                 }
             }
         }
-    }
+
     post {
         success {
             mail to: "${NOTIFY_EMAIL}",
