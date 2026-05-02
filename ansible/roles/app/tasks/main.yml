@@ -24,8 +24,9 @@
     export JWT_SECRET="${JWT_SECRET:-placeholder}" && \
     export GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-placeholder}" && \
     export GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-placeholder}" && \
+    docker compose rm -f {{ compose_service }} 2>/dev/null || true && \
     docker compose pull {{ compose_service }} && \
-    docker compose up -d --no-deps --force-recreate --no-build {{ compose_service }}
+    docker compose up -d --no-deps --no-build {{ compose_service }}
   environment:
     IMAGE_TAG: "{{ image_tag }}"
   register: compose_result
