@@ -1,3 +1,4 @@
+// Path tracking and geolocation optimization
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePathDto } from './dto/create-path.dto';
