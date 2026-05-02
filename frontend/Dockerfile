@@ -1,9 +1,14 @@
 # ── Build stage ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+# react-scripts@5 requires Node 18 (ajv peer-dep conflict on Node 20)
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
+# Step 1: install all deps
 RUN npm install --legacy-peer-deps
+# Step 2: force ajv v6 to top-level — schema-utils v3 (used by react-scripts)
+# requires ajv v6 but ajv-keywords v5 hoists ajv v8. --no-save avoids package.json conflict.
+RUN npm install ajv@6.12.6 --no-save --force
 
 COPY . .
 
