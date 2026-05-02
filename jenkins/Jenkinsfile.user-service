@@ -1,6 +1,8 @@
 // FMP-68 — Jenkins Pipeline: user-service
 pipeline {
     agent any
+
+    tools { nodejs 'NodeJS-20' }
     environment {
         SERVICE_NAME     = 'user-service'
         SERVICE_DIR      = 'services/user-service'

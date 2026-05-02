@@ -1,6 +1,8 @@
 // FMP-68 — Jenkins Pipeline: paths-service
 pipeline {
     agent any
+
+    tools { nodejs 'NodeJS-20' }
     environment {
         SERVICE_NAME     = 'paths-service'
         SERVICE_DIR      = 'services/paths-service'
