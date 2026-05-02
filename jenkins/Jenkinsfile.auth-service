@@ -16,6 +16,10 @@ pipeline {
         NOTIFY_EMAIL   = 'shikharmutta67@gmail.com'
     }
 
+    parameters {
+        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
+    }
+
     options {
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -95,7 +99,11 @@ pipeline {
 
         stage('Docker Build') {
             when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
-            options { timeout(time: 15, unit: 'MINUTES') }
+            parameters {
+        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
+    }
+
+    options { timeout(time: 15, unit: 'MINUTES') }
             steps {
                 script {
                     try {

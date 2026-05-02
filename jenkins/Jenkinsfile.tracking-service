@@ -7,6 +7,10 @@ pipeline {
         DOCKER_IMAGE='shikhar68/fmp68-tracking-service'; DOCKER_TAG="${env.BUILD_NUMBER}"; DOCKER_LATEST='latest'
         ANSIBLE_PLAYBOOK='ansible/playbooks/deploy-tracking.yml'; NOTIFY_EMAIL='shikharmutta67@gmail.com'
     }
+    parameters {
+        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
+    }
+
     options { timeout(time: 30, unit: 'MINUTES'); buildDiscarder(logRotator(numToKeepStr: '10')); disableConcurrentBuilds() }
     triggers { pollSCM('H/5 * * * *') }
     stages {
