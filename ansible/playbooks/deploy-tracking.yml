@@ -1,0 +1,14 @@
+---
+# FMP-68 — Deploy tracking-service only
+# Called by Jenkins job: fmp68-tracking-service
+
+- name: Deploy tracking-service
+  hosts: fmp68_servers
+  gather_facts: no
+  roles:
+    - role: app
+      vars:
+        service_name:    "tracking-service"
+        image_name:      "{{ images.tracking_service }}"
+        compose_service: "tracking-service"
+        container_name:  "{{ containers.tracking }}"

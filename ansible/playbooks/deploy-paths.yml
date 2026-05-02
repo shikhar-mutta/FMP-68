@@ -1,0 +1,14 @@
+---
+# FMP-68 — Deploy paths-service only
+# Called by Jenkins job: fmp68-paths-service
+
+- name: Deploy paths-service
+  hosts: fmp68_servers
+  gather_facts: no
+  roles:
+    - role: app
+      vars:
+        service_name:    "paths-service"
+        image_name:      "{{ images.paths_service }}"
+        compose_service: "paths-service"
+        container_name:  "{{ containers.paths }}"

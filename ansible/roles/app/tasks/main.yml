@@ -1,0 +1,43 @@
+---
+# Role: app — Pull updated image and recreate a single microservice container
+# Expected variables (passed by the calling playbook):
+#   service_name:   e.g. "auth-service"
+#   image_name:     e.g. "shikhar68/fmp68-auth-service"
+#   image_tag:      e.g. "latest"
+#   container_name: e.g. "fmp68-auth"
+#   compose_service: e.g. "auth-service"  (name in docker-compose.yml)
+
+- name: "Pull latest image for {{ service_name }}"
+  community.docker.docker_image:
+    name: "{{ image_name }}:{{ image_tag }}"
+    source: pull
+    force_source: yes
+  register: pull_result
+
+- name: "Show pull result for {{ service_name }}"
+  debug:
+    msg: "Image {{ image_name }}:{{ image_tag }} pulled — changed: {{ pull_result.changed }}"
+
+- name: "Recreate container for {{ service_name }} (zero-downtime via compose)"
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_dir }}"
+    services:
+      - "{{ compose_service }}"
+    pull: never          # already pulled above
+    recreate: always     # force recreate even if image sha didn't change
+    state: present
+  register: compose_result
+
+- name: "Verify {{ service_name }} container is running"
+  community.docker.docker_container_info:
+    name: "{{ container_name }}"
+  register: container_info
+
+- name: "Fail if {{ service_name }} container is not running"
+  fail:
+    msg: "Container {{ container_name }} is not running after deploy! State: {{ container_info.container.State.Status }}"
+  when: container_info.container.State.Status != 'running'
+
+- name: "{{ service_name }} deploy summary"
+  debug:
+    msg: "✅ {{ service_name }} is running (image: {{ image_name }}:{{ image_tag }})"

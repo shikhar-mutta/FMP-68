@@ -1,0 +1,16 @@
+---
+# FMP-68 — Deploy auth-service only
+# Called by Jenkins job: fmp68-auth-service
+# ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-auth.yml \
+#   -e "image_tag=<BUILD_NUMBER>"
+
+- name: Deploy auth-service
+  hosts: fmp68_servers
+  gather_facts: no
+  roles:
+    - role: app
+      vars:
+        service_name:    "auth-service"
+        image_name:      "{{ images.auth_service }}"
+        compose_service: "auth-service"
+        container_name:  "{{ containers.auth }}"

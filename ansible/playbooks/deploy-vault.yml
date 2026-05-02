@@ -1,0 +1,9 @@
+---
+# FMP-68 — Deploy HashiCorp Vault
+# ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/deploy-vault.yml
+
+- name: Deploy Vault secrets management
+  hosts: fmp68_servers
+  gather_facts: yes
+  roles:
+    - role: vault

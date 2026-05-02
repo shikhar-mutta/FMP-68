@@ -1,0 +1,113 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# FMP-68 — Master Deploy Playbook
+# Deploys ALL services (infrastructure + microservices + monitoring + vault)
+# Usage: ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: FMP-68 — Full Stack Deployment
+  hosts: fmp68_servers
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          ╔══════════════════════════════════════════╗
+          ║  FMP-68 Full Stack Deployment            ║
+          ║  Registry : {{ docker_registry }}                  ║
+          ║  Tag      : {{ image_tag }}                    ║
+          ║  Host     : {{ inventory_hostname }}             ║
+          ╚══════════════════════════════════════════╝
+
+  roles:
+    - role: vault
+    - role: monitoring
+
+  tasks:
+    # ── Infrastructure (pull & run all via compose) ────────────────────────
+    - name: Start all infrastructure services (MongoDB, Redis, RabbitMQ)
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        services:
+          - mongodb
+          - mongo-init
+          - redis
+          - rabbitmq
+        state: present
+        pull: always
+
+    # ── Microservices (one by one for clear status) ────────────────────────
+    - name: Deploy auth-service
+      include_role:
+        name: app
+      vars:
+        service_name:    "auth-service"
+        image_name:      "{{ images.auth_service }}"
+        compose_service: "auth-service"
+        container_name:  "{{ containers.auth }}"
+
+    - name: Deploy user-service
+      include_role:
+        name: app
+      vars:
+        service_name:    "user-service"
+        image_name:      "{{ images.user_service }}"
+        compose_service: "user-service"
+        container_name:  "{{ containers.user }}"
+
+    - name: Deploy paths-service
+      include_role:
+        name: app
+      vars:
+        service_name:    "paths-service"
+        image_name:      "{{ images.paths_service }}"
+        compose_service: "paths-service"
+        container_name:  "{{ containers.paths }}"
+
+    - name: Deploy follow-service
+      include_role:
+        name: app
+      vars:
+        service_name:    "follow-service"
+        image_name:      "{{ images.follow_service }}"
+        compose_service: "follow-service"
+        container_name:  "{{ containers.follow }}"
+
+    - name: Deploy tracking-service
+      include_role:
+        name: app
+      vars:
+        service_name:    "tracking-service"
+        image_name:      "{{ images.tracking_service }}"
+        compose_service: "tracking-service"
+        container_name:  "{{ containers.tracking }}"
+
+    - name: Deploy api-gateway
+      include_role:
+        name: app
+      vars:
+        service_name:    "api-gateway"
+        image_name:      "{{ images.api_gateway }}"
+        compose_service: "api-gateway"
+        container_name:  "{{ containers.gateway }}"
+
+    - name: Deploy frontend
+      include_role:
+        name: app
+      vars:
+        service_name:    "frontend"
+        image_name:      "{{ images.frontend }}"
+        compose_service: "frontend"
+        container_name:  "{{ containers.frontend }}"
+
+  post_tasks:
+    - name: Final status summary
+      debug:
+        msg: |
+          ✅ FMP-68 Full Stack Deployed!
+             App         : http://localhost:3000
+             API Gateway : http://localhost:4000
+             Vault UI    : http://localhost:8200/ui
+             Kibana      : http://localhost:5601
+             RabbitMQ UI : http://localhost:15672

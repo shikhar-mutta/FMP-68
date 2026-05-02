@@ -1,0 +1,14 @@
+---
+# FMP-68 — Deploy frontend only
+# Called by Jenkins job: fmp68-frontend
+
+- name: Deploy frontend
+  hosts: fmp68_servers
+  gather_facts: no
+  roles:
+    - role: app
+      vars:
+        service_name:    "frontend"
+        image_name:      "{{ images.frontend }}"
+        compose_service: "frontend"
+        container_name:  "{{ containers.frontend }}"
