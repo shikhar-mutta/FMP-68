@@ -1,210 +1,96 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // FMP-68 — Jenkins Pipeline: auth-service
-// Job name   : fmp68-auth-service
-// Triggers   : GitHub webhook on push to services/auth-service/**
-// ─────────────────────────────────────────────────────────────────────────────
 pipeline {
     agent any
-
     environment {
-        SERVICE_NAME   = 'auth-service'
-        SERVICE_DIR    = 'services/auth-service'
-        DOCKER_IMAGE   = 'shikhar68/fmp68-auth-service'
-        DOCKER_TAG     = "${env.BUILD_NUMBER}"
-        DOCKER_LATEST  = 'latest'
+        SERVICE_NAME     = 'auth-service'
+        SERVICE_DIR      = 'services/auth-service'
+        DOCKER_IMAGE     = 'shikhar68/fmp68-auth-service'
+        DOCKER_TAG       = "${env.BUILD_NUMBER}"
+        DOCKER_LATEST    = 'latest'
         ANSIBLE_PLAYBOOK = 'ansible/playbooks/deploy-auth.yml'
-        NOTIFY_EMAIL   = 'shikharmutta67@gmail.com'
+        NOTIFY_EMAIL     = 'shikharmutta67@gmail.com'
     }
-
-    parameters {
-        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
-    }
-
     options {
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
     }
-
-    triggers {
-        // GitHub webhook — only builds when auth-service files change
-        pollSCM('H/5 * * * *')
-    }
-
     stages {
-
         stage('Checkout') {
             steps {
                 script {
-                    try {
-                        checkout scm
-                        echo "✅ Code checked out — Branch: ${env.GIT_BRANCH}"
-                    } catch (Exception e) {
-                        currentBuild.description = "Failed Stage: Checkout\nReason: ${e.getMessage()}"
-                        throw e
-                    }
+                    try { checkout scm }
+                    catch (e) { currentBuild.description = "Failed: Checkout — ${e.getMessage()}"; throw e }
                 }
             }
         }
-
-        stage('Detect Changes') {
-            steps {
-                script {
-                    // Only proceed if auth-service files actually changed
-                    def changedFiles = sh(
-                        script: "git diff --name-only HEAD~1 HEAD 2>/dev/null || echo '${SERVICE_DIR}/'",
-                        returnStdout: true
-                    ).trim()
-                    echo "Changed files:\n${changedFiles}"
-                    if (!changedFiles.contains(SERVICE_DIR) && !params.FORCE_BUILD) {
-                        currentBuild.result = 'NOT_BUILT'
-                        currentBuild.description = "Skipped — no changes in ${SERVICE_DIR}"
-                        echo "⏭️  No changes in ${SERVICE_DIR} — skipping build."
-                    }
-                }
-            }
-        }
-
-        stage('Install Dependencies') {
-            when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
+        stage('Install') {
             steps {
                 dir("${SERVICE_DIR}") {
-                    script {
-                        try {
-                            sh 'npm install --legacy-peer-deps --prefer-offline 2>&1 | tail -5'
-                        } catch (Exception e) {
-                            currentBuild.description = "Failed Stage: Install\nReason: npm install failed"
-                            throw e
-                        }
-                    }
+                    sh 'npm install --legacy-peer-deps 2>&1 | tail -10'
                 }
             }
         }
-
         stage('Test') {
-            when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
             steps {
                 dir("${SERVICE_DIR}") {
                     script {
-                        try {
-                            sh 'npm test 2>&1'
-                        } catch (Exception e) {
-                            currentBuild.description = "Failed Stage: Test\nReason: Jest tests failed. Check test output above."
-                            throw e
-                        }
+                        try { sh 'npm test' }
+                        catch (e) { currentBuild.description = "Failed: Test — Jest tests failed"; throw e }
                     }
                 }
             }
         }
-
         stage('Docker Build') {
-            when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
-            parameters {
-        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
-    }
-
-    options { timeout(time: 15, unit: 'MINUTES') }
+            options { timeout(time: 15, unit: 'MINUTES') }
             steps {
                 script {
                     try {
-                        sh 'docker info > /dev/null 2>&1'
-                        sh """
-                            docker build \
-                              -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
-                              -t ${DOCKER_IMAGE}:${DOCKER_LATEST} \
-                              ${SERVICE_DIR}
-                        """
-                        echo "✅ Docker image built: ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    } catch (Exception e) {
-                        currentBuild.description = "Failed Stage: Docker Build\nReason: ${e.getMessage()}"
-                        throw e
-                    }
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} -t ${DOCKER_IMAGE}:${DOCKER_LATEST} ${SERVICE_DIR}"
+                    } catch (e) { currentBuild.description = "Failed: Docker Build — ${e.getMessage()}"; throw e }
                 }
             }
         }
-
         stage('Docker Push') {
-            when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
             steps {
                 script {
                     try {
-                        withCredentials([usernamePassword(
-                            credentialsId: 'docker-hub-credentials',
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASS'
-                        )]) {
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials',
+                                usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
                             sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
                             sh "docker push ${DOCKER_IMAGE}:${DOCKER_LATEST}"
                             sh 'docker logout'
                         }
-                    } catch (Exception e) {
-                        currentBuild.description = "Failed Stage: Docker Push\nReason: Failed to push to Docker Hub. Check 'docker-hub-credentials'."
-                        throw e
-                    }
+                    } catch (e) { currentBuild.description = "Failed: Docker Push — check docker-hub-credentials"; throw e }
                 }
             }
         }
-
         stage('Deploy — Ansible') {
-            when { not { expression { currentBuild.result == 'NOT_BUILT' } } }
             steps {
                 script {
                     try {
-                        sh """
-                            ansible-playbook \
-                              -i ansible/inventory/hosts.ini \
-                              ${ANSIBLE_PLAYBOOK} \
-                              -e "image_tag=${DOCKER_TAG}" \
-                              -v
-                        """
-                        echo "✅ ${SERVICE_NAME} deployed successfully!"
-                    } catch (Exception e) {
-                        currentBuild.description = "Failed Stage: Deploy\nReason: Ansible deployment failed. Container may be unhealthy."
-                        throw e
-                    }
+                        sh "ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"
+                    } catch (e) { currentBuild.description = "Failed: Deploy — Ansible error"; throw e }
                 }
             }
         }
     }
-
     post {
         success {
-            echo "🎉 ${SERVICE_NAME} pipeline SUCCESS — Build #${env.BUILD_NUMBER}"
             mail to: "${NOTIFY_EMAIL}",
                  subject: "✅ SUCCESS: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",
-                 body: """
-The ${SERVICE_NAME} pipeline completed successfully.
-
-Job        : ${env.JOB_NAME}
-Build      : #${env.BUILD_NUMBER}
-Branch     : ${env.GIT_BRANCH}
-Image      : ${DOCKER_IMAGE}:${DOCKER_TAG}
-Duration   : ${currentBuild.durationString}
-URL        : ${env.BUILD_URL}
-                 """.stripIndent()
+                 body: "Build succeeded.\nImage: ${DOCKER_IMAGE}:${DOCKER_TAG}\nURL: ${env.BUILD_URL}"
         }
         failure {
-            echo "💥 ${SERVICE_NAME} pipeline FAILED — Build #${env.BUILD_NUMBER}"
             script {
-                def info = currentBuild.description ?: "Failed at an unknown stage."
+                def info = currentBuild.description ?: 'Unknown failure'
                 mail to: "${NOTIFY_EMAIL}",
                      subject: "❌ FAILURE: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",
-                     body: """
-The ${SERVICE_NAME} pipeline has FAILED.
-
-Job        : ${env.JOB_NAME}
-Build      : #${env.BUILD_NUMBER}
-Branch     : ${env.GIT_BRANCH}
-
-${info}
-
-Console Output: ${env.BUILD_URL}console
-                     """.stripIndent()
+                     body: "${info}\nConsole: ${env.BUILD_URL}console"
             }
         }
         always {
-            // Clean up local Docker images to save disk space
             sh "docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG} || true"
             sh 'docker image prune -f || true'
         }

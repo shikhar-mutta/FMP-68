@@ -1,48 +1,98 @@
 // FMP-68 — Jenkins Pipeline: frontend
-// Job name: fmp68-frontend
 pipeline {
     agent any
     environment {
-        SERVICE_NAME='frontend'; SERVICE_DIR='frontend'
-        DOCKER_IMAGE='shikhar68/fmp68-frontend'; DOCKER_TAG="${env.BUILD_NUMBER}"; DOCKER_LATEST='latest'
-        ANSIBLE_PLAYBOOK='ansible/playbooks/deploy-frontend.yml'; NOTIFY_EMAIL='shikharmutta67@gmail.com'
+        SERVICE_NAME     = 'frontend'
+        SERVICE_DIR      = 'frontend'
+        DOCKER_IMAGE     = 'shikhar68/fmp68-frontend'
+        DOCKER_TAG       = "${env.BUILD_NUMBER}"
+        DOCKER_LATEST    = 'latest'
+        ANSIBLE_PLAYBOOK = 'ansible/playbooks/deploy-frontend.yml'
+        NOTIFY_EMAIL     = 'shikharmutta67@gmail.com'
     }
-    parameters {
-        booleanParam(name: 'FORCE_BUILD', defaultValue: false, description: 'Force build even if no changes in service dir')
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
     }
-
-    options { timeout(time:30,unit:'MINUTES'); buildDiscarder(logRotator(numToKeepStr:'10')); disableConcurrentBuilds() }
-    triggers { pollSCM('H/5 * * * *') }
     stages {
-        stage('Checkout') { steps { script { try{checkout scm}catch(e){currentBuild.description="Failed Stage: Checkout\nReason: ${e.getMessage()}";throw e} } } }
-        stage('Detect Changes') { steps { script {
-            def c=sh(script:"git diff --name-only HEAD~1 HEAD 2>/dev/null||echo '${SERVICE_DIR}/'",returnStdout:true).trim()
-            if(!c.contains(SERVICE_DIR)&&!params.FORCE_BUILD){currentBuild.result='NOT_BUILT';currentBuild.description="Skipped — no changes in ${SERVICE_DIR}"}
-        } } }
-        stage('Install') { when{not{expression{currentBuild.result=='NOT_BUILT'}}}
-            steps{dir("${SERVICE_DIR}"){sh'npm install --legacy-peer-deps 2>&1|tail -5'}} }
-        stage('Test') { when{not{expression{currentBuild.result=='NOT_BUILT'}}}
-            steps{dir("${SERVICE_DIR}"){script{try{sh'npm test -- --watchAll=false --passWithNoTests'}catch(e){currentBuild.description="Failed Stage: Test";throw e}}}} }
-        stage('Docker Build') { when{not{expression{currentBuild.result=='NOT_BUILT'}}}; options{timeout(time:15,unit:'MINUTES')}
-            steps{script{try{
-                sh"""docker build \
-                  --build-arg REACT_APP_API_URL=http://localhost:4000 \
-                  --build-arg REACT_APP_SOCKET_URL=http://localhost:4000 \
-                  -t ${DOCKER_IMAGE}:${DOCKER_TAG} \
-                  -t ${DOCKER_IMAGE}:${DOCKER_LATEST} \
-                  ${SERVICE_DIR}"""
-            }catch(e){currentBuild.description="Failed Stage: Docker Build";throw e}}} }
-        stage('Docker Push') { when{not{expression{currentBuild.result=='NOT_BUILT'}}}
-            steps{script{try{withCredentials([usernamePassword(credentialsId:'docker-hub-credentials',usernameVariable:'DOCKER_USER',passwordVariable:'DOCKER_PASS')]){
-                sh"echo \$DOCKER_PASS|docker login -u \$DOCKER_USER --password-stdin"
-                sh"docker push ${DOCKER_IMAGE}:${DOCKER_TAG}";sh"docker push ${DOCKER_IMAGE}:${DOCKER_LATEST}";sh'docker logout'
-            }}catch(e){currentBuild.description="Failed Stage: Docker Push";throw e}}} }
-        stage('Deploy — Ansible') { when{not{expression{currentBuild.result=='NOT_BUILT'}}}
-            steps{script{try{sh"ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"}catch(e){currentBuild.description="Failed Stage: Deploy";throw e}}} }
+        stage('Checkout') {
+            steps {
+                script {
+                    try { checkout scm }
+                    catch (e) { currentBuild.description = "Failed: Checkout — ${e.getMessage()}"; throw e }
+                }
+            }
+        }
+        stage('Install') {
+            steps {
+                dir("${SERVICE_DIR}") {
+                    sh 'npm install --legacy-peer-deps 2>&1 | tail -10'
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                dir("${SERVICE_DIR}") {
+                    script {
+                        try { sh 'npm test' }
+                        catch (e) { currentBuild.description = "Failed: Test — Jest tests failed"; throw e }
+                    }
+                }
+            }
+        }
+        stage('Docker Build') {
+            options { timeout(time: 15, unit: 'MINUTES') }
+            steps {
+                script {
+                    try {
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} -t ${DOCKER_IMAGE}:${DOCKER_LATEST} ${SERVICE_DIR}"
+                    } catch (e) { currentBuild.description = "Failed: Docker Build — ${e.getMessage()}"; throw e }
+                }
+            }
+        }
+        stage('Docker Push') {
+            steps {
+                script {
+                    try {
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials',
+                                usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                            sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                            sh "docker push ${DOCKER_IMAGE}:${DOCKER_LATEST}"
+                            sh 'docker logout'
+                        }
+                    } catch (e) { currentBuild.description = "Failed: Docker Push — check docker-hub-credentials"; throw e }
+                }
+            }
+        }
+        stage('Deploy — Ansible') {
+            steps {
+                script {
+                    try {
+                        sh "ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"
+                    } catch (e) { currentBuild.description = "Failed: Deploy — Ansible error"; throw e }
+                }
+            }
+        }
     }
     post {
-        success{mail to:"${NOTIFY_EMAIL}",subject:"✅ SUCCESS: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",body:"Image: ${DOCKER_IMAGE}:${DOCKER_TAG}\nURL: ${env.BUILD_URL}"}
-        failure{script{def i=currentBuild.description?:'Unknown';mail to:"${NOTIFY_EMAIL}",subject:"❌ FAILURE: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",body:"${i}\nConsole: ${env.BUILD_URL}console"}}
-        always{sh"docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG}||true";sh'docker image prune -f||true'}
+        success {
+            mail to: "${NOTIFY_EMAIL}",
+                 subject: "✅ SUCCESS: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",
+                 body: "Build succeeded.\nImage: ${DOCKER_IMAGE}:${DOCKER_TAG}\nURL: ${env.BUILD_URL}"
+        }
+        failure {
+            script {
+                def info = currentBuild.description ?: 'Unknown failure'
+                mail to: "${NOTIFY_EMAIL}",
+                     subject: "❌ FAILURE: ${SERVICE_NAME} — Build #${env.BUILD_NUMBER}",
+                     body: "${info}\nConsole: ${env.BUILD_URL}console"
+            }
+        }
+        always {
+            sh "docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG} || true"
+            sh 'docker image prune -f || true'
+        }
     }
 }
