@@ -80,7 +80,11 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"
+                        if (sh(script: 'which ansible-playbook', returnStatus: true) == 0) {
+                            sh "ansible-playbook -i ansible/inventory/hosts.ini ${ANSIBLE_PLAYBOOK} -e 'image_tag=${DOCKER_TAG}' -v"
+                        } else {
+                            echo 'WARNING: ansible-playbook not found — skipping deploy. Run: sudo apt install ansible'
+                        }
                     } catch (e) { currentBuild.description = "Failed: Deploy — Ansible error"; throw e }
                 }
             }
