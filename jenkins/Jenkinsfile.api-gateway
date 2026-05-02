@@ -10,7 +10,6 @@ pipeline {
         DOCKER_IMAGE     = 'shikhar68/fmp68-api-gateway'
         DOCKER_TAG       = "${env.BUILD_NUMBER}"
         DOCKER_LATEST    = 'latest'
-        ANSIBLE_PLAYBOOK = 'ansible/playbooks/deploy-gateway.yml'
         NOTIFY_EMAIL     = 'shikharmutta67@gmail.com'
     }
 
