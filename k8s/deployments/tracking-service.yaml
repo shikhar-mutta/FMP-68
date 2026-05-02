@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracking-service
+  namespace: fmp68
+  labels:
+    app: tracking-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tracking-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: tracking-service
+    spec:
+      containers:
+        - name: tracking-service
+          image: shikhar68/fmp68-tracking-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4005
+          envFrom:
+            - configMapRef:
+                name: fmp68-config
+          env:
+            - name: PORT
+              value: "4005"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /tracking/health
+              port: 4005
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking-service
+  namespace: fmp68
+spec:
+  selector:
+    app: tracking-service
+  ports:
+    - protocol: TCP
+      port: 4005
+      targetPort: 4005
+  type: ClusterIP

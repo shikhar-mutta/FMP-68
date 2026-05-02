@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fmp68-config
+  namespace: fmp68
+data:
+  # Database
+  DATABASE_URL: "mongodb://mongodb:27017/fmp68?replicaSet=rs0&directConnection=true"
+  # Cache
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # Message Broker
+  RABBITMQ_URL: "amqp://fmp68:fmp68pass@rabbitmq:5672"
+  RABBITMQ_DEFAULT_USER: "fmp68"
+  RABBITMQ_DEFAULT_PASS: "fmp68pass"
+  # Ports
+  AUTH_PORT: "4001"
+  USER_PORT: "4002"
+  PATHS_PORT: "4003"
+  FOLLOW_PORT: "4004"
+  TRACKING_PORT: "4005"
+  GATEWAY_PORT: "4000"
+  # Service URLs (internal cluster DNS)
+  AUTH_SERVICE_URL: "http://auth-service:4001"
+  USER_SERVICE_URL: "http://user-service:4002"
+  PATHS_SERVICE_URL: "http://paths-service:4003"
+  FOLLOW_SERVICE_URL: "http://follow-service:4004"
+  TRACKING_SERVICE_URL: "http://tracking-service:4005"
+  # Frontend
+  FRONTEND_URL: "http://localhost:3000"
+  # Misc
+  JWT_EXPIRES_IN: "7d"
+  NODE_ENV: "production"

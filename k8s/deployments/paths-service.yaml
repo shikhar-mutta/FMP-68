@@ -1,0 +1,68 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paths-service
+  namespace: fmp68
+  labels:
+    app: paths-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: paths-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: paths-service
+    spec:
+      containers:
+        - name: paths-service
+          image: shikhar68/fmp68-paths-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4003
+          envFrom:
+            - configMapRef:
+                name: fmp68-config
+          env:
+            - name: PORT
+              value: "4003"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fmp68-secrets
+                  key: JWT_SECRET
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /paths/health
+              port: 4003
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paths-service
+  namespace: fmp68
+spec:
+  selector:
+    app: paths-service
+  ports:
+    - protocol: TCP
+      port: 4003
+      targetPort: 4003
+  type: ClusterIP
