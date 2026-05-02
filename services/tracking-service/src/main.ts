@@ -6,7 +6,7 @@ async function bootstrap() {
   const logger = new Logger('TrackingService');
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: '*', credentials: true });
-  const port = process.env.PORT || 4003;
+  const port = process.env.PORT || 4005;
   await app.listen(port);
   logger.log(`📡 Tracking Service running on http://localhost:${port}`);
 }

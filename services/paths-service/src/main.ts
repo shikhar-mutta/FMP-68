@@ -14,7 +14,7 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-  const port = process.env.PORT || 4002;
+  const port = process.env.PORT || 4003;
   await app.listen(port);
   logger.log(`🛤️  Paths Service running on http://localhost:${port}`);
 }

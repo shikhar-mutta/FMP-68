@@ -20,8 +20,36 @@ networks:
 volumes:
   mongo-data:
   redis-data:
+  vault-data:
 
 services:
+
+  # ── HashiCorp Vault (Secrets Management) ─────────────────────────────────
+  vault:
+    image: hashicorp/vault:1.16
+    container_name: fmp68-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault-data:/vault/data
+    # Dev mode: auto-init, auto-unseal, root token = "root"
+    # Perfect for demos. Switch to 'server -config=...' in production.
+    command: server -dev
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # ── MongoDB ──────────────────────────────────────────────────────────────
   mongodb:
