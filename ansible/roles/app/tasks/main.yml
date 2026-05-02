@@ -19,14 +19,11 @@
     msg: "Image {{ image_name }}:{{ image_tag }} pulled — changed: {{ pull_result.changed }}"
 
 - name: "Recreate container for {{ service_name }} (zero-downtime via compose)"
-  community.docker.docker_compose_v2:
-    project_src: "{{ project_dir }}"
-    services:
-      - "{{ compose_service }}"
-    pull: never          # already pulled above
-    recreate: always     # force recreate even if image sha didn't change
-    state: present
+  shell: |
+    cd '{{ project_dir }}' && \
+    docker compose up -d --no-deps --force-recreate --no-build {{ compose_service }}
   register: compose_result
+  changed_when: true
 
 - name: "Verify {{ service_name }} container is running"
   community.docker.docker_container_info:
