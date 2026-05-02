@@ -6,7 +6,8 @@ docker_registry: "shikhar68"
 image_tag: "latest"
 
 # ── Project paths ────────────────────────────────────────────────────────────
-project_dir: "/home/shikhar/Sem 2/SPE/SPE Main Project/FMP-68"
+# playbook_dir = ansible/playbooks → ../../ = repo root (works in Jenkins + locally)
+project_dir: "{{ playbook_dir }}/../.."
 compose_file: "{{ project_dir }}/docker-compose.yml"
 
 # ── Service image names ───────────────────────────────────────────────────────
