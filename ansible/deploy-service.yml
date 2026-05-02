@@ -28,14 +28,23 @@
 
         - name: "Force remove existing container for {{ service_name }}"
           shell: |
-            cd "{{ project_root }}" && \
-            docker compose rm -f -s -v {{ service_name }}
-          register: rm_output
+            cd "{{ playbook_dir }}/.."
+            # Try compose removal first
+            docker compose rm -f -s -v {{ service_name }} || true
+            # Also try explicit removal of the known container name to handle cross-project conflicts
+            # Mapping service names to container_names from docker-compose.yml
+            if [ "{{ service_name }}" == "api-gateway" ]; then docker rm -f fmp68-gateway || true; fi
+            if [ "{{ service_name }}" == "auth-service" ]; then docker rm -f fmp68-auth || true; fi
+            if [ "{{ service_name }}" == "user-service" ]; then docker rm -f fmp68-users || true; fi
+            if [ "{{ service_name }}" == "paths-service" ]; then docker rm -f fmp68-paths || true; fi
+            if [ "{{ service_name }}" == "follow-service" ]; then docker rm -f fmp68-follow || true; fi
+            if [ "{{ service_name }}" == "tracking-service" ]; then docker rm -f fmp68-tracking || true; fi
+            if [ "{{ service_name }}" == "frontend" ]; then docker rm -f fmp68-frontend || true; fi
           failed_when: false
 
         - name: "Pull latest image for {{ service_name }}"
           shell: |
-            cd "{{ project_root }}" && \
+            cd "{{ playbook_dir }}/.."
             IMAGE_TAG={{ image_tag }} docker compose pull {{ service_name }}
           register: pull_output
 
