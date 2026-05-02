@@ -119,6 +119,7 @@ services:
 
   # ── Auth Service ─────────────────────────────────────────────────────────
   auth-service:
+    image: shikhar68/fmp68-auth-service:latest
     build:
       context: ./services/auth-service
       dockerfile: Dockerfile
@@ -143,6 +144,7 @@ services:
 
   # ── User Service ──────────────────────────────────────────────────────────
   user-service:
+    image: shikhar68/fmp68-user-service:latest
     build:
       context: ./services/user-service
       dockerfile: Dockerfile
@@ -166,6 +168,7 @@ services:
 
   # ── Paths Service ─────────────────────────────────────────────────────────
   paths-service:
+    image: shikhar68/fmp68-paths-service:latest
     build:
       context: ./services/paths-service
       dockerfile: Dockerfile
@@ -185,6 +188,7 @@ services:
 
   # ── Follow Service ────────────────────────────────────────────────────────
   follow-service:
+    image: shikhar68/fmp68-follow-service:latest
     build:
       context: ./services/follow-service
       dockerfile: Dockerfile
@@ -207,6 +211,7 @@ services:
 
   # ── Tracking Service ──────────────────────────────────────────────────────
   tracking-service:
+    image: shikhar68/fmp68-tracking-service:latest
     build:
       context: ./services/tracking-service
       dockerfile: Dockerfile
@@ -226,6 +231,7 @@ services:
 
   # ── API Gateway (Load Balancer) ───────────────────────────────────────────
   api-gateway:
+    image: shikhar68/fmp68-api-gateway:latest
     build:
       context: ./services/api-gateway
       dockerfile: Dockerfile
@@ -258,6 +264,7 @@ services:
 
   # ── Frontend ──────────────────────────────────────────────────────────────
   frontend:
+    image: shikhar68/fmp68-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
