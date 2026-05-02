@@ -1,0 +1,40 @@
+## FMP-68 — Filebeat configuration
+## Ships all Docker container logs to Logstash
+
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - decode_json_fields:
+          fields: ["message"]
+          target: "json"
+          overwrite_keys: true
+
+processors:
+  - add_host_metadata: ~
+
+  # Only forward logs from fmp68 containers
+  - drop_event:
+      when:
+        not:
+          or:
+            - contains:
+                container.name: "fmp68"
+            - contains:
+                container.labels.com_docker_compose_project: "fmp-68"
+
+output.logstash:
+  hosts: ["logstash:5044"]
+  loadbalance: true
+
+# Ship events every 5 seconds
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+logging.level: warning
+logging.to_files: false

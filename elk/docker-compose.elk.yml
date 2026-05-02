@@ -1,0 +1,104 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FMP-68 — ELK Stack (Elasticsearch + Logstash + Kibana + Filebeat)
+# Usage:  docker compose -f docker-compose.yml -f elk/docker-compose.elk.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  fmp68-net:
+    external: true
+
+volumes:
+  es-data:
+  kibana-data:
+
+services:
+
+  # ── Elasticsearch ──────────────────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: fmp68-elasticsearch
+    restart: unless-stopped
+    environment:
+      - node.name=fmp68-es
+      - cluster.name=fmp68-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false          # disabled for dev/demo
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ── Kibana ────────────────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: fmp68-kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_NAME: fmp68-kibana
+      KIBANA_SYSTEM_PASSWORD: ""
+    ports:
+      - "5601:5601"
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+    networks:
+      - fmp68-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # ── Logstash ──────────────────────────────────────────────────────────────
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: fmp68-logstash
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    ports:
+      - "5044:5044"   # Beats input
+      - "5000:5000"   # TCP syslog input
+    environment:
+      LS_JAVA_OPTS: -Xmx256m -Xms256m
+    networks:
+      - fmp68-net
+
+  # ── Filebeat (ships Docker container logs → Logstash) ────────────────────
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.0
+    container_name: fmp68-filebeat
+    restart: unless-stopped
+    user: root
+    depends_on:
+      logstash:
+        condition: service_started
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - fmp68-net
+    command: ["--strict.perms=false"]
