@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import axios from 'axios';
 import DashboardPage from '../../pages/DashboardPage';
 
@@ -199,7 +199,7 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     const usersButton = screen.getByRole('button', { name: /Users/i });
 
-    await waitFor(() => {
+    await act(async () => {
       fireEvent.click(usersButton);
     });
 
@@ -212,7 +212,7 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     const requestsButton = screen.getByRole('button', { name: /📬 Requests/i });
 
-    await waitFor(() => {
+    await act(async () => {
       fireEvent.click(requestsButton);
     });
 
@@ -226,13 +226,17 @@ describe('DashboardPage', () => {
     const usersButton = screen.getByRole('button', { name: /👥 Users/i });
     const pathsButton = screen.getByRole('button', { name: /📍 Paths/i });
 
-    fireEvent.click(usersButton);
+    await act(async () => {
+      fireEvent.click(usersButton);
+    });
 
     await waitFor(() => {
       expect(container.querySelector('.users-grid')).toBeInTheDocument();
     });
 
-    fireEvent.click(pathsButton);
+    await act(async () => {
+      fireEvent.click(pathsButton);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
@@ -243,7 +247,7 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     const myRequestsButton = screen.getByRole('button', { name: /My Requests/i });
 
-    await waitFor(() => {
+    await act(async () => {
       fireEvent.click(myRequestsButton);
     });
 
@@ -260,7 +264,9 @@ describe('DashboardPage', () => {
     });
 
     const publishButton = screen.getByRole('button', { name: /Publish/i });
-    fireEvent.click(publishButton);
+    await act(async () => {
+      fireEvent.click(publishButton);
+    });
 
     await waitFor(() => {
       // Path card should still render
@@ -312,7 +318,9 @@ describe('DashboardPage', () => {
     const { container } = render(<DashboardPage />);
     const usersButton = screen.getByRole('button', { name: /Users/i });
 
-    fireEvent.click(usersButton);
+    await act(async () => {
+      fireEvent.click(usersButton);
+    });
 
     await waitFor(() => {
       expect(container.querySelector('.users-grid')).toBeInTheDocument();
@@ -337,7 +345,9 @@ describe('DashboardPage', () => {
     const { container } = render(<DashboardPage />);
     const usersButton = screen.getByRole('button', { name: /Users/i });
 
-    fireEvent.click(usersButton);
+    await act(async () => {
+      fireEvent.click(usersButton);
+    });
 
     await waitFor(() => {
       const emptyState = container.querySelector('.empty-state');
@@ -450,7 +460,9 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
 
     const usersButton = screen.getByRole('button', { name: /Users/i });
-    fireEvent.click(usersButton);
+    await act(async () => {
+      fireEvent.click(usersButton);
+    });
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch users:', expect.any(Error));
@@ -516,7 +528,9 @@ describe('DashboardPage', () => {
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Publish/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Publish/i }));
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Test Path')).toBeInTheDocument();
@@ -534,12 +548,16 @@ describe('DashboardPage', () => {
     const followButton = screen.getAllByText('Follow')[1];
     const unfollowButton = screen.getAllByText('Unfollow')[1];
 
-    fireEvent.click(followButton);
+    await act(async () => {
+      fireEvent.click(followButton);
+    });
     await waitFor(() => {
       expect(followState).toHaveTextContent('following');
     });
 
-    fireEvent.click(unfollowButton);
+    await act(async () => {
+      fireEvent.click(unfollowButton);
+    });
     await waitFor(() => {
       expect(followState).toHaveTextContent('not-following');
     });
@@ -554,7 +572,9 @@ describe('DashboardPage', () => {
       expect(screen.getAllByText('Request').length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByText('Request')[0]);
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('Request')[0]);
+    });
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Request sent for path:', expect.any(String));
@@ -582,7 +602,9 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
 
     const usersButton = screen.getByRole('button', { name: /Users/i });
-    fireEvent.click(usersButton);
+    await act(async () => {
+      fireEvent.click(usersButton);
+    });
 
     await waitFor(() => {
       expect(usersButton.className).toContain('active');

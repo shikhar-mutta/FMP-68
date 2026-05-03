@@ -176,7 +176,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('🗺️ Open Live Tracking')).toBeInTheDocument();
     });
     
-    fireEvent.click(screen.getByText('🗺️ Open Live Tracking'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('🗺️ Open Live Tracking'));
+    });
     expect(mockNavigate).toHaveBeenCalledWith('/path/path-1/live');
   });
 
@@ -228,7 +230,9 @@ describe('PathDetailPage', () => {
       expect(container.querySelector('.pd-btn-back')).toBeInTheDocument();
     });
     
-    fireEvent.click(container.querySelector('.pd-btn-back'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.pd-btn-back'));
+    });
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
@@ -250,7 +254,9 @@ describe('PathDetailPage', () => {
       expect(container.querySelector('.detail-error')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('← Go Back'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('← Go Back'));
+    });
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
@@ -316,7 +322,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✓ Approve')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     await waitFor(() => {
       expect(followRequestService.approveFollowRequest).toHaveBeenCalledWith('path-1', 'user-3');
     });
@@ -335,7 +343,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✗ Reject')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✗ Reject'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
     await waitFor(() => {
       expect(followRequestService.rejectFollowRequest).toHaveBeenCalledWith('path-1', 'user-3');
     });
@@ -354,7 +364,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✓ Approve')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('✓ Follow request approved!', 'success');
     });
@@ -373,7 +385,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✗ Reject')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✗ Reject'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('✕ Follow request rejected', 'warning');
     });
@@ -539,7 +553,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✓ Approve')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to approve request', 'error');
     });
@@ -559,7 +575,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✗ Reject')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✗ Reject'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to reject request', 'error');
     });
@@ -651,7 +669,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✓ Approve')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     
     expect(screen.getAllByText('...').length).toBe(2);
   });
@@ -673,7 +693,9 @@ describe('PathDetailPage', () => {
     });
 
     const approveBtn = container.querySelector('.pd-btn-approve');
-    fireEvent.click(approveBtn);
+    await act(async () => {
+      fireEvent.click(approveBtn);
+    });
     
     await waitFor(() => {
       expect(approveBtn.disabled).toBe(true);
@@ -687,7 +709,9 @@ describe('PathDetailPage', () => {
     });
 
     const initialCalls = apiClient.get.mock.calls.length;
-    fireEvent.click(container.querySelector('.pd-refresh-btn'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.pd-refresh-btn'));
+    });
     
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledTimes(initialCalls + 1);
@@ -707,7 +731,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('Jane')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     
     await waitFor(() => {
       expect(screen.queryByText('Jane')).not.toBeInTheDocument();
@@ -727,7 +753,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('Jane')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✗ Reject'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
     
     await waitFor(() => {
       expect(screen.queryByText('Jane')).not.toBeInTheDocument();
@@ -744,7 +772,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByTestId('follower-user-2')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Remove'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Remove'));
+    });
     
     await waitFor(() => {
       expect(screen.queryByTestId('follower-user-2')).not.toBeInTheDocument();
@@ -798,7 +828,9 @@ describe('PathDetailPage', () => {
     const refreshButtons = container.querySelectorAll('.pd-refresh-btn');
     if (refreshButtons.length > 1) {
       const initialCalls = followerService.getFollowersForPath.mock.calls.length;
-      fireEvent.click(refreshButtons[1]);
+      await act(async () => {
+        fireEvent.click(refreshButtons[1]);
+      });
       
       await waitFor(() => {
         expect(followerService.getFollowersForPath.mock.calls.length).toBeGreaterThan(initialCalls);

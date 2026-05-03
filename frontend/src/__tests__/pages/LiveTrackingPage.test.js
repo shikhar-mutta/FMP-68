@@ -102,7 +102,9 @@ describe('LiveTrackingPage', () => {
     });
 
     watchPosition.mockImplementation((onSuccess) => {
-      onSuccess({ lat: 10.01, lng: 20.01, timestamp: 3000 });
+      act(() => {
+        onSuccess({ lat: 10.01, lng: 20.01, timestamp: 3000 });
+      });
       return jest.fn();
     });
 
@@ -171,7 +173,9 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText(/Failed to load path data/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Back to Dashboard/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Back to Dashboard/i));
+    });
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
@@ -192,7 +196,9 @@ describe('LiveTrackingPage', () => {
     });
 
     const autoBtn = screen.getByTitle(/auto-center/i);
-    fireEvent.click(autoBtn);
+    await act(async () => {
+      fireEvent.click(autoBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-follow')).toBe('off');
@@ -203,7 +209,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(startTracking).toHaveBeenCalledWith('path-1', 'user-1');
@@ -224,12 +232,16 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText('End')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Pause'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pause'));
+    });
     await waitFor(() => {
       expect(pauseTracking).toHaveBeenCalledWith('path-1', 'user-1');
     });
 
-    fireEvent.click(screen.getByText('End'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('End'));
+    });
     await waitFor(() => {
       expect(endTracking).toHaveBeenCalledWith('path-1', 'user-1');
     });
@@ -245,7 +257,9 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText('End')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Resume'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Resume'));
+    });
     await waitFor(() => {
       expect(resumeTracking).toHaveBeenCalledWith('path-1', 'user-1');
     });
@@ -278,7 +292,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(joinTracking).toHaveBeenCalledWith('path-1', 'user-2');
@@ -297,7 +313,9 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Leave Tracking/i));
+    });
 
     await waitFor(() => {
       expect(leaveTracking).toHaveBeenCalledWith('path-1', 'user-2');
@@ -315,7 +333,9 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText(/Follow this path to join live tracking/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Go to Dashboard/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Go to Dashboard/i));
+    });
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
@@ -389,7 +409,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(sendLocation).toHaveBeenCalledWith(
@@ -405,14 +427,18 @@ describe('LiveTrackingPage', () => {
 
   it('handles gps error callback', async () => {
     watchPosition.mockImplementation((_, onError) => {
-      onError(new Error('No GPS'));
+      act(() => {
+        onError(new Error('No GPS'));
+      });
       return jest.fn();
     });
 
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith(
@@ -430,7 +456,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to join tracking', 'error');
@@ -445,13 +473,17 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Leave Tracking/i));
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith(
@@ -473,7 +505,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Path Comparison/i)).toBeInTheDocument();
@@ -492,7 +526,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-has-direction')).toBe('yes');
@@ -529,7 +565,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-direction-completed')).toBe('yes');
@@ -543,7 +581,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const followBtn = await screen.findByText(/Follow Recorded Path/i);
-    fireEvent.click(followBtn);
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
 
     await waitFor(() => {
       expect(joinTracking).toHaveBeenCalledWith('path-1', 'user-2');
@@ -562,7 +602,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const followBtn = await screen.findByText(/Follow Recorded Path/i);
-    fireEvent.click(followBtn);
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Stop Following/i)).toBeInTheDocument();
@@ -575,7 +617,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Pause')).toBeInTheDocument();
@@ -605,8 +649,12 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText('End')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Pause'));
-    fireEvent.click(screen.getByText('End'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Pause'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('End'));
+    });
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Error pausing tracking:', expect.any(Error));
       expect(consoleSpy).toHaveBeenCalledWith('Error ending tracking:', expect.any(Error));
@@ -623,7 +671,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const resumeBtn = await screen.findByText('Resume');
-    fireEvent.click(resumeBtn);
+    await act(async () => {
+      fireEvent.click(resumeBtn);
+    });
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Error resuming tracking:', expect.any(Error));
@@ -640,7 +690,9 @@ describe('LiveTrackingPage', () => {
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
     userObj.id = null;
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -656,7 +708,9 @@ describe('LiveTrackingPage', () => {
 
     const pauseBtn = await screen.findByText('Pause');
     userObj.id = null;
-    fireEvent.click(pauseBtn);
+    await act(async () => {
+      fireEvent.click(pauseBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -672,7 +726,9 @@ describe('LiveTrackingPage', () => {
 
     const resumeBtn = await screen.findByText('Resume');
     userObj.id = null;
-    fireEvent.click(resumeBtn);
+    await act(async () => {
+      fireEvent.click(resumeBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -688,7 +744,9 @@ describe('LiveTrackingPage', () => {
 
     const endBtn = await screen.findByText('End');
     userObj.id = null;
-    fireEvent.click(endBtn);
+    await act(async () => {
+      fireEvent.click(endBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -703,14 +761,18 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
     });
 
     userObj.id = null;
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Leave Tracking/i));
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -726,7 +788,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -737,7 +801,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const backBtn = await screen.findByText('← Back');
-    fireEvent.click(backBtn);
+    await act(async () => {
+      fireEvent.click(backBtn);
+    });
 
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
@@ -793,7 +859,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Error starting tracking:', expect.any(Error));
@@ -835,21 +903,25 @@ describe('LiveTrackingPage', () => {
     });
 
     // First follower - should be tracked
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'user-99',
-      coordinate: { lat: 10, lng: 20, timestamp: 3000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'user-99',
+        coordinate: { lat: 10, lng: 20, timestamp: 3000 },
+      });
     });
 
     const followCount = screen.getByTestId('map-view').getAttribute('data-follow-count');
 
     // Second follower - should be ignored (tracking first one only)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'user-100',
-      coordinate: { lat: 11, lng: 21, timestamp: 4000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'user-100',
+        coordinate: { lat: 11, lng: 21, timestamp: 4000 },
+      });
     });
 
     // Should stay the same
@@ -862,7 +934,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(startTracking).toHaveBeenCalled();
@@ -946,7 +1020,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const followBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(followBtn);
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-direction-completed')).toBe('yes');
@@ -985,7 +1061,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const followBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(followBtn);
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-has-direction')).toBe('yes');
@@ -1024,7 +1102,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const followBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(followBtn);
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
 
     await waitFor(() => {
       const progressText = screen.queryByText(/%/);
@@ -1037,15 +1117,19 @@ describe('LiveTrackingPage', () => {
   it('handles calcSpeed with same timestamp', async () => {
     watchPosition.mockImplementation((onSuccess) => {
       // Send two coordinates with same timestamp (dt = 0)
-      onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
-      onSuccess({ lat: 10.01, lng: 20.01, timestamp: 1000 });
+      act(() => {
+        onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+        onSuccess({ lat: 10.01, lng: 20.01, timestamp: 1000 });
+      });
       return jest.fn();
     });
 
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(startTracking).toHaveBeenCalled();
@@ -1061,7 +1145,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const pauseBtn = await screen.findByText('Pause');
-    fireEvent.click(pauseBtn);
+    await act(async () => {
+      fireEvent.click(pauseBtn);
+    });
 
     await waitFor(() => {
       expect(pauseTracking).toHaveBeenCalled();
@@ -1139,7 +1225,9 @@ describe('LiveTrackingPage', () => {
 
     // Find and click the join button
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -1160,7 +1248,9 @@ describe('LiveTrackingPage', () => {
     });
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
@@ -1343,7 +1433,9 @@ describe('LiveTrackingPage', () => {
     // Simulate that user has started following (followerCoords not empty)
     // by clicking start following button
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     // Wait for join to complete
     await waitFor(() => {
@@ -1472,7 +1564,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
       expect(startTracking).toHaveBeenCalled();
