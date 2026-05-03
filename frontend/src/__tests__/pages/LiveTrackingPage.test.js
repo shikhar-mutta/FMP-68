@@ -1173,7 +1173,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('map-view')).toBeInTheDocument();
+      const mapView = screen.getByTestId('map-view');
+      expect(mapView).toBeInTheDocument();
+      expect(mapView.getAttribute('data-role')).toBe('publisher');
     });
 
     // Simulate location update from a follower (publisher view)
@@ -1199,7 +1201,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('map-view')).toBeInTheDocument();
+      const mapView = screen.getByTestId('map-view');
+      expect(mapView).toBeInTheDocument();
+      expect(mapView.getAttribute('data-role')).toBe('publisher');
     });
 
     // First follower update (should track this follower)
@@ -1235,7 +1239,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('map-view')).toBeInTheDocument();
+      const mapView = screen.getByTestId('map-view');
+      expect(mapView).toBeInTheDocument();
+      expect(mapView.getAttribute('data-role')).toBe('publisher');
     });
 
     // First follower - should be tracked
@@ -1298,21 +1304,27 @@ describe('LiveTrackingPage', () => {
   });
 
   it('calcSpeed handles valid coordinate pair with time difference', async () => {
+    let gpsSuccess;
     watchPosition.mockImplementation((onSuccess) => {
-      // Send coordinates with measurable distance and time
-      onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
-      onSuccess({ lat: 10.01, lng: 20.01, timestamp: 2000 });
+      gpsSuccess = onSuccess;
       return jest.fn();
     });
 
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
-      // Speed should be calculated
-      expect(startTracking).toHaveBeenCalled();
+      expect(watchPosition).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      // Send coordinates with measurable distance and time
+      gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+      gpsSuccess({ lat: 10.01, lng: 20.01, timestamp: 2000 });
     });
   });
 
@@ -1339,7 +1351,15 @@ describe('LiveTrackingPage', () => {
     });
 
     // Now click leave (should be available after joining)
-    // Note: This depends on component state updates from joinTracking
+    const leaveBtn = await screen.findByText(/Leave Tracking/i);
+    await act(async () => {
+      fireEvent.click(leaveBtn);
+    });
+
+    await waitFor(() => {
+      expect(leaveTracking).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
   });
 
   it('handles socket location update with publisher role when coordinates exist', async () => {
@@ -1416,26 +1436,26 @@ describe('LiveTrackingPage', () => {
   });
 
   it('computes speed on first GPS update (lastCoordRef is null)', async () => {
-    // This test ensures calcSpeed is called with null as prev coordinate
-    // on the first GPS update
-    let callCount = 0;
+    let gpsSuccess;
     watchPosition.mockImplementation((onSuccess) => {
-      callCount++;
-      if (callCount === 1) {
-        // First call - this will trigger calcSpeed(null, coord)
-        onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
-      }
+      gpsSuccess = onSuccess;
       return jest.fn();
     });
 
     render(<LiveTrackingPage />);
 
     const startBtn = await screen.findByText(/Start Publishing Path/i);
-    fireEvent.click(startBtn);
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
 
     await waitFor(() => {
-      // Speed should be 0 since prev is null
-      expect(startTracking).toHaveBeenCalled();
+      expect(watchPosition).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      // First call - this will trigger calcSpeed(null, coord)
+      gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
     });
   });
 

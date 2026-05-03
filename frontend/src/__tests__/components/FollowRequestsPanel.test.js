@@ -7,12 +7,20 @@ jest.mock('../../styles/FollowRequests.css', () => ({}));
 jest.mock('../../services/followRequestService');
 
 describe('FollowRequestsPanel', () => {
+  let consoleSpy;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
     delete window.showToast;
+    consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('should show loading state initially', () => {
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it('should show loading state initially', async () => {
     followRequestService.getPendingFollowRequests.mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );

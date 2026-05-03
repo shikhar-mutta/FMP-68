@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { POLLING_INTERVALS } from '../../config/constants';
 import PathDetailPage from '../../pages/PathDetailPage';
 import { useAuth } from '../../context/AuthContext';
 import * as followRequestService from '../../services/followRequestService';
@@ -442,52 +443,48 @@ describe('PathDetailPage', () => {
   });
 
   it('should poll for follow requests periodically for publisher', async () => {
-    const setIntervalSpy = jest.spyOn(global, 'setInterval').mockImplementation((callback) => {
-      callback();
-      return 123;
-    });
-
+    jest.useFakeTimers();
     render(<PathDetailPage />);
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalled();
+      expect(screen.queryByText('Loading path details...')).not.toBeInTheDocument();
+    });
+
+    // Advance timers to trigger polling
+    await act(async () => {
+      jest.advanceTimersByTime(POLLING_INTERVALS.PATH_REQUESTS || 5000);
     });
 
     await waitFor(() => {
       expect(followRequestService.getFollowRequestsForPath).toHaveBeenCalledTimes(2);
     });
-    setIntervalSpy.mockRestore();
+    jest.useRealTimers();
   });
 
   it('should log polling errors', async () => {
+    jest.useFakeTimers();
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const setIntervalSpy = jest.spyOn(global, 'setInterval').mockImplementation((callback) => {
-      callback();
-      callback();
-      return 123;
-    });
 
     followRequestService.getFollowRequestsForPath = jest
       .fn()
       .mockResolvedValueOnce([])
-      .mockRejectedValueOnce(new Error('Polling failed'))
-      .mockResolvedValueOnce([]);
+      .mockRejectedValueOnce(new Error('Polling failed'));
 
     render(<PathDetailPage />);
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalled();
+      expect(screen.queryByText('Loading path details...')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(POLLING_INTERVALS.PATH_REQUESTS || 5000);
     });
 
     await waitFor(() => {
-      expect(setIntervalSpy).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith('Polling error:', expect.objectContaining({ message: 'Polling failed' }));
     });
 
-    await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalled();
-    });
-
-    setIntervalSpy.mockRestore();
     consoleSpy.mockRestore();
+    jest.useRealTimers();
   });
 
   it('should not poll for non-publishers', async () => {
