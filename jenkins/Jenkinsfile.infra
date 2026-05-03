@@ -18,13 +18,23 @@ pipeline {
             steps { script { try{checkout scm}catch(e){currentBuild.description="Checkout failed";throw e} } }
         }
 
+        stage('Cleanup Stale Containers') {
+            steps {
+                script {
+                    echo 'Cleaning up any conflicting infrastructure containers...'
+                    sh 'docker rm -f fmp68-vault fmp68-mongodb fmp68-redis fmp68-rabbitmq 2>/dev/null || true'
+                }
+            }
+        }
+
         stage('Deploy Core Infrastructure') {
             steps {
                 script {
+                    echo 'Deploying core infrastructure via Ansible...'
                     if (sh(script: 'which ansible-playbook', returnStatus: true) == 0) {
                         sh "ansible-playbook ansible/deploy-infra.yml -v"
                     } else {
-                        echo 'WARNING: ansible-playbook not found'
+                        error 'CRITICAL: ansible-playbook not found. Cannot deploy infrastructure.'
                     }
                 }
             }
