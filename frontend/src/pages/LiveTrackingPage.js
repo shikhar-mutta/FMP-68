@@ -109,6 +109,9 @@ export default function LiveTrackingPage() {
   // For publisher: track which follower's path to display (first one who sends data)
   const trackedFollowerRef = useRef(null);
 
+  // Ref mirror of isPublisher to avoid stale closures in socket handlers
+  const isPublisherRef = useRef(false);
+
   // Stats
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(null);
@@ -129,7 +132,9 @@ export default function LiveTrackingPage() {
         const res = await apiClient.get(`/paths/${pathId}`);
         const pathData = res.data;
         setPath(pathData);
-        setIsPublisher(pathData.publisherId === user?.id);
+        const publisherFlag = pathData.publisherId === user?.id;
+        isPublisherRef.current = publisherFlag;
+        setIsPublisher(publisherFlag);
         setIsFollower(pathData.followerIds?.includes(user?.id) || false);
         setTrackingStatus(pathData.status || 'idle');
 
@@ -175,7 +180,7 @@ export default function LiveTrackingPage() {
       } else if (data.role === 'follower') {
         // Publisher sees the first follower's live green path
         // Followers receive their own echoed coords (skip — tracked locally)
-        if (isPublisher) {
+        if (isPublisherRef.current) {
           // Track only the first follower who starts sending
           if (!trackedFollowerRef.current) {
             trackedFollowerRef.current = data.userId;
@@ -236,7 +241,7 @@ export default function LiveTrackingPage() {
       cleanupFnsRef.current.forEach((fn) => fn && fn());
       disconnectSocket();
     };
-  }, [pathId, isPublisher]);
+  }, [pathId]);
 
   // ── Elapsed-time timer ───────────────────────────────────
   useEffect(() => {
