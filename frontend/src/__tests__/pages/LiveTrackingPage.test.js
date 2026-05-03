@@ -147,6 +147,9 @@ describe('LiveTrackingPage', () => {
       return jest.fn();
     });
 
+    // Clear socket handlers to prevent cross-test contamination
+    Object.keys(socketHandlers).forEach((key) => delete socketHandlers[key]);
+
     window.showToast = jest.fn();
   });
 
@@ -281,12 +284,13 @@ describe('LiveTrackingPage', () => {
       expect(joinTracking).toHaveBeenCalledWith('path-1', 'user-2');
     });
 
-    // Simulate follower coordinates present
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'user-2',
-      coordinate: { lat: 10, lng: 20, timestamp: 4000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'user-2',
+        coordinate: { lat: 10, lng: 20, timestamp: 4000 },
+      });
     });
 
     await waitFor(() => {
@@ -322,22 +326,30 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText(/Not Started/i)).toBeInTheDocument();
     });
 
-    socketHandlers.started({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.started({ pathId: 'path-1' });
+    });
     await waitFor(() => {
       expect(screen.getAllByText(/Live/i).length).toBeGreaterThan(0);
     });
 
-    socketHandlers.paused({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.paused({ pathId: 'path-1' });
+    });
     await waitFor(() => {
       expect(screen.getByText(/Paused/i)).toBeInTheDocument();
     });
 
-    socketHandlers.resumed({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.resumed({ pathId: 'path-1' });
+    });
     await waitFor(() => {
       expect(screen.getAllByText(/Live/i).length).toBeGreaterThan(0);
     });
 
-    socketHandlers.ended({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.ended({ pathId: 'path-1' });
+    });
     await waitFor(() => {
       expect(screen.getByText(/Tracking session ended/i)).toBeInTheDocument();
     });
@@ -346,7 +358,9 @@ describe('LiveTrackingPage', () => {
   it('increments follower count on follower join', async () => {
     render(<LiveTrackingPage />);
 
-    socketHandlers.followerJoined({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.followerJoined({ pathId: 'path-1' });
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/watching/i)).toBeInTheDocument();
@@ -365,8 +379,10 @@ describe('LiveTrackingPage', () => {
 
   it('computes speed and sends location for publisher', async () => {
     watchPosition.mockImplementation((onSuccess) => {
-      onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
-      onSuccess({ lat: 10.01, lng: 20.01, timestamp: 2000 });
+      act(() => {
+        onSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+        onSuccess({ lat: 10.01, lng: 20.01, timestamp: 2000 });
+      });
       return jest.fn();
     });
 
@@ -734,21 +750,25 @@ describe('LiveTrackingPage', () => {
       expect(typeof socketHandlers.location).toBe('function');
     });
 
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'publisher',
-      coordinate: { lat: 11, lng: 21, timestamp: 3000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'publisher',
+        coordinate: { lat: 11, lng: 21, timestamp: 3000 },
+      });
     });
 
     await waitFor(() => {
       expect(screen.getByTestId('map-view').getAttribute('data-pub-count')).toBe('3');
     });
 
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'user-9',
-      coordinate: { lat: 12, lng: 22, timestamp: 4000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'user-9',
+        coordinate: { lat: 12, lng: 22, timestamp: 4000 },
+      });
     });
 
     await waitFor(() => {
@@ -792,14 +812,18 @@ describe('LiveTrackingPage', () => {
 
     const initialPubCount = screen.getByTestId('map-view').getAttribute('data-pub-count');
 
-    socketHandlers.location({
-      pathId: 'path-999', // Different path
-      role: 'publisher',
-      coordinate: { lat: 11, lng: 21, timestamp: 3000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-999', // Different path
+        role: 'publisher',
+        coordinate: { lat: 11, lng: 21, timestamp: 3000 },
+      });
     });
 
-    // Should not change
-    expect(screen.getByTestId('map-view').getAttribute('data-pub-count')).toBe(initialPubCount);
+    await waitFor(() => {
+      const currentPubCount = screen.getByTestId('map-view').getAttribute('data-pub-count');
+      expect(currentPubCount).toBe(initialPubCount);
+    });
   });
 
   it('ignores follower location if already tracking someone else', async () => {
@@ -855,10 +879,12 @@ describe('LiveTrackingPage', () => {
     // Events for different path - should not affect status
     const statusBefore = screen.queryByText(/Live/i);
 
-    socketHandlers.started({ pathId: 'path-999' });
-    socketHandlers.paused({ pathId: 'path-999' });
-    socketHandlers.resumed({ pathId: 'path-999' });
-    socketHandlers.ended({ pathId: 'path-999' });
+    await act(async () => {
+      socketHandlers.started({ pathId: 'path-999' });
+      socketHandlers.paused({ pathId: 'path-999' });
+      socketHandlers.resumed({ pathId: 'path-999' });
+      socketHandlers.ended({ pathId: 'path-999' });
+    });
 
     // Status should not change
     if (statusBefore) {
@@ -888,9 +914,11 @@ describe('LiveTrackingPage', () => {
       expect(typeof socketHandlers.followerJoined).toBe('function');
     });
 
-    socketHandlers.followerJoined({ pathId: 'path-1' });
-    socketHandlers.followerJoined({ pathId: 'path-1' });
-    socketHandlers.followerJoined({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.followerJoined({ pathId: 'path-1' });
+      socketHandlers.followerJoined({ pathId: 'path-1' });
+      socketHandlers.followerJoined({ pathId: 'path-1' });
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/watching/i)).toBeInTheDocument();
@@ -1051,7 +1079,9 @@ describe('LiveTrackingPage', () => {
       expect(typeof socketHandlers.paused).toBe('function');
     });
 
-    socketHandlers.paused({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.paused({ pathId: 'path-1' });
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('⏸️ Tracking paused', 'warning');
@@ -1067,7 +1097,9 @@ describe('LiveTrackingPage', () => {
       expect(typeof socketHandlers.resumed).toBe('function');
     });
 
-    socketHandlers.resumed({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.resumed({ pathId: 'path-1' });
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('▶️ Tracking resumed', 'success');
@@ -1083,7 +1115,9 @@ describe('LiveTrackingPage', () => {
       expect(typeof socketHandlers.ended).toBe('function');
     });
 
-    socketHandlers.ended({ pathId: 'path-1' });
+    await act(async () => {
+      socketHandlers.ended({ pathId: 'path-1' });
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('🏁 Tracking ended', 'info');
@@ -1143,11 +1177,13 @@ describe('LiveTrackingPage', () => {
     });
 
     // Simulate location update from a follower (publisher view)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'follower-1',
-      coordinate: { lat: 10.5, lng: 20.5, timestamp: 5000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'follower-1',
+        coordinate: { lat: 10.5, lng: 20.5, timestamp: 5000 },
+      });
     });
 
     await waitFor(() => {
@@ -1167,19 +1203,23 @@ describe('LiveTrackingPage', () => {
     });
 
     // First follower update (should track this follower)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'follower-1',
-      coordinate: { lat: 10.2, lng: 20.2, timestamp: 2500 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'follower-1',
+        coordinate: { lat: 10.2, lng: 20.2, timestamp: 2500 },
+      });
     });
 
     // Second follower update from same follower (should be added)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'follower-1',
-      coordinate: { lat: 10.3, lng: 20.3, timestamp: 3000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'follower-1',
+        coordinate: { lat: 10.3, lng: 20.3, timestamp: 3000 },
+      });
     });
 
     await waitFor(() => {
@@ -1199,19 +1239,23 @@ describe('LiveTrackingPage', () => {
     });
 
     // First follower - should be tracked
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'follower-1',
-      coordinate: { lat: 10.2, lng: 20.2, timestamp: 2500 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'follower-1',
+        coordinate: { lat: 10.2, lng: 20.2, timestamp: 2500 },
+      });
     });
 
     // Different follower - should NOT be tracked (only first follower tracked)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'follower',
-      userId: 'follower-2',
-      coordinate: { lat: 10.4, lng: 20.4, timestamp: 3500 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'follower',
+        userId: 'follower-2',
+        coordinate: { lat: 10.4, lng: 20.4, timestamp: 3500 },
+      });
     });
 
     await waitFor(() => {
@@ -1229,15 +1273,21 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('map-view')).toBeInTheDocument();
+      expect(screen.queryByText(/Loading path data/i)).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(typeof socketHandlers.location).toBe('function');
     });
 
     // Simulate location update from publisher (follower receives it)
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'publisher',
-      userId: 'publisher-id',
-      coordinate: { lat: 11.0, lng: 21.0, timestamp: 4000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'publisher',
+        userId: 'publisher-id',
+        coordinate: { lat: 11.0, lng: 21.0, timestamp: 4000 },
+      });
     });
 
     await waitFor(() => {
@@ -1310,11 +1360,13 @@ describe('LiveTrackingPage', () => {
     });
 
     // Publish initial coordinate
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'publisher',
-      userId: 'user-1',
-      coordinate: { lat: 10.02, lng: 20.02, timestamp: 3000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'publisher',
+        userId: 'user-1',
+        coordinate: { lat: 10.02, lng: 20.02, timestamp: 3000 },
+      });
     });
 
     await waitFor(() => {
@@ -1348,11 +1400,13 @@ describe('LiveTrackingPage', () => {
     });
 
     // Send location update
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'publisher',
-      userId: 'user-1',
-      coordinate: { lat: 10.0, lng: 20.0, timestamp: 1000 },
+    await act(async () => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'publisher',
+        userId: 'user-1',
+        coordinate: { lat: 10.0, lng: 20.0, timestamp: 1000 },
+      });
     });
 
     await waitFor(() => {
@@ -1404,11 +1458,19 @@ describe('LiveTrackingPage', () => {
       expect(startTracking).toHaveBeenCalled();
     });
 
-    gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+    await waitFor(() => {
+      expect(typeof gpsSuccess).toBe('function');
+    });
+
+    await act(async () => {
+      gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+    });
     expect(sendLocation).toHaveBeenCalledTimes(1);
 
     userObj.id = null;
-    gpsSuccess(null);
+    await act(async () => {
+      gpsSuccess(null);
+    });
 
     expect(sendLocation).toHaveBeenCalledTimes(1);
   });

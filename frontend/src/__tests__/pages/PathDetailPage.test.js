@@ -524,6 +524,7 @@ describe('PathDetailPage', () => {
       expect(apiClient.get).toHaveBeenCalled();
     });
 
+    await screen.findByTestId('followers-list');
     expect(screen.getByTestId('followers-list')).toBeInTheDocument();
   });
 

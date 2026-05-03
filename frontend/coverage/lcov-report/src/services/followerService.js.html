@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">12.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>16/16</span>
+                <span class='fraction'>2/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/12</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">12.5% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>16/16</span>
+                <span class='fraction'>2/16</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -95,59 +95,59 @@
 <a name='L30'></a><a href='#L30'>30</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import apiClient from './api';
 &nbsp;
 // Get followers of a path with their details
-export const getFollowersForPath = async (pathId) =&gt; {
-  try {
-    if (!pathId) {
-      throw new Error('pathId is required');
+export const getFollowersForPath = <span class="fstat-no" title="function not covered" >as</span>ync (pathId) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    if (!pathId) {</span>
+<span class="cstat-no" title="statement not covered" >      throw new Error('pathId is required');</span>
     }
-    const response = await apiClient.get(`/paths/${pathId}/followers`);
-    return response.data;
+    const response = <span class="cstat-no" title="statement not covered" >await apiClient.get(`/paths/${pathId}/followers`);</span>
+<span class="cstat-no" title="statement not covered" >    return response.data;</span>
   } catch (error) {
-    const message = error.response?.data?.message || error.message || 'Failed to fetch followers';
-    throw new Error(message);
+    const message = <span class="cstat-no" title="statement not covered" >error.response?.data?.message || error.message || 'Failed to fetch followers';</span>
+<span class="cstat-no" title="statement not covered" >    throw new Error(message);</span>
   }
 };
 &nbsp;
 // Remove a follower from a path
-export const removeFollowerFromPath = async (pathId, followerId) =&gt; {
-  try {
-    if (!pathId || !followerId) {
-      throw new Error('pathId and followerId are required');
+export const removeFollowerFromPath = <span class="fstat-no" title="function not covered" >as</span>ync (pathId, followerId) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    if (!pathId || !followerId) {</span>
+<span class="cstat-no" title="statement not covered" >      throw new Error('pathId and followerId are required');</span>
     }
-    const response = await apiClient.delete(`/paths/${pathId}/followers/${followerId}`);
-    return response.data;
+    const response = <span class="cstat-no" title="statement not covered" >await apiClient.delete(`/paths/${pathId}/followers/${followerId}`);</span>
+<span class="cstat-no" title="statement not covered" >    return response.data;</span>
   } catch (error) {
-    const message = error.response?.data?.message || error.message || 'Failed to remove follower';
-    throw new Error(message);
+    const message = <span class="cstat-no" title="statement not covered" >error.response?.data?.message || error.message || 'Failed to remove follower';</span>
+<span class="cstat-no" title="statement not covered" >    throw new Error(message);</span>
   }
 };
 &nbsp;</pre></td></tr></table></pre>
@@ -157,7 +157,7 @@ export const removeFollowerFromPath = async (pathId, followerId) =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-15T11:18:18.286Z
+                at 2026-05-03T00:19:12.580Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
