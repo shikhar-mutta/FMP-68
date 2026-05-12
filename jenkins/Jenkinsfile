@@ -4,11 +4,7 @@ pipeline {
     stages {
 
         stage('Auth Service') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/backend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             stages {
 
@@ -39,11 +35,7 @@ pipeline {
         }
 
         stage('Path Service') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/backend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             stages {
 
@@ -74,11 +66,7 @@ pipeline {
         }
 
         stage('Follow Request Service') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/backend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             stages {
 
@@ -109,11 +97,7 @@ pipeline {
         }
 
         stage('Gateway Service') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/backend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             stages {
 
@@ -144,11 +128,7 @@ pipeline {
         }
 
         stage('Frontend') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/frontend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             stages {
 
@@ -171,11 +151,7 @@ pipeline {
         }
 
         stage('Deploy to Kubernetes') {
-            agent {
-                dockerfile {
-                    filename 'jenkins/agents/backend-agent.Dockerfile'
-                }
-            }
+            agent any
 
             steps {
                 sh 'kubectl apply -f k8s/'
