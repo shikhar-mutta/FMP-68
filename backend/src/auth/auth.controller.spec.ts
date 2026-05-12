@@ -85,7 +85,9 @@ describe('AuthController', () => {
 
       await controller.googleCallback({ user: mockUser }, mockRes);
 
-      expect(mockRes.redirect).toHaveBeenCalledWith(expect.stringContaining('localhost:3000'));
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('localhost:3000'),
+      );
     });
   });
 

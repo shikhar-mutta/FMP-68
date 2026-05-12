@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FollowRequestsService } from './follow-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PathsRepository } from '../paths/paths.repository';
+import { UsersRepository } from '../users/users.repository';
 
 describe('FollowRequestsService', () => {
   let service: FollowRequestsService;
@@ -50,6 +52,8 @@ describe('FollowRequestsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        PathsRepository,
+        UsersRepository,
         FollowRequestsService,
         {
           provide: PrismaService,
@@ -85,16 +89,23 @@ describe('FollowRequestsService', () => {
         publisherId: mockPublisher.id,
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(mockPath as any);
       jest.spyOn(prisma.path, 'update').mockResolvedValue({
         ...mockPath,
         followRequests: [mockFollower.id],
       } as any);
 
-      const result = await service.createFollowRequest(mockFollower.id, createFollowRequestDto);
+      const result = await service.createFollowRequest(
+        mockFollower.id,
+        createFollowRequestDto,
+      );
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: mockFollower.id } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mockFollower.id },
+      });
       expect(result.message).toBe('Follow request created');
       expect(result.followerId).toBe(mockFollower.id);
     });
@@ -118,7 +129,9 @@ describe('FollowRequestsService', () => {
         publisherId: mockPublisher.id,
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
       await expect(
@@ -132,7 +145,9 @@ describe('FollowRequestsService', () => {
         publisherId: 'wrong-publisher',
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(mockPath as any);
 
       await expect(
@@ -151,8 +166,12 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithPendingRequest as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithPendingRequest as any);
 
       await expect(
         service.createFollowRequest(mockFollower.id, createFollowRequestDto),
@@ -170,8 +189,12 @@ describe('FollowRequestsService', () => {
         followerIds: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
 
       await expect(
         service.createFollowRequest(mockFollower.id, createFollowRequestDto),
@@ -190,14 +213,21 @@ describe('FollowRequestsService', () => {
         followerIds: null,
       };
 
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullFollowRequests as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullFollowRequests as any);
       jest.spyOn(prisma.path, 'update').mockResolvedValue({
         ...mockPath,
         followRequests: [mockFollower.id],
       } as any);
 
-      const result = await service.createFollowRequest(mockFollower.id, createFollowRequestDto);
+      const result = await service.createFollowRequest(
+        mockFollower.id,
+        createFollowRequestDto,
+      );
 
       expect(result.message).toBe('Follow request created');
     });
@@ -210,15 +240,25 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([
-        { ...mockPath, followRequests: [], followerIds: [mockFollower.id] },
-        mockFollower,
-      ] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([
+          { ...mockPath, followRequests: [], followerIds: [mockFollower.id] },
+          mockFollower,
+        ] as any);
 
-      const result = await service.approveFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id);
+      const result = await service.approveFollowRequest(
+        mockPath.id,
+        mockFollower.id,
+        mockPublisher.id,
+      );
 
-      expect(prisma.path.findUnique).toHaveBeenCalledWith({ where: { id: mockPath.id } });
+      expect(prisma.path.findUnique).toHaveBeenCalledWith({
+        where: { id: mockPath.id },
+      });
       expect(result.message).toBe('Follow request approved');
       expect(result.userId).toBe(mockFollower.id);
     });
@@ -230,13 +270,21 @@ describe('FollowRequestsService', () => {
         followerIds: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([
-        { ...mockPath, followRequests: [], followerIds: [mockFollower.id] },
-        mockFollower,
-      ] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([
+          { ...mockPath, followRequests: [], followerIds: [mockFollower.id] },
+          mockFollower,
+        ] as any);
 
-      const result = await service.approveFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id);
+      const result = await service.approveFollowRequest(
+        mockPath.id,
+        mockFollower.id,
+        mockPublisher.id,
+      );
 
       expect(result.message).toBe('Follow request approved');
     });
@@ -247,10 +295,16 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
 
       await expect(
-        service.approveFollowRequest(mockPath.id, mockFollower.id, 'wrong-publisher'),
+        service.approveFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          'wrong-publisher',
+        ),
       ).rejects.toThrow('Unauthorized');
     });
 
@@ -261,7 +315,11 @@ describe('FollowRequestsService', () => {
       } as any);
 
       await expect(
-        service.approveFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id),
+        service.approveFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Follow request not found');
     });
 
@@ -269,7 +327,11 @@ describe('FollowRequestsService', () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.approveFollowRequest('nonexistent', mockFollower.id, mockPublisher.id),
+        service.approveFollowRequest(
+          'nonexistent',
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Path not found');
     });
 
@@ -280,10 +342,16 @@ describe('FollowRequestsService', () => {
         followerIds: null,
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullLists as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullLists as any);
 
       await expect(
-        service.approveFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id),
+        service.approveFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Follow request not found');
     });
   });
@@ -295,13 +363,19 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
       jest.spyOn(prisma.path, 'update').mockResolvedValue({
         ...mockPath,
         followRequests: [],
       } as any);
 
-      const result = await service.rejectFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id);
+      const result = await service.rejectFollowRequest(
+        mockPath.id,
+        mockFollower.id,
+        mockPublisher.id,
+      );
 
       expect(result.message).toBe('Follow request rejected');
       expect(result.userId).toBe(mockFollower.id);
@@ -313,10 +387,16 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
 
       await expect(
-        service.rejectFollowRequest(mockPath.id, mockFollower.id, 'wrong-publisher'),
+        service.rejectFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          'wrong-publisher',
+        ),
       ).rejects.toThrow('Unauthorized');
     });
 
@@ -327,7 +407,11 @@ describe('FollowRequestsService', () => {
       } as any);
 
       await expect(
-        service.rejectFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id),
+        service.rejectFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Follow request not found');
     });
 
@@ -335,7 +419,11 @@ describe('FollowRequestsService', () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.rejectFollowRequest('nonexistent', mockFollower.id, mockPublisher.id),
+        service.rejectFollowRequest(
+          'nonexistent',
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Path not found');
     });
 
@@ -346,7 +434,11 @@ describe('FollowRequestsService', () => {
       } as any);
 
       await expect(
-        service.rejectFollowRequest(mockPath.id, mockFollower.id, mockPublisher.id),
+        service.rejectFollowRequest(
+          mockPath.id,
+          mockFollower.id,
+          mockPublisher.id,
+        ),
       ).rejects.toThrow('Follow request not found');
     });
   });
@@ -358,13 +450,18 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
       jest.spyOn(prisma.path, 'update').mockResolvedValue({
         ...mockPath,
         followRequests: [],
       } as any);
 
-      const result = await service.cancelFollowRequest(mockPath.id, mockFollower.id);
+      const result = await service.cancelFollowRequest(
+        mockPath.id,
+        mockFollower.id,
+      );
 
       expect(result.message).toBe('Follow request cancelled');
       expect(result.userId).toBe(mockFollower.id);
@@ -384,9 +481,9 @@ describe('FollowRequestsService', () => {
     it('should throw error if path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.cancelFollowRequest('nonexistent', mockFollower.id)).rejects.toThrow(
-        'Path not found',
-      );
+      await expect(
+        service.cancelFollowRequest('nonexistent', mockFollower.id),
+      ).rejects.toThrow('Path not found');
     });
 
     it('should handle null followRequests array', async () => {
@@ -395,11 +492,13 @@ describe('FollowRequestsService', () => {
         followRequests: null,
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullRequests as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullRequests as any);
 
-      await expect(service.cancelFollowRequest(mockPath.id, mockFollower.id)).rejects.toThrow(
-        'Follow request not found',
-      );
+      await expect(
+        service.cancelFollowRequest(mockPath.id, mockFollower.id),
+      ).rejects.toThrow('Follow request not found');
     });
   });
 
@@ -410,10 +509,16 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithRequest] as any);
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([mockFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithRequest] as any);
+      jest
+        .spyOn(prisma.user, 'findMany')
+        .mockResolvedValue([mockFollower] as any);
 
-      const result = await service.getPendingFollowRequestsForPublisher(mockPublisher.id);
+      const result = await service.getPendingFollowRequestsForPublisher(
+        mockPublisher.id,
+      );
 
       expect(prisma.path.findMany).toHaveBeenCalledWith({
         where: { publisherId: mockPublisher.id },
@@ -427,7 +532,9 @@ describe('FollowRequestsService', () => {
       jest.spyOn(prisma.path, 'findMany').mockResolvedValue([mockPath] as any);
       jest.spyOn(prisma.user, 'findMany').mockResolvedValue([]);
 
-      const result = await service.getPendingFollowRequestsForPublisher(mockPublisher.id);
+      const result = await service.getPendingFollowRequestsForPublisher(
+        mockPublisher.id,
+      );
 
       expect(result).toEqual([]);
     });
@@ -438,10 +545,14 @@ describe('FollowRequestsService', () => {
         followRequests: null,
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithNullRequests] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithNullRequests] as any);
       jest.spyOn(prisma.user, 'findMany').mockResolvedValue([]);
 
-      const result = await service.getPendingFollowRequestsForPublisher(mockPublisher.id);
+      const result = await service.getPendingFollowRequestsForPublisher(
+        mockPublisher.id,
+      );
 
       expect(result).toEqual([]);
     });
@@ -453,10 +564,16 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id, anotherFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithMultipleRequests] as any);
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([mockFollower, anotherFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithMultipleRequests] as any);
+      jest
+        .spyOn(prisma.user, 'findMany')
+        .mockResolvedValue([mockFollower, anotherFollower] as any);
 
-      const result = await service.getPendingFollowRequestsForPublisher(mockPublisher.id);
+      const result = await service.getPendingFollowRequestsForPublisher(
+        mockPublisher.id,
+      );
 
       expect(result).toHaveLength(2);
     });
@@ -469,8 +586,12 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithRequest as any);
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([mockFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithRequest as any);
+      jest
+        .spyOn(prisma.user, 'findMany')
+        .mockResolvedValue([mockFollower] as any);
 
       const result = await service.getFollowRequestsForPath(mockPath.id);
 
@@ -487,7 +608,9 @@ describe('FollowRequestsService', () => {
         followRequests: [],
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithoutRequests as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithoutRequests as any);
       jest.spyOn(prisma.user, 'findMany').mockResolvedValue([]);
 
       const result = await service.getFollowRequestsForPath(mockPath.id);
@@ -498,7 +621,9 @@ describe('FollowRequestsService', () => {
     it('should throw error if path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getFollowRequestsForPath('nonexistent')).rejects.toThrow('Path not found');
+      await expect(
+        service.getFollowRequestsForPath('nonexistent'),
+      ).rejects.toThrow('Path not found');
     });
 
     it('should handle null followRequests array', async () => {
@@ -507,7 +632,9 @@ describe('FollowRequestsService', () => {
         followRequests: null,
       };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullRequests as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullRequests as any);
       jest.spyOn(prisma.user, 'findMany').mockResolvedValue([] as any);
 
       const result = await service.getFollowRequestsForPath(mockPath.id);
@@ -523,7 +650,9 @@ describe('FollowRequestsService', () => {
         followRequests: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithRequest] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithRequest] as any);
 
       const result = await service.getFollowRequestsSentByUser(mockFollower.id);
 
@@ -536,7 +665,9 @@ describe('FollowRequestsService', () => {
         followerIds: [mockFollower.id],
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithFollower] as any);
 
       const result = await service.getFollowRequestsSentByUser(mockFollower.id);
 
@@ -552,11 +683,12 @@ describe('FollowRequestsService', () => {
     });
 
     it('should return both pending and approved requests', async () => {
-      const path2 = { ...mockPath, id: 'path-456', followerIds: [mockFollower.id] };
-      const paths = [
-        { ...mockPath, followRequests: [mockFollower.id] },
-        path2,
-      ];
+      const path2 = {
+        ...mockPath,
+        id: 'path-456',
+        followerIds: [mockFollower.id],
+      };
+      const paths = [{ ...mockPath, followRequests: [mockFollower.id] }, path2];
 
       jest.spyOn(prisma.path, 'findMany').mockResolvedValue(paths as any);
 
@@ -574,7 +706,9 @@ describe('FollowRequestsService', () => {
         followerIds: null,
       };
 
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithNulls] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithNulls] as any);
 
       const result = await service.getFollowRequestsSentByUser(mockFollower.id);
 

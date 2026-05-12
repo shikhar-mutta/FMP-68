@@ -53,6 +53,7 @@ describe('PathsController', () => {
             updatePath: jest.fn(),
             deletePath: jest.fn(),
             getFollowersWithDetails: jest.fn(),
+            assertPublisherCanManageFollowers: jest.fn(),
             removeFollower: jest.fn(),
           },
         },
@@ -76,16 +77,24 @@ describe('PathsController', () => {
 
       jest.spyOn(pathsService, 'createPath').mockResolvedValue(mockPath as any);
 
-      const result = await controller.createPath({ user: { id: mockPublisher.id } }, createPathDto);
+      const result = await controller.createPath(
+        { user: { id: mockPublisher.id } },
+        createPathDto,
+      );
 
-      expect(pathsService.createPath).toHaveBeenCalledWith(mockPublisher.id, createPathDto);
+      expect(pathsService.createPath).toHaveBeenCalledWith(
+        mockPublisher.id,
+        createPathDto,
+      );
       expect(result).toEqual(mockPath);
     });
   });
 
   describe('getAllPaths', () => {
     it('should return all paths', async () => {
-      jest.spyOn(pathsService, 'getAllPaths').mockResolvedValue([mockPath] as any);
+      jest
+        .spyOn(pathsService, 'getAllPaths')
+        .mockResolvedValue([mockPath] as any);
 
       const result = await controller.getAllPaths();
 
@@ -104,7 +113,9 @@ describe('PathsController', () => {
 
   describe('getPathById', () => {
     it('should return path by id', async () => {
-      jest.spyOn(pathsService, 'getPathById').mockResolvedValue(mockPath as any);
+      jest
+        .spyOn(pathsService, 'getPathById')
+        .mockResolvedValue(mockPath as any);
 
       const result = await controller.getPathById(mockPath.id);
 
@@ -123,20 +134,26 @@ describe('PathsController', () => {
 
   describe('getMyPublishedPaths', () => {
     it('should return paths published by user', async () => {
-      jest.spyOn(pathsService, 'getPublishedPathsByUser').mockResolvedValue([mockPath] as any);
+      jest
+        .spyOn(pathsService, 'getPublishedPathsByUser')
+        .mockResolvedValue([mockPath] as any);
 
       const result = await controller.getMyPublishedPaths({
         user: { id: mockPublisher.id },
       });
 
-      expect(pathsService.getPublishedPathsByUser).toHaveBeenCalledWith(mockPublisher.id);
+      expect(pathsService.getPublishedPathsByUser).toHaveBeenCalledWith(
+        mockPublisher.id,
+      );
       expect(result).toEqual([mockPath]);
     });
   });
 
   describe('getMyFollowedPaths', () => {
     it('should return paths followed by user', async () => {
-      jest.spyOn(pathsService, 'getFollowedPathsByUser').mockResolvedValue([mockPath] as any);
+      jest
+        .spyOn(pathsService, 'getFollowedPathsByUser')
+        .mockResolvedValue([mockPath] as any);
 
       const follower = { ...mockPublisher, id: 'follower-123' };
 
@@ -144,7 +161,9 @@ describe('PathsController', () => {
         user: { id: follower.id },
       });
 
-      expect(pathsService.getFollowedPathsByUser).toHaveBeenCalledWith(follower.id);
+      expect(pathsService.getFollowedPathsByUser).toHaveBeenCalledWith(
+        follower.id,
+      );
       expect(result).toEqual([mockPath]);
     });
   });
@@ -163,7 +182,10 @@ describe('PathsController', () => {
         mockPath.id,
       );
 
-      expect(pathsService.followPath).toHaveBeenCalledWith(follower.id, mockPath.id);
+      expect(pathsService.followPath).toHaveBeenCalledWith(
+        follower.id,
+        mockPath.id,
+      );
       expect(result.followers).toContain(follower.id);
     });
   });
@@ -182,7 +204,10 @@ describe('PathsController', () => {
         mockPath.id,
       );
 
-      expect(pathsService.unfollowPath).toHaveBeenCalledWith(follower.id, mockPath.id);
+      expect(pathsService.unfollowPath).toHaveBeenCalledWith(
+        follower.id,
+        mockPath.id,
+      );
       expect(result.followers).not.toContain(follower.id);
     });
   });
@@ -195,11 +220,16 @@ describe('PathsController', () => {
       };
 
       const updatedPath = { ...mockPath, ...updatePathDto };
-      jest.spyOn(pathsService, 'updatePath').mockResolvedValue(updatedPath as any);
+      jest
+        .spyOn(pathsService, 'updatePath')
+        .mockResolvedValue(updatedPath as any);
 
       const result = await controller.updatePath(mockPath.id, updatePathDto);
 
-      expect(pathsService.updatePath).toHaveBeenCalledWith(mockPath.id, updatePathDto);
+      expect(pathsService.updatePath).toHaveBeenCalledWith(
+        mockPath.id,
+        updatePathDto,
+      );
       expect(result.title).toBe('Updated Path Title');
     });
 
@@ -213,15 +243,17 @@ describe('PathsController', () => {
         .spyOn(pathsService, 'updatePath')
         .mockRejectedValue(new Error('Path not found'));
 
-      await expect(controller.updatePath('invalid-id', updatePathDto)).rejects.toThrow(
-        'Path not found',
-      );
+      await expect(
+        controller.updatePath('invalid-id', updatePathDto),
+      ).rejects.toThrow('Path not found');
     });
   });
 
   describe('deletePath', () => {
     it('should delete a path', async () => {
-      jest.spyOn(pathsService, 'deletePath').mockResolvedValue({ id: mockPath.id } as any);
+      jest
+        .spyOn(pathsService, 'deletePath')
+        .mockResolvedValue({ id: mockPath.id } as any);
 
       const result = await controller.deletePath(mockPath.id);
 
@@ -234,14 +266,24 @@ describe('PathsController', () => {
         .spyOn(pathsService, 'deletePath')
         .mockRejectedValue(new Error('Path not found'));
 
-      await expect(controller.deletePath('invalid-id')).rejects.toThrow('Path not found');
+      await expect(controller.deletePath('invalid-id')).rejects.toThrow(
+        'Path not found',
+      );
     });
   });
 
   describe('getFollowers', () => {
     it('should return followers of a path', async () => {
-      const follower1 = { ...mockPublisher, id: 'follower-1', name: 'Follower 1' };
-      const follower2 = { ...mockPublisher, id: 'follower-2', name: 'Follower 2' };
+      const follower1 = {
+        ...mockPublisher,
+        id: 'follower-1',
+        name: 'Follower 1',
+      };
+      const follower2 = {
+        ...mockPublisher,
+        id: 'follower-2',
+        name: 'Follower 2',
+      };
 
       jest
         .spyOn(pathsService, 'getFollowersWithDetails')
@@ -249,7 +291,9 @@ describe('PathsController', () => {
 
       const result = await controller.getFollowers(mockPath.id);
 
-      expect(pathsService.getFollowersWithDetails).toHaveBeenCalledWith(mockPath.id);
+      expect(pathsService.getFollowersWithDetails).toHaveBeenCalledWith(
+        mockPath.id,
+      );
       expect(result).toHaveLength(2);
       expect(result).toEqual([follower1, follower2]);
     });
@@ -268,8 +312,8 @@ describe('PathsController', () => {
       const follower = { ...mockPublisher, id: 'follower-123' };
 
       jest
-        .spyOn(pathsService, 'getPathById')
-        .mockResolvedValue({ ...mockPath, publisher: mockPublisher } as any);
+        .spyOn(pathsService, 'assertPublisherCanManageFollowers')
+        .mockResolvedValue(undefined as any);
 
       jest.spyOn(pathsService, 'removeFollower').mockResolvedValue({
         ...mockPath,
@@ -282,7 +326,13 @@ describe('PathsController', () => {
         follower.id,
       );
 
-      expect(pathsService.removeFollower).toHaveBeenCalledWith(mockPath.id, follower.id);
+      expect(
+        pathsService.assertPublisherCanManageFollowers,
+      ).toHaveBeenCalledWith(mockPath.id, mockPublisher.id);
+      expect(pathsService.removeFollower).toHaveBeenCalledWith(
+        mockPath.id,
+        follower.id,
+      );
       expect(result.followerIds).toEqual([]);
     });
 
@@ -290,8 +340,10 @@ describe('PathsController', () => {
       const follower = { ...mockPublisher, id: 'follower-123' };
 
       jest
-        .spyOn(pathsService, 'getPathById')
-        .mockResolvedValue({ ...mockPath, publisher: mockPublisher } as any);
+        .spyOn(pathsService, 'assertPublisherCanManageFollowers')
+        .mockRejectedValue(
+          new Error('Only the publisher can remove followers'),
+        );
 
       await expect(
         controller.removeFollower(
@@ -305,7 +357,9 @@ describe('PathsController', () => {
     it('should throw error when path not found', async () => {
       const follower = { ...mockPublisher, id: 'follower-123' };
 
-      jest.spyOn(pathsService, 'getPathById').mockResolvedValue(null);
+      jest
+        .spyOn(pathsService, 'assertPublisherCanManageFollowers')
+        .mockRejectedValue(new Error('Path not found'));
 
       await expect(
         controller.removeFollower(

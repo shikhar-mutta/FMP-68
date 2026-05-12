@@ -9,13 +9,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-
-interface Coordinate {
-  lat: number;
-  lng: number;
-  timestamp: number;
-}
+import { TrackingService } from './tracking.service';
+import { Coordinate, LocationPayload } from './tracking.types';
 
 @WebSocketGateway({
   cors: {
@@ -32,10 +27,9 @@ export class TrackingGateway
 
   private logger = new Logger('TrackingGateway');
 
-  // Track which users are in which rooms
   private userRooms = new Map<string, Set<string>>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly trackingService: TrackingService) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -43,7 +37,6 @@ export class TrackingGateway
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
-    // Clean up rooms
     const rooms = this.userRooms.get(client.id);
     if (rooms) {
       rooms.forEach((room) => client.leave(room));
@@ -61,29 +54,12 @@ export class TrackingGateway
     this.logger.log(`User ${userId} starting tracking for path ${pathId}`);
 
     try {
-      // Update path status
-      await this.prisma.path.update({
-        where: { id: pathId },
-        data: { status: 'recording', isLive: true, coordinates: [] },
-      });
+      await this.trackingService.startTracking(pathId, userId);
 
-      // Create tracking session
-      await this.prisma.trackingSession.create({
-        data: {
-          pathId,
-          userId,
-          role: 'publisher',
-          coordinates: [],
-          isActive: true,
-        },
-      });
-
-      // Join the path's room
       const room = `path-${pathId}`;
       client.join(room);
       this.addRoom(client.id, room);
 
-      // Notify all followers in this room
       this.server.to(room).emit('tracking-started', { pathId, userId });
 
       return { success: true, message: 'Tracking started' };
@@ -97,45 +73,14 @@ export class TrackingGateway
   @SubscribeMessage('send-location')
   async handleSendLocation(
     @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      pathId: string;
-      userId: string;
-      coordinate: Coordinate;
-      role: string;
-    },
+    @MessageBody() data: LocationPayload,
   ) {
     const { pathId, userId, coordinate, role } = data;
     const room = `path-${pathId}`;
 
     try {
-      if (role === 'publisher') {
-        // Save coordinate to path
-        await this.prisma.path.update({
-          where: { id: pathId },
-          data: {
-            coordinates: { push: coordinate as any },
-          },
-        });
+      await this.trackingService.recordLocation(data);
 
-        // Also save to tracking session
-        await this.prisma.trackingSession.updateMany({
-          where: { pathId, userId, role: 'publisher', isActive: true },
-          data: {
-            coordinates: { push: coordinate as any },
-          },
-        });
-      } else {
-        // Save follower's coordinate to their tracking session
-        await this.prisma.trackingSession.updateMany({
-          where: { pathId, userId, role: 'follower', isActive: true },
-          data: {
-            coordinates: { push: coordinate as any },
-          },
-        });
-      }
-
-      // Broadcast to entire room (other users see this)
       client.to(room).emit('location-update', {
         pathId,
         userId,
@@ -160,10 +105,7 @@ export class TrackingGateway
     this.logger.log(`User ${userId} pausing tracking for path ${pathId}`);
 
     try {
-      await this.prisma.path.update({
-        where: { id: pathId },
-        data: { status: 'paused' },
-      });
+      await this.trackingService.pauseTracking(pathId);
 
       const room = `path-${pathId}`;
       this.server.to(room).emit('tracking-paused', { pathId, userId });
@@ -185,10 +127,7 @@ export class TrackingGateway
     this.logger.log(`User ${userId} resuming tracking for path ${pathId}`);
 
     try {
-      await this.prisma.path.update({
-        where: { id: pathId },
-        data: { status: 'recording', isLive: true },
-      });
+      await this.trackingService.resumeTracking(pathId);
 
       const room = `path-${pathId}`;
       this.server.to(room).emit('tracking-resumed', { pathId, userId });
@@ -210,16 +149,7 @@ export class TrackingGateway
     this.logger.log(`User ${userId} ending tracking for path ${pathId}`);
 
     try {
-      await this.prisma.path.update({
-        where: { id: pathId },
-        data: { status: 'ended', isLive: false },
-      });
-
-      // End all active tracking sessions for this path
-      await this.prisma.trackingSession.updateMany({
-        where: { pathId, isActive: true },
-        data: { isActive: false, endedAt: new Date() },
-      });
+      await this.trackingService.endTracking(pathId);
 
       const room = `path-${pathId}`;
       this.server.to(room).emit('tracking-ended', { pathId, userId });
@@ -245,29 +175,8 @@ export class TrackingGateway
       client.join(room);
       this.addRoom(client.id, room);
 
-      // Create follower tracking session
-      const existingSession = await this.prisma.trackingSession.findFirst({
-        where: { pathId, userId, role: 'follower', isActive: true },
-      });
+      const path = await this.trackingService.joinTracking(pathId, userId);
 
-      if (!existingSession) {
-        await this.prisma.trackingSession.create({
-          data: {
-            pathId,
-            userId,
-            role: 'follower',
-            coordinates: [],
-            isActive: true,
-          },
-        });
-      }
-
-      // Get the publisher's current coordinates
-      const path = await this.prisma.path.findUnique({
-        where: { id: pathId },
-      });
-
-      // Notify the room that a follower joined
       client.to(room).emit('follower-joined', { pathId, userId });
 
       return {
@@ -291,18 +200,19 @@ export class TrackingGateway
     const { pathId, userId } = data;
     const room = `path-${pathId}`;
 
-    client.leave(room);
-    this.removeRoom(client.id, room);
+    try {
+      client.leave(room);
+      this.removeRoom(client.id, room);
 
-    // End follower's tracking session
-    await this.prisma.trackingSession.updateMany({
-      where: { pathId, userId, role: 'follower', isActive: true },
-      data: { isActive: false, endedAt: new Date() },
-    });
+      await this.trackingService.leaveTracking(pathId, userId);
 
-    client.to(room).emit('follower-left', { pathId, userId });
+      client.to(room).emit('follower-left', { pathId, userId });
 
-    return { success: true, message: 'Left tracking' };
+      return { success: true, message: 'Left tracking' };
+    } catch (error) {
+      this.logger.error('Error leaving tracking:', error);
+      return { success: false, message: 'Failed to leave tracking' };
+    }
   }
 
   // ─── Get path tracking data ─────────────────────────────────────────
@@ -314,14 +224,8 @@ export class TrackingGateway
     const { pathId } = data;
 
     try {
-      const path = await this.prisma.path.findUnique({
-        where: { id: pathId },
-        include: { publisher: true },
-      });
-
-      const sessions = await this.prisma.trackingSession.findMany({
-        where: { pathId, isActive: true },
-      });
+      const { path, sessions } =
+        await this.trackingService.getTrackingData(pathId);
 
       return {
         success: true,
@@ -334,7 +238,6 @@ export class TrackingGateway
     }
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────────
   private addRoom(clientId: string, room: string) {
     if (!this.userRooms.has(clientId)) {
       this.userRooms.set(clientId, new Set());

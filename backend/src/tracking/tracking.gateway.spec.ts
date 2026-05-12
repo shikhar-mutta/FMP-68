@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TrackingGateway } from './tracking.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { Socket, Server } from 'socket.io';
+import { TrackingService } from './tracking.service';
 
 describe('TrackingGateway', () => {
   let gateway: TrackingGateway;
@@ -25,6 +26,7 @@ describe('TrackingGateway', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        TrackingService,
         TrackingGateway,
         {
           provide: PrismaService,
@@ -100,7 +102,9 @@ describe('TrackingGateway', () => {
     it('should handle tracking start error', async () => {
       const data = { pathId: 'path-123', userId: 'user-123' };
 
-      jest.spyOn(prisma.path, 'update').mockRejectedValue(new Error('DB error'));
+      jest
+        .spyOn(prisma.path, 'update')
+        .mockRejectedValue(new Error('DB error'));
 
       const result = await gateway.handleStartTracking(mockSocket as any, data);
 
@@ -119,7 +123,9 @@ describe('TrackingGateway', () => {
       };
 
       jest.spyOn(prisma.path, 'update').mockResolvedValue({} as any);
-      jest.spyOn(prisma.trackingSession, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.trackingSession, 'updateMany')
+        .mockResolvedValue({ count: 1 } as any);
 
       const result = await gateway.handleSendLocation(mockSocket as any, data);
 
@@ -134,7 +140,9 @@ describe('TrackingGateway', () => {
         role: 'follower',
       };
 
-      jest.spyOn(prisma.trackingSession, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.trackingSession, 'updateMany')
+        .mockResolvedValue({ count: 1 } as any);
 
       const result = await gateway.handleSendLocation(mockSocket as any, data);
 
@@ -189,7 +197,10 @@ describe('TrackingGateway', () => {
 
       jest.spyOn(prisma.path, 'update').mockResolvedValue({} as any);
 
-      const result = await gateway.handleResumeTracking(mockSocket as any, data);
+      const result = await gateway.handleResumeTracking(
+        mockSocket as any,
+        data,
+      );
 
       expect(prisma.path.update).toHaveBeenCalledWith({
         where: { id: 'path-123' },
@@ -203,7 +214,10 @@ describe('TrackingGateway', () => {
 
       jest.spyOn(prisma.path, 'update').mockRejectedValue(new Error('Error'));
 
-      const result = await gateway.handleResumeTracking(mockSocket as any, data);
+      const result = await gateway.handleResumeTracking(
+        mockSocket as any,
+        data,
+      );
 
       expect(result.success).toBe(false);
     });
@@ -214,7 +228,9 @@ describe('TrackingGateway', () => {
       const data = { pathId: 'path-123', userId: 'user-123' };
 
       jest.spyOn(prisma.path, 'update').mockResolvedValue({} as any);
-      jest.spyOn(prisma.trackingSession, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.trackingSession, 'updateMany')
+        .mockResolvedValue({ count: 1 } as any);
 
       const result = await gateway.handleEndTracking(mockSocket as any, data);
 
@@ -244,7 +260,10 @@ describe('TrackingGateway', () => {
       jest.spyOn(prisma.trackingSession, 'create').mockResolvedValue({} as any);
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue({
         id: 'path-123',
-        coordinates: [[1, 2], [3, 4]],
+        coordinates: [
+          [1, 2],
+          [3, 4],
+        ],
         status: 'recording',
       } as any);
 
@@ -257,7 +276,9 @@ describe('TrackingGateway', () => {
     it('should not create duplicate tracking session', async () => {
       const data = { pathId: 'path-123', userId: 'follower-456' };
 
-      jest.spyOn(prisma.trackingSession, 'findFirst').mockResolvedValue({} as any);
+      jest
+        .spyOn(prisma.trackingSession, 'findFirst')
+        .mockResolvedValue({} as any);
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue({
         id: 'path-123',
         coordinates: [],
@@ -273,7 +294,9 @@ describe('TrackingGateway', () => {
     it('should handle join error', async () => {
       const data = { pathId: 'path-123', userId: 'follower-456' };
 
-      jest.spyOn(prisma.trackingSession, 'findFirst').mockRejectedValue(new Error('Error'));
+      jest
+        .spyOn(prisma.trackingSession, 'findFirst')
+        .mockRejectedValue(new Error('Error'));
 
       const result = await gateway.handleJoinTracking(mockSocket as any, data);
 
@@ -286,7 +309,9 @@ describe('TrackingGateway', () => {
       const data = { pathId: 'path-123', userId: 'follower-456' };
       gateway['addRoom']('socket-123', 'path-path-123');
 
-      jest.spyOn(prisma.trackingSession, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.trackingSession, 'updateMany')
+        .mockResolvedValue({ count: 1 } as any);
 
       const result = await gateway.handleLeaveTracking(mockSocket as any, data);
 
@@ -297,7 +322,9 @@ describe('TrackingGateway', () => {
     it('should handle leave error', async () => {
       const data = { pathId: 'path-123', userId: 'follower-456' };
 
-      jest.spyOn(prisma.trackingSession, 'updateMany').mockResolvedValue({ count: 0 } as any);
+      jest
+        .spyOn(prisma.trackingSession, 'updateMany')
+        .mockResolvedValue({ count: 0 } as any);
 
       const result = await gateway.handleLeaveTracking(mockSocket as any, data);
 
@@ -317,7 +344,10 @@ describe('TrackingGateway', () => {
       } as any);
       jest.spyOn(prisma.trackingSession, 'findMany').mockResolvedValue([]);
 
-      const result = await gateway.handleGetTrackingData(mockSocket as any, data);
+      const result = await gateway.handleGetTrackingData(
+        mockSocket as any,
+        data,
+      );
 
       expect(result.success).toBe(true);
       expect(result.path).toBeDefined();
@@ -326,9 +356,14 @@ describe('TrackingGateway', () => {
     it('should handle get tracking data error', async () => {
       const data = { pathId: 'path-123' };
 
-      jest.spyOn(prisma.path, 'findUnique').mockRejectedValue(new Error('Error'));
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockRejectedValue(new Error('Error'));
 
-      const result = await gateway.handleGetTrackingData(mockSocket as any, data);
+      const result = await gateway.handleGetTrackingData(
+        mockSocket as any,
+        data,
+      );
 
       expect(result.success).toBe(false);
     });

@@ -36,7 +36,7 @@ describe('FollowRequestsController', () => {
   };
 
   const mockPath = {
-    id: 'path-123', 
+    id: 'path-123',
     title: 'Morning Run',
     description: 'A 5km run',
     publisherId: mockPublisher.id,
@@ -70,7 +70,9 @@ describe('FollowRequestsController', () => {
     }).compile();
 
     controller = module.get<FollowRequestsController>(FollowRequestsController);
-    followRequestsService = module.get<FollowRequestsService>(FollowRequestsService);
+    followRequestsService = module.get<FollowRequestsService>(
+      FollowRequestsService,
+    );
   });
 
   it('should be defined', () => {
@@ -84,14 +86,16 @@ describe('FollowRequestsController', () => {
         publisherId: mockPublisher.id,
       };
 
-      jest.spyOn(followRequestsService, 'createFollowRequest').mockResolvedValue({
-        pathId: 'path-123',
-        publisherId: mockPublisher.id,
-        followerId: mockFollower.id,
-        follower: mockFollower,
-        message: 'Follow request created',
-        path: mockPath,
-      } as any);
+      jest
+        .spyOn(followRequestsService, 'createFollowRequest')
+        .mockResolvedValue({
+          pathId: 'path-123',
+          publisherId: mockPublisher.id,
+          followerId: mockFollower.id,
+          follower: mockFollower,
+          message: 'Follow request created',
+          path: mockPath,
+        } as any);
 
       const result = await controller.createFollowRequest(
         { user: { id: mockFollower.id } },
@@ -116,7 +120,10 @@ describe('FollowRequestsController', () => {
         .mockRejectedValue(new Error('Path not found'));
 
       await expect(
-        controller.createFollowRequest({ user: { id: mockFollower.id } }, createFollowRequestDto),
+        controller.createFollowRequest(
+          { user: { id: mockFollower.id } },
+          createFollowRequestDto,
+        ),
       ).rejects.toThrow();
     });
   });
@@ -181,7 +188,9 @@ describe('FollowRequestsController', () => {
     });
 
     it('should handle empty array', async () => {
-      jest.spyOn(followRequestsService, 'getFollowRequestsSentByUser').mockResolvedValue([]);
+      jest
+        .spyOn(followRequestsService, 'getFollowRequestsSentByUser')
+        .mockResolvedValue([]);
 
       const result = await controller.getSentFollowRequests({
         user: { id: mockFollower.id },
@@ -223,7 +232,9 @@ describe('FollowRequestsController', () => {
     });
 
     it('should handle empty array', async () => {
-      jest.spyOn(followRequestsService, 'getFollowRequestsForPath').mockResolvedValue([]);
+      jest
+        .spyOn(followRequestsService, 'getFollowRequestsForPath')
+        .mockResolvedValue([]);
 
       const result = await controller.getFollowRequestsForPath('path-123');
 
@@ -235,17 +246,19 @@ describe('FollowRequestsController', () => {
         .spyOn(followRequestsService, 'getFollowRequestsForPath')
         .mockRejectedValue(new Error('Error'));
 
-      await expect(controller.getFollowRequestsForPath('path-123')).rejects.toThrow(
-        HttpException,
-      );
+      await expect(
+        controller.getFollowRequestsForPath('path-123'),
+      ).rejects.toThrow(HttpException);
     });
 
     it('should throw error when non-Error is rejected', async () => {
-      jest.spyOn(followRequestsService, 'getFollowRequestsForPath').mockRejectedValue(null);
+      jest
+        .spyOn(followRequestsService, 'getFollowRequestsForPath')
+        .mockRejectedValue(null);
 
-      await expect(controller.getFollowRequestsForPath('path-123')).rejects.toThrow(
-        HttpException,
-      );
+      await expect(
+        controller.getFollowRequestsForPath('path-123'),
+      ).rejects.toThrow(HttpException);
     });
   });
 
@@ -256,9 +269,11 @@ describe('FollowRequestsController', () => {
         pathId: 'path-123',
       };
 
-      jest.spyOn(followRequestsService, 'approveFollowRequest').mockResolvedValue({
-        message: 'Approved',
-      } as any);
+      jest
+        .spyOn(followRequestsService, 'approveFollowRequest')
+        .mockResolvedValue({
+          message: 'Approved',
+        } as any);
 
       const result = await controller.approveFollowRequest(
         { user: { id: mockPublisher.id } },
@@ -279,7 +294,10 @@ describe('FollowRequestsController', () => {
         .mockRejectedValue(new Error('Unauthorized'));
 
       await expect(
-        controller.approveFollowRequest({ user: { id: 'different-user' } }, approveDto),
+        controller.approveFollowRequest(
+          { user: { id: 'different-user' } },
+          approveDto,
+        ),
       ).rejects.toThrow();
     });
 
@@ -294,7 +312,10 @@ describe('FollowRequestsController', () => {
         .mockRejectedValue(new Error('Error'));
 
       await expect(
-        controller.approveFollowRequest({ user: { id: mockPublisher.id } }, approveDto),
+        controller.approveFollowRequest(
+          { user: { id: mockPublisher.id } },
+          approveDto,
+        ),
       ).rejects.toThrow(HttpException);
     });
   });
@@ -306,9 +327,11 @@ describe('FollowRequestsController', () => {
         pathId: 'path-123',
       };
 
-      jest.spyOn(followRequestsService, 'rejectFollowRequest').mockResolvedValue({
-        message: 'Rejected',
-      } as any);
+      jest
+        .spyOn(followRequestsService, 'rejectFollowRequest')
+        .mockResolvedValue({
+          message: 'Rejected',
+        } as any);
 
       const result = await controller.rejectFollowRequest(
         { user: { id: mockPublisher.id } },
@@ -329,7 +352,10 @@ describe('FollowRequestsController', () => {
         .mockRejectedValue(new Error('Error'));
 
       await expect(
-        controller.rejectFollowRequest({ user: { id: mockPublisher.id } }, rejectDto),
+        controller.rejectFollowRequest(
+          { user: { id: mockPublisher.id } },
+          rejectDto,
+        ),
       ).rejects.toThrow(HttpException);
     });
   });
@@ -341,9 +367,11 @@ describe('FollowRequestsController', () => {
         pathId: 'path-123',
       };
 
-      jest.spyOn(followRequestsService, 'cancelFollowRequest').mockResolvedValue({
-        message: 'Cancelled',
-      } as any);
+      jest
+        .spyOn(followRequestsService, 'cancelFollowRequest')
+        .mockResolvedValue({
+          message: 'Cancelled',
+        } as any);
 
       const result = await controller.cancelFollowRequest(
         { user: { id: mockFollower.id } },
@@ -364,7 +392,10 @@ describe('FollowRequestsController', () => {
         .mockRejectedValue(new Error('Error'));
 
       await expect(
-        controller.cancelFollowRequest({ user: { id: mockFollower.id } }, cancelDto),
+        controller.cancelFollowRequest(
+          { user: { id: mockFollower.id } },
+          cancelDto,
+        ),
       ).rejects.toThrow(HttpException);
     });
   });

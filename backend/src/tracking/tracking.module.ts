@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TrackingGateway } from './tracking.gateway';
-import { PrismaModule } from '../prisma/prisma.module';
+import { TrackingService } from './tracking.service';
 
 @Module({
-  imports: [PrismaModule],
-  providers: [TrackingGateway],
+  providers: [TrackingService, TrackingGateway],
 })
 export class TrackingModule {}

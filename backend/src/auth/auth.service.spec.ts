@@ -62,7 +62,9 @@ describe('AuthService', () => {
         picture: 'https://example.com/pic.jpg',
       };
 
-      jest.spyOn(usersService, 'findOrCreate').mockResolvedValue(mockUser as any);
+      jest
+        .spyOn(usersService, 'findOrCreate')
+        .mockResolvedValue(mockUser as any);
       jest.spyOn(jwtService, 'sign').mockReturnValue(mockJwtToken);
 
       const result = await service.loginWithGoogle(googleProfile);
@@ -92,7 +94,9 @@ describe('AuthService', () => {
         isOnline: true,
       };
 
-      jest.spyOn(usersService, 'findOrCreate').mockResolvedValue(updatedUser as any);
+      jest
+        .spyOn(usersService, 'findOrCreate')
+        .mockResolvedValue(updatedUser as any);
       jest.spyOn(jwtService, 'sign').mockReturnValue(mockJwtToken);
 
       const result = await service.loginWithGoogle(googleProfile);
@@ -111,7 +115,10 @@ describe('AuthService', () => {
 
       const result = await service.signOut(mockUser.id);
 
-      expect(usersService.setOnlineStatus).toHaveBeenCalledWith(mockUser.id, false);
+      expect(usersService.setOnlineStatus).toHaveBeenCalledWith(
+        mockUser.id,
+        false,
+      );
       expect(result).toEqual({ message: 'Signed out successfully' });
     });
 
@@ -119,7 +126,9 @@ describe('AuthService', () => {
       const error = new Error('Database error');
       jest.spyOn(usersService, 'setOnlineStatus').mockRejectedValue(error);
 
-      await expect(service.signOut(mockUser.id)).rejects.toThrow('Database error');
+      await expect(service.signOut(mockUser.id)).rejects.toThrow(
+        'Database error',
+      );
     });
   });
 

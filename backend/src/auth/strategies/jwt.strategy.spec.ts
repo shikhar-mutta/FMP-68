@@ -104,7 +104,9 @@ describe('JwtStrategy', () => {
 
       jest.spyOn(usersService, 'findById').mockResolvedValue(null);
 
-      await expect(strategy.validate(payload)).rejects.toThrow('User not found');
+      await expect(strategy.validate(payload)).rejects.toThrow(
+        'User not found',
+      );
       expect(usersService.findById).toHaveBeenCalledWith('nonexistent');
     });
   });

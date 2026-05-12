@@ -13,9 +13,12 @@ FMP-68/
 │   ├── prisma/
 │   │   └── schema.prisma     ← Prisma schema (users collection)
 │   ├── src/
-│   │   ├── auth/             ← Google OAuth + JWT
-│   │   ├── users/            ← Users CRUD + online/offline
-│   │   └── prisma/           ← PrismaService
+│   │   ├── auth/             ← Google OAuth + JWT service
+│   │   ├── users/            ← User service + repository
+│   │   ├── paths/            ← Path service, follower service, repository
+│   │   ├── follow-requests/  ← Follow request service
+│   │   ├── tracking/         ← WebSocket gateway + tracking service
+│   │   └── prisma/           ← Shared Prisma infrastructure
 │   ├── .env                  ← Your environment variables
 │   └── package.json
 │

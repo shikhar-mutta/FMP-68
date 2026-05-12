@@ -11,7 +11,9 @@ export class AuthService {
   ) {}
 
   /** Called after Google OAuth callback — create/update user, issue JWT */
-  async loginWithGoogle(googleUser: any): Promise<{ accessToken: string; user: User }> {
+  async loginWithGoogle(
+    googleUser: any,
+  ): Promise<{ accessToken: string; user: User }> {
     const user = await this.usersService.findOrCreate({
       googleId: googleUser.googleId,
       email: googleUser.email,

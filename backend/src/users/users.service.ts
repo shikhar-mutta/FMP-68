@@ -1,63 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
-
-export interface GoogleProfile {
-  googleId: string;
-  email: string;
-  name: string;
-  picture: string;
-}
+import { UsersRepository } from './users.repository';
+import { GoogleProfile } from './users.types';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly usersRepository: UsersRepository) {}
 
-  /** Create user on first login, or update lastSeen on subsequent logins */
   async findOrCreate(profile: GoogleProfile): Promise<User> {
-    const existing = await this.prisma.user.findUnique({
-      where: { googleId: profile.googleId },
-    });
+    const existing = await this.usersRepository.findByGoogleId(
+      profile.googleId,
+    );
 
     if (!existing) {
-      return this.prisma.user.create({
-        data: {
-          googleId: profile.googleId,
-          email: profile.email,
-          name: profile.name,
-          picture: profile.picture || '',
-          isOnline: true,
-          lastSeen: new Date(),
-        },
-      });
+      return this.usersRepository.createFromGoogleProfile(profile);
     }
 
-    return this.prisma.user.update({
-      where: { googleId: profile.googleId },
-      data: {
-        isOnline: true,
-        lastSeen: new Date(),
-        picture: profile.picture || existing.picture,
-      },
-    });
+    return this.usersRepository.markSeenOnline(
+      profile.googleId,
+      profile.picture || existing.picture,
+    );
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.usersRepository.findById(id);
   }
 
-  /** Set isOnline to true or false, update lastSeen */
   async setOnlineStatus(userId: string, isOnline: boolean): Promise<User> {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { isOnline, lastSeen: new Date() },
-    });
+    return this.usersRepository.updateOnlineStatus(userId, isOnline);
   }
 
-  /** Return all users sorted: online first, then alphabetically */
   async findAll(): Promise<User[]> {
-    return this.prisma.user.findMany({
-      orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
-    });
+    return this.usersRepository.findAll();
   }
 }

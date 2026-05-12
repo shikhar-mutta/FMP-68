@@ -1,46 +1,53 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { UsersRepository } from '../users/users.repository';
 import { CreateFollowRequestDto } from './dto/create-follow-request.dto';
+import {
+  asStringList,
+  withValueOnce,
+  withoutValue,
+} from '../paths/path.mapper';
+import { PathsRepository } from '../paths/paths.repository';
 
 @Injectable()
 export class FollowRequestsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly pathsRepository: PathsRepository,
+    private readonly usersRepository: UsersRepository,
+  ) {}
 
-  // ─── Send a follow request ───────────────────────────────────────────────────
-  // Adds followerId to Path.followRequests
   async createFollowRequest(
     followerId: string,
     createFollowRequestDto: CreateFollowRequestDto,
   ) {
     const { pathId, publisherId } = createFollowRequestDto;
 
-    const follower = await this.prisma.user.findUnique({
-      where: { id: followerId },
-    });
-    if (!follower) throw new Error('User not found');
+    const follower = await this.usersRepository.findById(followerId);
+    if (!follower) throw new NotFoundException('User not found');
 
-    const path = await this.prisma.path.findUnique({
-      where: { id: pathId },
-      include: { publisher: true },
-    });
-    if (!path) throw new Error('Path not found');
-    if (path.publisherId !== publisherId)
+    const path = await this.pathsRepository.findByIdWithPublisher(pathId);
+    if (!path) throw new NotFoundException('Path not found');
+    if (path.publisherId !== publisherId) {
       throw new Error('Publisher does not own this path');
+    }
 
-    const followRequests = (path.followRequests as string[]) ?? [];
-    const followerIds = (path.followerIds as string[]) ?? [];
+    const followRequests = asStringList(path.followRequests);
+    const followerIds = asStringList(path.followerIds);
 
-    if (followRequests.includes(followerId))
+    if (followRequests.includes(followerId)) {
       throw new Error('Follow request already pending for this user');
-    if (followerIds.includes(followerId))
+    }
+    if (followerIds.includes(followerId)) {
       throw new Error('User is already following this path');
+    }
 
-    // Single atomic write — only Path side changes at this step
-    const updatedPath = await this.prisma.path.update({
-      where: { id: pathId },
-      data: { followRequests: [...followRequests, followerId] },
-      include: { publisher: true },
-    });
+    const updatedPath = await this.pathsRepository.setFollowRequests(pathId, [
+      ...followRequests,
+      followerId,
+    ]);
 
     return {
       pathId,
@@ -52,45 +59,33 @@ export class FollowRequestsService {
     };
   }
 
-  // ─── Approve a follow request ────────────────────────────────────────────────
-  // Removes followerId from Path.followRequests
-  // Adds followerId to Path.followerIds
-  // Adds pathId to User.followedPathIds
-  async approveFollowRequest(pathId: string, userId: string, publisherId: string) {
-    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
-    if (!path) throw new Error('Path not found');
+  async approveFollowRequest(
+    pathId: string,
+    userId: string,
+    publisherId: string,
+  ) {
+    const path = await this.pathsRepository.findById(pathId);
+    if (!path) throw new NotFoundException('Path not found');
 
-    // SECURITY FIX: Verify that the requester is the path publisher
     if (path.publisherId !== publisherId) {
-      throw new Error('Unauthorized: Only the path publisher can approve follow requests');
+      throw new ForbiddenException(
+        'Unauthorized: Only the path publisher can approve follow requests',
+      );
     }
 
-    const followRequests = (path.followRequests as string[]) ?? [];
-    const followerIds = (path.followerIds as string[]) ?? [];
+    const followRequests = asStringList(path.followRequests);
+    const followerIds = asStringList(path.followerIds);
 
-    if (!followRequests.includes(userId))
+    if (!followRequests.includes(userId)) {
       throw new Error('Follow request not found');
+    }
 
-    const [updatedPath] = await this.prisma.$transaction([
-      // 1. Update Path: move userId out of followRequests, into followerIds
-      this.prisma.path.update({
-        where: { id: pathId },
-        data: {
-          followRequests: followRequests.filter((id) => id !== userId),
-          followerIds: followerIds.includes(userId)
-            ? followerIds
-            : [...followerIds, userId],
-        },
-        include: { publisher: true },
-      }),
-      // 2. Update User: add pathId to followedPathIds
-      this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          followedPathIds: { push: pathId },
-        },
-      }),
-    ]);
+    const [updatedPath] = await this.pathsRepository.approveFollowRequest(
+      pathId,
+      userId,
+      withoutValue(followRequests, userId),
+      withValueOnce(followerIds, userId),
+    );
 
     return {
       message: 'Follow request approved',
@@ -100,28 +95,29 @@ export class FollowRequestsService {
     };
   }
 
-  // ─── Reject a follow request (publisher action) ───────────────────────────
-  // Removes followerId from Path.followRequests only
-  async rejectFollowRequest(pathId: string, userId: string, publisherId: string) {
-    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
-    if (!path) throw new Error('Path not found');
+  async rejectFollowRequest(
+    pathId: string,
+    userId: string,
+    publisherId: string,
+  ) {
+    const path = await this.pathsRepository.findById(pathId);
+    if (!path) throw new NotFoundException('Path not found');
 
-    // SECURITY FIX: Verify that the requester is the path publisher
     if (path.publisherId !== publisherId) {
-      throw new Error('Unauthorized: Only the path publisher can reject follow requests');
+      throw new ForbiddenException(
+        'Unauthorized: Only the path publisher can reject follow requests',
+      );
     }
 
-    const followRequests = (path.followRequests as string[]) ?? [];
-    if (!followRequests.includes(userId))
+    const followRequests = asStringList(path.followRequests);
+    if (!followRequests.includes(userId)) {
       throw new Error('Follow request not found');
+    }
 
-    const updatedPath = await this.prisma.path.update({
-      where: { id: pathId },
-      data: {
-        followRequests: followRequests.filter((id) => id !== userId),
-      },
-      include: { publisher: true },
-    });
+    const updatedPath = await this.pathsRepository.setFollowRequests(
+      pathId,
+      withoutValue(followRequests, userId),
+    );
 
     return {
       message: 'Follow request rejected',
@@ -131,23 +127,19 @@ export class FollowRequestsService {
     };
   }
 
-  // ─── Cancel a follow request (requester action) ───────────────────────────
-  // Removes followerId from Path.followRequests only
   async cancelFollowRequest(pathId: string, userId: string) {
-    const path = await this.prisma.path.findUnique({ where: { id: pathId } });
-    if (!path) throw new Error('Path not found');
+    const path = await this.pathsRepository.findById(pathId);
+    if (!path) throw new NotFoundException('Path not found');
 
-    const followRequests = (path.followRequests as string[]) ?? [];
-    if (!followRequests.includes(userId))
+    const followRequests = asStringList(path.followRequests);
+    if (!followRequests.includes(userId)) {
       throw new Error('Follow request not found');
+    }
 
-    const updatedPath = await this.prisma.path.update({
-      where: { id: pathId },
-      data: {
-        followRequests: followRequests.filter((id) => id !== userId),
-      },
-      include: { publisher: true },
-    });
+    const updatedPath = await this.pathsRepository.setFollowRequests(
+      pathId,
+      withoutValue(followRequests, userId),
+    );
 
     return {
       message: 'Follow request cancelled',
@@ -157,36 +149,27 @@ export class FollowRequestsService {
     };
   }
 
-  // ─── Get pending requests for a publisher's paths ─────────────────────────
   async getPendingFollowRequestsForPublisher(publisherId: string) {
-    const paths = await this.prisma.path.findMany({
-      where: { publisherId },
-      include: { publisher: true },
-    });
+    const paths = await this.pathsRepository.findByPublisher(publisherId);
 
-    // PERFORMANCE FIX: Collect all follow requester IDs
     const allFollowerIds = new Set<string>();
     for (const path of paths) {
-      const followRequests = (path.followRequests as string[]) ?? [];
-      followRequests.forEach(id => allFollowerIds.add(id));
+      for (const id of asStringList(path.followRequests)) {
+        allFollowerIds.add(id);
+      }
     }
 
-    // Batch fetch all users in one query instead of N queries
-    const followers = await this.prisma.user.findMany({
-      where: {
-        id: { in: Array.from(allFollowerIds) }
-      }
-    });
-
-    // Create map for O(1) lookups
-    const followerMap = new Map(followers.map(f => [f.id, f]));
+    const followers = await this.usersRepository.findManyByIds(
+      Array.from(allFollowerIds),
+    );
+    const followerMap = new Map(
+      followers.map((follower) => [follower.id, follower]),
+    );
 
     const allPendingRequests = [];
 
     for (const path of paths) {
-      const followRequests = (path.followRequests as string[]) ?? [];
-
-      for (const userId of followRequests) {
+      for (const userId of asStringList(path.followRequests)) {
         const follower = followerMap.get(userId);
         if (follower) {
           allPendingRequests.push({
@@ -204,43 +187,33 @@ export class FollowRequestsService {
     return allPendingRequests;
   }
 
-  // ─── Get pending requests for a specific path ─────────────────────────────
   async getFollowRequestsForPath(pathId: string) {
-    const path = await this.prisma.path.findUnique({
-      where: { id: pathId },
-      include: { publisher: true },
-    });
-    if (!path) throw new Error('Path not found');
+    const path = await this.pathsRepository.findByIdWithPublisher(pathId);
+    if (!path) throw new NotFoundException('Path not found');
 
-    const followRequests = (path.followRequests as string[]) ?? [];
-    
-    // PERFORMANCE FIX: Batch fetch users instead of individual queries
-    const followers = await this.prisma.user.findMany({
-      where: {
-        id: { in: followRequests.length > 0 ? followRequests : undefined }
-      }
-    });
+    const followRequests = asStringList(path.followRequests);
+    const followers =
+      followRequests.length > 0
+        ? await this.usersRepository.findManyByIds(followRequests)
+        : [];
 
-    const followerMap = new Map(followers.map(f => [f.id, f]));
-    const requestsWithDetails = followRequests.map(userId => ({
+    const followerMap = new Map(
+      followers.map((follower) => [follower.id, follower]),
+    );
+    return followRequests.map((userId) => ({
       pathId,
       followerId: userId,
-      follower: followerMap.get(userId)
+      follower: followerMap.get(userId),
     }));
-
-    return requestsWithDetails;
   }
 
-  // ─── Get requests sent by a user ─────────────────────────────────────────
   async getFollowRequestsSentByUser(userId: string) {
-    const paths = await this.prisma.path.findMany({
-      include: { publisher: true },
-    });
+    const paths = await this.pathsRepository.findAllWithPublisher();
 
     const sentRequests = [];
     for (const path of paths) {
-      const followRequests = (path.followRequests as string[]) ?? [];
-      const followerIds = (path.followerIds as string[]) ?? [];
+      const followRequests = asStringList(path.followRequests);
+      const followerIds = asStringList(path.followerIds);
 
       if (followRequests.includes(userId)) {
         sentRequests.push({

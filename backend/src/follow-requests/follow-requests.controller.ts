@@ -42,7 +42,10 @@ export class FollowRequestsController {
       return result;
     } catch (error: unknown) {
       this.logger.error('Error creating follow request:', error);
-      const message = error instanceof Error ? error.message : 'Failed to create follow request';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to create follow request';
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -64,7 +67,10 @@ export class FollowRequestsController {
       );
     } catch (error: unknown) {
       this.logger.error('Error getting pending requests:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get pending requests';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to get pending requests';
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -81,10 +87,13 @@ export class FollowRequestsController {
   @UseGuards(JwtAuthGuard)
   async getSentFollowRequests(@Request() req: any) {
     try {
-      return await this.followRequestsService.getFollowRequestsSentByUser(req.user.id);
+      return await this.followRequestsService.getFollowRequestsSentByUser(
+        req.user.id,
+      );
     } catch (error: unknown) {
       this.logger.error('Error getting sent requests:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get sent requests';
+      const message =
+        error instanceof Error ? error.message : 'Failed to get sent requests';
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -103,7 +112,10 @@ export class FollowRequestsController {
       return await this.followRequestsService.getFollowRequestsForPath(pathId);
     } catch (error: unknown) {
       this.logger.error('Error getting requests for path:', error);
-      const message = error instanceof Error ? error.message : 'Failed to get requests for path';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to get requests for path';
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -123,7 +135,9 @@ export class FollowRequestsController {
     @Body() dto: ApproveFollowRequestDto,
   ) {
     try {
-      this.logger.log(`Approving follow request for user ${dto.userId} to path ${dto.pathId}`);
+      this.logger.log(
+        `Approving follow request for user ${dto.userId} to path ${dto.pathId}`,
+      );
       // Security: Verify that req.user is the path publisher
       const result = await this.followRequestsService.approveFollowRequest(
         dto.pathId,
@@ -133,7 +147,10 @@ export class FollowRequestsController {
       this.logger.log('Follow request approved successfully');
       return result;
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to approve follow request';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to approve follow request';
       this.logger.error(`Error approving follow request: ${message}`);
       throw new HttpException(
         {
@@ -154,7 +171,9 @@ export class FollowRequestsController {
     @Body() dto: ApproveFollowRequestDto,
   ) {
     try {
-      this.logger.log(`Rejecting follow request for user ${dto.userId} to path ${dto.pathId}`);
+      this.logger.log(
+        `Rejecting follow request for user ${dto.userId} to path ${dto.pathId}`,
+      );
       // Security: Verify that req.user is the path publisher
       const result = await this.followRequestsService.rejectFollowRequest(
         dto.pathId,
@@ -164,7 +183,10 @@ export class FollowRequestsController {
       this.logger.log('Follow request rejected successfully');
       return result;
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to reject follow request';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to reject follow request';
       this.logger.error(`Error rejecting follow request: ${message}`);
       throw new HttpException(
         {
@@ -185,7 +207,9 @@ export class FollowRequestsController {
     @Query() query: { pathId: string },
   ) {
     try {
-      this.logger.log(`Cancelling follow request for user ${req.user.id} to path ${query.pathId}`);
+      this.logger.log(
+        `Cancelling follow request for user ${req.user.id} to path ${query.pathId}`,
+      );
       const result = await this.followRequestsService.cancelFollowRequest(
         query.pathId,
         req.user.id,
@@ -194,7 +218,10 @@ export class FollowRequestsController {
       return result;
     } catch (error: unknown) {
       this.logger.error('Error cancelling follow request:', error);
-      const message = error instanceof Error ? error.message : 'Failed to cancel follow request';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to cancel follow request';
       throw new HttpException(
         {
           statusCode: HttpStatus.BAD_REQUEST,

@@ -18,7 +18,9 @@ describe('PrismaService', () => {
 
   describe('onModuleInit', () => {
     it('should initialize without errors', async () => {
-      const connectSpy = jest.spyOn(service, '$connect').mockResolvedValue(undefined as any);
+      const connectSpy = jest
+        .spyOn(service, '$connect')
+        .mockResolvedValue(undefined as any);
       await service.onModuleInit();
       expect(connectSpy).toHaveBeenCalled();
       connectSpy.mockRestore();
@@ -27,7 +29,9 @@ describe('PrismaService', () => {
 
   describe('onModuleDestroy', () => {
     it('should disconnect without errors', async () => {
-      const disconnectSpy = jest.spyOn(service, '$disconnect').mockResolvedValue(undefined as any);
+      const disconnectSpy = jest
+        .spyOn(service, '$disconnect')
+        .mockResolvedValue(undefined as any);
       await service.onModuleDestroy();
       expect(disconnectSpy).toHaveBeenCalled();
       disconnectSpy.mockRestore();

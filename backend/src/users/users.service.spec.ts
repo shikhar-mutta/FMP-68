@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersRepository } from './users.repository';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -22,6 +23,7 @@ describe('UsersService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        UsersRepository,
         UsersService,
         {
           provide: PrismaService,
@@ -84,7 +86,9 @@ describe('UsersService', () => {
       };
 
       const existingUser = { ...mockUser };
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(existingUser as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(existingUser as any);
       jest.spyOn(prisma.user, 'update').mockResolvedValue({
         ...mockUser,
         isOnline: true,
@@ -135,7 +139,9 @@ describe('UsersService', () => {
 
       const result = await service.findById(mockUser.id);
 
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: mockUser.id } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mockUser.id },
+      });
       expect(result).toEqual(mockUser);
     });
 
@@ -219,7 +225,9 @@ describe('UsersService', () => {
       const onlineBob = { ...mockUser, isOnline: true, name: 'Bob' };
       const offlineCharlie = { ...mockUser, isOnline: false, name: 'Charlie' };
 
-      jest.spyOn(prisma.user, 'findMany').mockResolvedValue([onlineAlice, onlineBob, offlineCharlie] as any);
+      jest
+        .spyOn(prisma.user, 'findMany')
+        .mockResolvedValue([onlineAlice, onlineBob, offlineCharlie] as any);
 
       const result = await service.findAll();
 

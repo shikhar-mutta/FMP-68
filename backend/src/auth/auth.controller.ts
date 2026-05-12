@@ -40,7 +40,8 @@ export class AuthController {
   async googleCallback(@Req() req: any, @Res() res: Response) {
     const { accessToken } = await this.authService.loginWithGoogle(req.user);
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
     // Send token to frontend via URL param (frontend stores in localStorage)
     res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}`);

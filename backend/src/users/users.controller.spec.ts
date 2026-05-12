@@ -68,7 +68,11 @@ describe('UsersController', () => {
     });
 
     it('should work with different user data', async () => {
-      const differentUser = { ...mockUser, id: 'user-456', name: 'Different User' };
+      const differentUser = {
+        ...mockUser,
+        id: 'user-456',
+        name: 'Different User',
+      };
 
       const result = await controller.getMe({ user: differentUser });
 

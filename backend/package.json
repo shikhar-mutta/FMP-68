@@ -10,7 +10,7 @@
     "start": "NODE_OPTIONS=--no-deprecation nest start",
     "start:dev": "NODE_OPTIONS=--no-deprecation nest start --watch",
     "start:prod": "NODE_OPTIONS=--no-deprecation node dist/main",
-    "format": "prettier --write \"src/**/*.ts\"",
+    "format": "npx --yes prettier --single-quote --write \"src/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

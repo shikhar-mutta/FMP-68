@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PathsService } from './paths.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { describe } from 'node:test';
+import { UsersRepository } from '../users/users.repository';
+import { PathFollowersService } from './path-followers.service';
+import { PathsRepository } from './paths.repository';
 
 describe('PathsService', () => {
   let service: PathsService;
@@ -51,6 +53,9 @@ describe('PathsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        UsersRepository,
+        PathsRepository,
+        PathFollowersService,
         PathsService,
         {
           provide: PrismaService,
@@ -145,7 +150,9 @@ describe('PathsService', () => {
         ...mockPath,
         followerIds: ['follower-1', 'follower-2'],
       };
-      jest.spyOn(prisma.path, 'findMany').mockResolvedValue([pathWithFollowers] as any);
+      jest
+        .spyOn(prisma.path, 'findMany')
+        .mockResolvedValue([pathWithFollowers] as any);
 
       const result = await service.getAllPaths();
 
@@ -179,7 +186,9 @@ describe('PathsService', () => {
         ...mockPath,
         followerIds: ['follower-1'],
       };
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollowers as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollowers as any);
 
       const result = await service.getPathById(mockPath.id);
 
@@ -213,11 +222,15 @@ describe('PathsService', () => {
     it('should follow a path successfully', async () => {
       const updatedPath = { ...mockPath, followerIds: ['follower-123'] };
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(mockPath as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, mockFollower] as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, mockFollower] as any);
 
       const result = await service.followPath(mockFollower.id, mockPath.id);
 
-      expect(prisma.path.findUnique).toHaveBeenCalledWith({ where: { id: mockPath.id } });
+      expect(prisma.path.findUnique).toHaveBeenCalledWith({
+        where: { id: mockPath.id },
+      });
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(result.followers).toContain(mockFollower.id);
     });
@@ -225,16 +238,20 @@ describe('PathsService', () => {
     it('should throw error when path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.followPath(mockFollower.id, 'nonexistent')).rejects.toThrow('Path not found');
+      await expect(
+        service.followPath(mockFollower.id, 'nonexistent'),
+      ).rejects.toThrow('Path not found');
     });
 
     it('should throw error when already following', async () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
 
-      await expect(service.followPath(mockFollower.id, mockPath.id)).rejects.toThrow(
-        'Already following this path',
-      );
+      await expect(
+        service.followPath(mockFollower.id, mockPath.id),
+      ).rejects.toThrow('Already following this path');
     });
   });
 
@@ -243,9 +260,15 @@ describe('PathsService', () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValueOnce(pathWithFollower as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, mockFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValueOnce(pathWithFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, mockFollower] as any);
 
       const result = await service.unfollowPath(mockFollower.id, mockPath.id);
 
@@ -256,15 +279,21 @@ describe('PathsService', () => {
     it('should throw error when path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.unfollowPath(mockFollower.id, 'nonexistent')).rejects.toThrow('Path not found');
+      await expect(
+        service.unfollowPath(mockFollower.id, 'nonexistent'),
+      ).rejects.toThrow('Path not found');
     });
 
     it('should throw error when user not found', async () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
       jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.unfollowPath(mockFollower.id, mockPath.id)).rejects.toThrow('User not found');
+      await expect(
+        service.unfollowPath(mockFollower.id, mockPath.id),
+      ).rejects.toThrow('User not found');
     });
 
     it('should handle null followerIds and followedPathIds', async () => {
@@ -272,9 +301,15 @@ describe('PathsService', () => {
       const userWithNullFollowed = { ...mockFollower, followedPathIds: null };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullFollowers as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(userWithNullFollowed as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, userWithNullFollowed] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullFollowers as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(userWithNullFollowed as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, userWithNullFollowed] as any);
 
       const result = await service.unfollowPath(mockFollower.id, mockPath.id);
 
@@ -283,12 +318,21 @@ describe('PathsService', () => {
 
     it('should filter followedPathIds when present', async () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
-      const userWithFollowed = { ...mockFollower, followedPathIds: ['path-123', 'path-999'] };
+      const userWithFollowed = {
+        ...mockFollower,
+        followedPathIds: ['path-123', 'path-999'],
+      };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(userWithFollowed as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, userWithFollowed] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(userWithFollowed as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, userWithFollowed] as any);
 
       const result = await service.unfollowPath(mockFollower.id, mockPath.id);
 
@@ -351,7 +395,11 @@ describe('PathsService', () => {
         description: 'New description',
       };
 
-      const updatedPath = { ...mockPath, ...updateData, followerIds: ['follower-1'] };
+      const updatedPath = {
+        ...mockPath,
+        ...updateData,
+        followerIds: ['follower-1'],
+      };
       jest.spyOn(prisma.path, 'update').mockResolvedValue(updatedPath as any);
 
       const result = await service.updatePath(mockPath.id, updateData);
@@ -385,7 +433,9 @@ describe('PathsService', () => {
         },
       ];
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollowers as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollowers as any);
       jest.spyOn(prisma.user, 'findMany').mockResolvedValue(followers as any);
 
       const result = await service.getFollowersWithDetails(mockPath.id);
@@ -420,7 +470,9 @@ describe('PathsService', () => {
     it('should throw error when path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getFollowersWithDetails('nonexistent')).rejects.toThrow('Path not found');
+      await expect(
+        service.getFollowersWithDetails('nonexistent'),
+      ).rejects.toThrow('Path not found');
     });
   });
 
@@ -429,9 +481,15 @@ describe('PathsService', () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValueOnce(pathWithFollower as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(mockFollower as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, mockFollower] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValueOnce(pathWithFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(mockFollower as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, mockFollower] as any);
 
       const result = await service.removeFollower(mockPath.id, mockFollower.id);
 
@@ -442,19 +500,21 @@ describe('PathsService', () => {
     it('should throw error when path not found', async () => {
       jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.removeFollower('nonexistent', mockFollower.id)).rejects.toThrow(
-        'Path not found',
-      );
+      await expect(
+        service.removeFollower('nonexistent', mockFollower.id),
+      ).rejects.toThrow('Path not found');
     });
 
     it('should throw error when follower not found', async () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
       jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.removeFollower(mockPath.id, 'nonexistent')).rejects.toThrow(
-        'Follower not found',
-      );
+      await expect(
+        service.removeFollower(mockPath.id, 'nonexistent'),
+      ).rejects.toThrow('Follower not found');
     });
 
     it('should handle null followerIds and followedPathIds', async () => {
@@ -462,9 +522,15 @@ describe('PathsService', () => {
       const userWithNullFollowed = { ...mockFollower, followedPathIds: null };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithNullFollowers as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(userWithNullFollowed as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, userWithNullFollowed] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithNullFollowers as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(userWithNullFollowed as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, userWithNullFollowed] as any);
 
       const result = await service.removeFollower(mockPath.id, mockFollower.id);
 
@@ -473,12 +539,21 @@ describe('PathsService', () => {
 
     it('should filter followedPathIds when present', async () => {
       const pathWithFollower = { ...mockPath, followerIds: ['follower-123'] };
-      const userWithFollowed = { ...mockFollower, followedPathIds: ['path-123', 'path-999'] };
+      const userWithFollowed = {
+        ...mockFollower,
+        followedPathIds: ['path-123', 'path-999'],
+      };
       const updatedPath = { ...mockPath, followerIds: [] };
 
-      jest.spyOn(prisma.path, 'findUnique').mockResolvedValue(pathWithFollower as any);
-      jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(userWithFollowed as any);
-      jest.spyOn(prisma, '$transaction').mockResolvedValue([updatedPath, userWithFollowed] as any);
+      jest
+        .spyOn(prisma.path, 'findUnique')
+        .mockResolvedValue(pathWithFollower as any);
+      jest
+        .spyOn(prisma.user, 'findUnique')
+        .mockResolvedValue(userWithFollowed as any);
+      jest
+        .spyOn(prisma, '$transaction')
+        .mockResolvedValue([updatedPath, userWithFollowed] as any);
 
       const result = await service.removeFollower(mockPath.id, mockFollower.id);
 
