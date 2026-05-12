@@ -23,6 +23,13 @@ backend/prisma/migrations/
 npm-debug.log*
 package-lock.json
 
+# Test coverage
+coverage/
+**/coverage/
+.nyc_output/
+lcov.info
+*.lcov
+
 # OS
 .DS_Store
 Thumbs.db
