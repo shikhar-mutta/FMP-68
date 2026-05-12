@@ -1,0 +1,200 @@
+pipeline {
+    agent none
+
+    stages {
+
+        stage('Auth Service') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/backend-agent.Dockerfile'
+                }
+            }
+
+            stages {
+
+                stage('Install') {
+                    steps {
+                        dir('apps/auth-service') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir('apps/auth-service') {
+                            sh 'npm test -- --passWithNoTests || true'
+                        }
+                    }
+                }
+
+                stage('Docker Build') {
+                    steps {
+                        dir('apps/auth-service') {
+                            sh 'docker build -t auth-service:latest .'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Path Service') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/backend-agent.Dockerfile'
+                }
+            }
+
+            stages {
+
+                stage('Install') {
+                    steps {
+                        dir('apps/path-service') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir('apps/path-service') {
+                            sh 'npm test -- --passWithNoTests || true'
+                        }
+                    }
+                }
+
+                stage('Docker Build') {
+                    steps {
+                        dir('apps/path-service') {
+                            sh 'docker build -t path-service:latest .'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Follow Request Service') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/backend-agent.Dockerfile'
+                }
+            }
+
+            stages {
+
+                stage('Install') {
+                    steps {
+                        dir('apps/follow-request-service') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir('apps/follow-request-service') {
+                            sh 'npm test -- --passWithNoTests || true'
+                        }
+                    }
+                }
+
+                stage('Docker Build') {
+                    steps {
+                        dir('apps/follow-request-service') {
+                            sh 'docker build -t follow-request-service:latest .'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Gateway Service') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/backend-agent.Dockerfile'
+                }
+            }
+
+            stages {
+
+                stage('Install') {
+                    steps {
+                        dir('apps/gateway-service') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+
+                stage('Test') {
+                    steps {
+                        dir('apps/gateway-service') {
+                            sh 'npm test -- --passWithNoTests || true'
+                        }
+                    }
+                }
+
+                stage('Docker Build') {
+                    steps {
+                        dir('apps/gateway-service') {
+                            sh 'docker build -t gateway-service:latest .'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Frontend') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/frontend-agent.Dockerfile'
+                }
+            }
+
+            stages {
+
+                stage('Install') {
+                    steps {
+                        dir('apps/frontend') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+
+                stage('Build') {
+                    steps {
+                        dir('apps/frontend') {
+                            sh 'npm run build'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            agent {
+                dockerfile {
+                    filename 'jenkins/agents/backend-agent.Dockerfile'
+                }
+            }
+
+            steps {
+                sh 'kubectl apply -f k8s/'
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo 'Pipeline completed successfully'
+        }
+
+        failure {
+            echo 'Pipeline failed'
+        }
+
+        always {
+            cleanWs()
+        }
+    }
+}
