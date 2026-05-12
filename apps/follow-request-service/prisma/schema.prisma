@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model FollowRequest {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  pathId       String
+  publisherId  String
+  requesterId  String
+  status       FollowRequestStatus
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([publisherId])
+  @@index([requesterId])
+  @@index([pathId])
+}
+
+model PathFollower {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  pathId       String
+  followerId   String
+  approvedAt   DateTime @default(now())
+
+  @@unique([pathId, followerId])
+  @@index([followerId])
+}
+
+enum FollowRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
