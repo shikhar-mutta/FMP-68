@@ -16,7 +16,7 @@ pipeline {
                             sh 'pwd'
                             sh 'ls'
                             sh 'npm --version'
-                            sh 'npm install'
+                            sh 'npm ci'
                         }
                     }
                 }
@@ -47,7 +47,7 @@ pipeline {
                 stage('Install') {
                     steps {
                         dir('apps/path-service') {
-                            sh 'npm install'
+                            sh 'npm ci'
                         }
                     }
                 }
@@ -78,7 +78,7 @@ pipeline {
                 stage('Install') {
                     steps {
                         dir('apps/follow-request-service') {
-                            sh 'npm install'
+                            sh 'npm ci'
                         }
                     }
                 }
@@ -109,7 +109,7 @@ pipeline {
                 stage('Install') {
                     steps {
                         dir('apps/gateway-service') {
-                            sh 'npm install'
+                            sh 'npm ci'
                         }
                     }
                 }
@@ -140,7 +140,7 @@ pipeline {
                 stage('Install') {
                     steps {
                         dir('apps/frontend') {
-                            sh 'npm install'
+                            sh 'npm ci'
                         }
                     }
                 }
