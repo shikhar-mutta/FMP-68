@@ -11,6 +11,11 @@ pipeline {
                 stage('Install') {
                     steps {
                         dir('apps/auth-service') {
+                            sh 'node -v'
+                            sh 'npm -v'
+                            sh 'pwd'
+                            sh 'ls'
+                            sh 'npm --version'
                             sh 'npm install'
                         }
                     }

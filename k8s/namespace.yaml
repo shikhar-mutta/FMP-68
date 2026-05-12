@@ -1,8 +1,0 @@
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: fmp68
-  labels:
-    app: fmp68
-    project: "fitness-path-tracker"
