@@ -1,0 +1,24 @@
+# Ingress at fmp.local — routes everything to api-gateway, which then
+# proxies to the downstream services. /socket.io upgrades preserved
+# via nginx websocket annotations.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fmp-ingress
+  namespace: fmp
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: fmp.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 4000
