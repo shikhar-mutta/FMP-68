@@ -1,0 +1,17 @@
+# Service for tracking-service. sessionAffinity: ClientIP pins a given
+# Socket.io client to one pod so the WebSocket upgrade and subsequent
+# events go to the same instance (avoids handshake mismatches when
+# scaled to multiple replicas — pure horizontal scaling for WS needs
+# a Redis adapter for pub/sub, which is a TODO).
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking-service
+  namespace: fmp
+spec:
+  selector: { app: tracking-service }
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP: { timeoutSeconds: 10800 }   # 3 hours
+  ports:
+    - { name: ws, port: 4004, targetPort: 4004 }

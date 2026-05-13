@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paths-service
+  namespace: fmp
+  labels: { app: paths-service }
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: paths-service }
+  template:
+    metadata:
+      labels: { app: paths-service }
+    spec:
+      containers:
+        - name: paths-service
+          image: fmp-paths-service:local
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 4003 }
+          env:
+            - { name: SERVICE_NAME, value: paths-service }
+            - { name: PORT,         value: "4003" }
+          envFrom:
+            - configMapRef: { name: fmp-config }
+            - secretRef:    { name: fmp-secret }
+          resources:
+            requests: { cpu: "150m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          livenessProbe:
+            httpGet: { path: /health, port: 4003 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 4003 }
+            initialDelaySeconds: 5
+            periodSeconds: 5

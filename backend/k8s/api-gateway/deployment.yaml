@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: fmp
+  labels: { app: api-gateway }
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: api-gateway }
+  template:
+    metadata:
+      labels: { app: api-gateway }
+    spec:
+      containers:
+        - name: api-gateway
+          image: fmp-api-gateway:local
+          imagePullPolicy: Never            # use the locally-loaded minikube image
+          ports:
+            - { name: http, containerPort: 4000 }
+          env:
+            - { name: SERVICE_NAME, value: api-gateway }
+            - { name: PORT,         value: "4000" }
+          envFrom:
+            - configMapRef: { name: fmp-config }
+            - secretRef:    { name: fmp-secret }
+          resources:
+            requests: { cpu: "100m", memory: "192Mi" }
+            limits:   { cpu: "500m", memory: "384Mi" }
+          livenessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
