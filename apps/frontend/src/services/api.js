@@ -1,11 +1,10 @@
 import axios from 'axios';
 
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-
+const API = window.location.origin;
 // Create axios instance
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: A,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -40,4 +39,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
-export { API_BASE_URL };
+export { API };

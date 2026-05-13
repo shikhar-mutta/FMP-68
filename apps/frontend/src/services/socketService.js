@@ -1,7 +1,6 @@
 import { io } from 'socket.io-client';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-
+const API = window.location.origin;
 let socket = null;
 
 /**
@@ -12,7 +11,7 @@ export const connectSocket = () => {
     return socket;
   }
 
-  socket = io(`${API_URL}/tracking`, {
+  socket = io(`${API}/tracking`, {
     transports: ['websocket', 'polling'],
     withCredentials: true,
     autoConnect: true,

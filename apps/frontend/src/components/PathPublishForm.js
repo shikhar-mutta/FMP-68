@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import '../styles/PathPublish.css';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-
+const API = window.location.origin;
 export default function PathPublishForm({ onPathPublished }) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');

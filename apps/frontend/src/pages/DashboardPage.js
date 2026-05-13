@@ -8,8 +8,7 @@ import PathCard from '../components/PathCard';
 import RequestSummaryModalPanel from '../components/RequestSummaryModalPanel';
 import SentRequestsPanel from '../components/SentRequestsPanel';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
-const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
+const API = window.location.origin;const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
