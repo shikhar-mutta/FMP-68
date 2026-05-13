@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: fmp
+  labels: { app: frontend }
+spec:
+  # 2 replicas so the rolling-update demo applies to the frontend too.
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: frontend
+          image: fmp-frontend:local
+          imagePullPolicy: Never        # use the image loaded into Minikube
+          ports:
+            - { name: http, containerPort: 80 }
+          resources:
+            requests: { cpu: "50m",  memory: "64Mi" }
+            limits:   { cpu: "300m", memory: "192Mi" }
+          # preStop sleep gives kube-proxy time to remove this pod from
+          # the Service's endpoints before SIGTERM lands on nginx.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
+          livenessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 2
+            periodSeconds: 5

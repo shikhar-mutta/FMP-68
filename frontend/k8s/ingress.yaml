@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────
+# Frontend-only Ingress rule. Adds the catch-all '/' path to the
+# fmp.local host. The backend ingress (backend/k8s/ingress.yaml)
+# owns the longer-prefix paths (/auth, /users, /paths,
+# /follow-requests, /socket.io). nginx-ingress merges all
+# Ingress resources on the same host and routes by longest-prefix-
+# wins, so this rule only catches traffic the backend doesn't claim.
+# ─────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fmp-frontend-ingress
+  namespace: fmp
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: fmp.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

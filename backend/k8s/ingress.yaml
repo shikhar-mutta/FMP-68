@@ -1,6 +1,9 @@
-# Ingress at fmp.local — routes everything to api-gateway, which then
-# proxies to the downstream services. /socket.io upgrades preserved
-# via nginx websocket annotations.
+# Ingress for backend API paths on fmp.local. Each API prefix routes
+# to api-gateway, which then proxies to the downstream microservices.
+# The frontend Ingress (frontend/k8s/ingress.yaml) adds the '/'
+# catch-all rule — nginx-ingress merges both and routes by
+# longest-prefix-wins, so requests like /auth/me hit api-gateway
+# while /, /static/* etc. hit the frontend nginx pod.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -15,10 +18,23 @@ spec:
     - host: fmp.local
       http:
         paths:
-          - path: /
+          - path: /auth
             pathType: Prefix
             backend:
-              service:
-                name: api-gateway
-                port:
-                  number: 4000
+              service: { name: api-gateway, port: { number: 4000 } }
+          - path: /users
+            pathType: Prefix
+            backend:
+              service: { name: api-gateway, port: { number: 4000 } }
+          - path: /paths
+            pathType: Prefix
+            backend:
+              service: { name: api-gateway, port: { number: 4000 } }
+          - path: /follow-requests
+            pathType: Prefix
+            backend:
+              service: { name: api-gateway, port: { number: 4000 } }
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service: { name: api-gateway, port: { number: 4000 } }
