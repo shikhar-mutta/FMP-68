@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const API = window.location.origin;
+const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 let socket = null;
 
 /**
