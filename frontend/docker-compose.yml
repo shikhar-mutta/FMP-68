@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────
+# fmp-frontend — standalone compose
+#
+# Brings the frontend container up on host port 3000 and attaches it
+# to the existing 'fmp-net' bridge created by backend/docker-compose.yml.
+# Run order:
+#   1. docker compose -f backend/docker-compose.yml  up -d --build
+#   2. docker compose -f frontend/docker-compose.yml up -d --build
+#
+# When run this way the browser talks to:
+#   http://localhost:3000           (frontend nginx)
+#   http://fmp.local                (when ingress + /etc/hosts in K8s)
+# ─────────────────────────────────────────────────────────────
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fmp-frontend:local
+    container_name: fmp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks:
+      - fmp-net
+
+networks:
+  # Use the network created by backend/docker-compose.yml.
+  # external: true means compose will NOT create it; it must already exist.
+  fmp-net:
+    external: true
+    name: fmp-net
