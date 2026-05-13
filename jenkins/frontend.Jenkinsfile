@@ -31,6 +31,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh 'kubectl apply -f k8s/frontend/'
+                sh 'kubectl rollout restart deployment/frontend -n fmp'
             }
         }
     }
