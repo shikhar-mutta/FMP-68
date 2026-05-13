@@ -18,6 +18,21 @@ pipeline {
                 }
             }
         }
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                eval $(minikube docker-env)
+                docker build -t frontend:latest apps/frontend
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'kubectl apply -f k8s/frontend/'
+            }
+        }
     }
 
     post {
@@ -33,5 +48,5 @@ pipeline {
         always {
             cleanWs()
         }
-    }   
+    }
 }

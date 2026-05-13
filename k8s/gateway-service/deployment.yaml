@@ -8,6 +8,13 @@ metadata:
 spec:
   replicas: 1
 
+  strategy:
+    type: RollingUpdate
+
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
   selector:
     matchLabels:
       app: gateway-service
@@ -22,6 +29,11 @@ spec:
         - name: gateway-service
           image: gateway-service:latest
           imagePullPolicy: Never
+
+          ports:
+            - name: http
+              containerPort: 3000
+
           resources:
             requests:
               cpu: "50m"
@@ -30,5 +42,10 @@ spec:
             limits:
               cpu: "100m"
               memory: "128Mi"
-          ports:
-            - containerPort: 3000
+
+          env:
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:3001"
+
+            - name: FOLLOW_REQUEST_SERVICE_URL
+              value: "http://follow-request-service:3003"

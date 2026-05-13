@@ -43,3 +43,5 @@ spec:
           env:
             - name: RABBITMQ_URL
               value: amqp://rabbitmq:5672
+            - name: DATABASE_URL
+              value: "mongodb://admin:password@mongodb:27017/fmp?authSource=admin"
