@@ -1,0 +1,16 @@
+# Headless ExternalName service that maps mongo-external (cluster DNS)
+# → host.minikube.internal (the host's IP from the Minikube node's perspective).
+# MongoDB lives on the laptop with the existing rs0 replica set and is NOT
+# containerised. The host must have mongod bound on the minikube bridge IP
+# (or 0.0.0.0) for this to work — see README.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-external
+  namespace: fmp
+spec:
+  type: ExternalName
+  externalName: host.minikube.internal
+  ports:
+    - port: 27017
+      protocol: TCP
