@@ -1,0 +1,121 @@
+# ─────────────────────────────────────────────────────────────
+# Filebeat DaemonSet — runs on every node, tails container logs
+# from /var/log/containers/*.log and forwards to Logstash.
+# ─────────────────────────────────────────────────────────────
+
+# RBAC: Filebeat needs to read pod/namespace metadata to attach
+# kubernetes.* fields to each log event.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: filebeat
+  namespace: elk
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: filebeat
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: filebeat
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: filebeat
+subjects:
+  - kind: ServiceAccount
+    name: filebeat
+    namespace: elk
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: elk
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+      - type: container
+        paths:
+          - /var/log/containers/*.log
+        # Tag-and-filter so we only forward fmp-* + elk pods
+        processors:
+          - add_kubernetes_metadata:
+              host: ${NODE_NAME}
+              matchers:
+                - logs_path:
+                    logs_path: /var/log/containers/
+
+    # Don't forward Filebeat's own logs (loop) or the kube-system noise
+    processors:
+      - drop_event:
+          when:
+            or:
+              - equals: { kubernetes.namespace: kube-system }
+              - equals: { kubernetes.namespace: ingress-nginx }
+              - equals: { kubernetes.container.name: filebeat }
+
+    output.logstash:
+      hosts: ["logstash:5044"]
+
+    logging.level: info
+    logging.to_files: false
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: elk
+  labels: { app: filebeat }
+spec:
+  selector:
+    matchLabels: { app: filebeat }
+  template:
+    metadata:
+      labels: { app: filebeat }
+    spec:
+      serviceAccountName: filebeat
+      terminationGracePeriodSeconds: 30
+      hostNetwork: false
+      tolerations:
+        - operator: Exists  # run on all nodes including control plane
+      containers:
+        - name: filebeat
+          image: docker.elastic.co/beats/filebeat:8.13.0
+          args:
+            - "-c"
+            - "/etc/filebeat.yml"
+            - "-e"
+          env:
+            - name: NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests: { cpu: "50m",  memory: "128Mi" }
+            limits:   { cpu: "300m", memory: "256Mi" }
+          volumeMounts:
+            - { name: config,        mountPath: /etc/filebeat.yml,       subPath: filebeat.yml, readOnly: true }
+            - { name: data,          mountPath: /usr/share/filebeat/data }
+            - { name: varlog,        mountPath: /var/log,                readOnly: true }
+            - { name: varlibcontainers, mountPath: /var/lib/docker/containers, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: filebeat-config
+            defaultMode: 0640
+        - name: data
+          emptyDir: {}
+        - name: varlog
+          hostPath: { path: /var/log }
+        - name: varlibcontainers
+          hostPath: { path: /var/lib/docker/containers }
