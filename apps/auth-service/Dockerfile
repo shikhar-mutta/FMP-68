@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:22
 
 WORKDIR /app
 
@@ -8,8 +8,8 @@ RUN npm install
 
 COPY . .
 
-RUN npx nest build
+RUN npm run build
 
-EXPOSE 3003
+EXPOSE 3001
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

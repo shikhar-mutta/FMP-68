@@ -22,6 +22,11 @@ spec:
         - name: frontend
           image: frontend:latest
           imagePullPolicy: Never
+          envFrom:
+          - secretRef:
+              name: secret
 
+          - configMapRef:
+              name: config
           ports:
             - containerPort: 80

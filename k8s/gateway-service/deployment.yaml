@@ -30,6 +30,10 @@ spec:
           image: gateway-service:latest
           imagePullPolicy: Never
 
+          envFrom:
+            - secretRef:
+                name: secret
+
           ports:
             - name: http
               containerPort: 3000

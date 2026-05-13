@@ -30,6 +30,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh 'kubectl apply -f k8s/auth-service/'
+                sh 'kubectl rollout restart deployment/auth-service -n fmp'
             }
         }
     }

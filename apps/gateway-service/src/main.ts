@@ -11,13 +11,10 @@ async function bootstrap() {
   app.enableCors();
 
   app.use(
-  '/auth',
   createProxyMiddleware({
+    pathFilter: '/auth',
     target: 'http://auth-service:3001',
     changeOrigin: true,
-    pathRewrite: {
-      '^/auth': '/auth',
-    },
   }),
 );
 

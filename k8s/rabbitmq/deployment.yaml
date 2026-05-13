@@ -28,6 +28,61 @@ spec:
       containers:
         - name: rabbitmq
           image: rabbitmq:3-management
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: path-service
+  namespace: fmp
+
+spec:
+  replicas: 1
+
+  strategy:
+    type: RollingUpdate
+
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: path-service
+
+  template:
+    metadata:
+      labels:
+        app: path-service
+
+    spec:
+      containers:
+        - name: path-service
+          image: path-service:latest
+          imagePullPolicy: Never
+          
+          envFrom:
+            - secretRef:
+                name: secret
+          ports:
+            - name: http
+              containerPort: 3002
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+
+          env:
+            - name: DATABASE_URL
+              value: "mongodb://admin:password@mongodb:27017/fmp?authSource=admin"
+
+            - name: FOLLOW_REQUEST_SERVICE_URL
+              value: "http://follow-request-service:3003"
+
 
           ports:
             - name: amqp

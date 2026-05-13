@@ -29,7 +29,10 @@ spec:
         - name: path-service
           image: path-service:latest
           imagePullPolicy: Never
-
+          
+          envFrom:
+            - secretRef:
+                name: secret
           ports:
             - name: http
               containerPort: 3002

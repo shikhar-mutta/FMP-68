@@ -30,6 +30,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh 'kubectl apply -f k8s/follow-request-service/'
+                sh 'kubectl rollout restart deployment/follow-request-service -n fmp'
             }
         }
     }

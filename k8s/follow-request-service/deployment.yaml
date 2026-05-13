@@ -27,7 +27,12 @@ spec:
         - name: follow-request-service
           image: follow-request-service:latest
           imagePullPolicy: Never
+          envFrom:
+          - secretRef:
+              name: follow-request-secret
 
+          - configMapRef:
+              name: follow-request-config
           ports:
             - containerPort: 3003
 
