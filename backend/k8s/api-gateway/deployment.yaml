@@ -5,7 +5,9 @@ metadata:
   namespace: fmp
   labels: { app: api-gateway }
 spec:
-  replicas: 1
+  # 2 replicas so a rolling update has another pod to serve traffic
+  # while the first is being replaced — gives a meaningful zero-downtime demo.
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
@@ -15,6 +17,9 @@ spec:
     metadata:
       labels: { app: api-gateway }
     spec:
+      # Give shutdowns enough time for in-flight requests + WebSocket
+      # connections to drain after SIGTERM.
+      terminationGracePeriodSeconds: 30
       containers:
         - name: api-gateway
           image: fmp-api-gateway:local
@@ -30,6 +35,14 @@ spec:
           resources:
             requests: { cpu: "100m", memory: "192Mi" }
             limits:   { cpu: "500m", memory: "384Mi" }
+          # preStop sleep gives kube-proxy / ingress time to remove this
+          # pod from the Service's endpoint list BEFORE the container
+          # gets SIGTERM. Without this, new requests can still hit a
+          # pod that just started shutting down → connection resets.
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
           livenessProbe:
             httpGet: { path: /health, port: 4000 }
             initialDelaySeconds: 10
