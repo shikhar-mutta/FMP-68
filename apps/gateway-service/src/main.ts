@@ -10,12 +10,14 @@ async function bootstrap() {
 
   app.enableCors();
 
-  // AUTH
   app.use(
   '/auth',
   createProxyMiddleware({
-    target: 'http://localhost:3001/auth',
+    target: 'http://auth-service:3001',
     changeOrigin: true,
+    pathRewrite: {
+      '^/auth': '/auth',
+    },
   }),
 );
 
@@ -23,7 +25,7 @@ async function bootstrap() {
   app.use(
     '/paths',
     createProxyMiddleware({
-      target: 'http://localhost:3002/paths',
+      target: 'http://path-service:3002',
       changeOrigin: true,
     }),
   );
@@ -32,14 +34,14 @@ async function bootstrap() {
   app.use(
     '/follow-requests',
     createProxyMiddleware({
-      target: 'http://localhost:3003/follow-requests',
+      target: 'http://follow-request-service:3003',
       changeOrigin: true,
     }),
   );
 
-  await app.listen(4000);
+  await app.listen(3000);
 
-  console.log('gateway-service running on 4000');
+  console.log('gateway-service running on 3000');
 }
 
 bootstrap();
