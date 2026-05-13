@@ -1,0 +1,32 @@
+---
+# ────────────────────────────────────────────────────────────
+# Role: minikube
+# Brings the local Kubernetes cluster up with the addons FMP-68 needs.
+# ────────────────────────────────────────────────────────────
+
+- name: Get current minikube status
+  ansible.builtin.command: minikube status -o json
+  register: mk_status
+  changed_when: false
+  failed_when: false
+
+- name: Start Minikube if not running
+  ansible.builtin.command:
+    cmd: minikube start --driver=docker --cpus=4 --memory=4096
+  register: mk_start
+  changed_when: "'Done!' in mk_start.stdout or 'Done!' in mk_start.stderr"
+  when: mk_status.rc != 0 or '"Host":"Stopped"' in (mk_status.stdout | default(''))
+
+- name: Enable ingress addon
+  ansible.builtin.command: minikube addons enable ingress
+  register: ingress_addon
+  changed_when: "'is enabled' not in ingress_addon.stdout"
+
+- name: Enable metrics-server addon (required for HPA)
+  ansible.builtin.command: minikube addons enable metrics-server
+  register: ms_addon
+  changed_when: "'is enabled' not in ms_addon.stdout"
+
+- name: Wait for nodes Ready
+  ansible.builtin.command: kubectl wait --for=condition=ready node --all --timeout=120s
+  changed_when: false

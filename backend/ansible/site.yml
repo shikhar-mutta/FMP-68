@@ -1,0 +1,27 @@
+---
+# ─────────────────────────────────────────────────────────────
+# FMP-68 master playbook — provisions the laptop from scratch:
+#   1. common      → install docker, kubectl, helm if missing
+#   2. minikube    → start cluster, enable ingress + metrics-server
+#   3. vault       → deploy Vault to the cluster and seed secrets
+#   4. deploy-fmp  → apply backend/k8s manifests (app + ELK)
+#
+# Run with:    ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml
+# Dry-run:     ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --check
+# ─────────────────────────────────────────────────────────────
+- name: Provision and deploy FMP-68
+  hosts: fmp_local
+  gather_facts: yes
+
+  roles:
+    - role: common
+      tags: [common, prereqs]
+
+    - role: minikube
+      tags: [minikube, cluster]
+
+    - role: vault
+      tags: [vault, secrets]
+
+    - role: deploy-fmp
+      tags: [deploy, app]

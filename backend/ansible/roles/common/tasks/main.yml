@@ -1,0 +1,33 @@
+---
+# ────────────────────────────────────────────────────────────
+# Role: common
+# Verifies the host has docker, kubectl, and minikube available.
+# Doesn't install them automatically (those usually need sudo and
+# distro-specific package work) — instead fails fast with a clear
+# message so the operator knows what's missing.
+# ────────────────────────────────────────────────────────────
+
+- name: Check docker CLI is installed
+  ansible.builtin.command: docker --version
+  register: docker_check
+  changed_when: false
+  failed_when: docker_check.rc != 0
+
+- name: Check kubectl is installed
+  ansible.builtin.command: kubectl version --client
+  register: kubectl_check
+  changed_when: false
+  failed_when: kubectl_check.rc != 0
+
+- name: Check minikube CLI is installed
+  ansible.builtin.command: minikube version
+  register: minikube_check
+  changed_when: false
+  failed_when: minikube_check.rc != 0
+
+- name: Show detected tool versions
+  ansible.builtin.debug:
+    msg:
+      - "docker: {{ docker_check.stdout }}"
+      - "kubectl: {{ kubectl_check.stdout_lines[0] }}"
+      - "minikube: {{ minikube_check.stdout_lines[0] }}"

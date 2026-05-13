@@ -1,0 +1,107 @@
+---
+# ────────────────────────────────────────────────────────────
+# Role: deploy-fmp
+# Applies the application + ELK Kubernetes manifests and waits
+# for all pods to become Ready.
+#
+# All commands use the 'argv' form so paths with spaces (the project
+# root has them) are passed as a single argument, not word-split.
+# ────────────────────────────────────────────────────────────
+
+- name: Apply fmp namespace + ConfigMap + Secret + Mongo ExternalName
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/namespace.yaml"
+      - -f
+      - "{{ project_root }}/backend/k8s/configmap.yaml"
+      - -f
+      - "{{ project_root }}/backend/k8s/secret.yaml"
+      - -f
+      - "{{ project_root }}/backend/k8s/mongo-external.yaml"
+  register: fmp_base_apply
+  changed_when: "'configured' in fmp_base_apply.stdout or 'created' in fmp_base_apply.stdout"
+
+- name: Apply infrastructure (RabbitMQ + Redis)
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/rabbitmq.yaml"
+      - -f
+      - "{{ project_root }}/backend/k8s/redis.yaml"
+  register: infra_apply
+  changed_when: "'configured' in infra_apply.stdout or 'created' in infra_apply.stdout"
+
+- name: Apply 6 microservice deployments + services + HPAs
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/api-gateway/"
+      - -f
+      - "{{ project_root }}/backend/k8s/auth-service/"
+      - -f
+      - "{{ project_root }}/backend/k8s/users-service/"
+      - -f
+      - "{{ project_root }}/backend/k8s/paths-service/"
+      - -f
+      - "{{ project_root }}/backend/k8s/tracking-service/"
+      - -f
+      - "{{ project_root }}/backend/k8s/notification-service/"
+  register: svc_apply
+  changed_when: "'configured' in svc_apply.stdout or 'created' in svc_apply.stdout"
+
+- name: Apply Ingress
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/ingress.yaml"
+  register: ing_apply
+  changed_when: "'configured' in ing_apply.stdout or 'created' in ing_apply.stdout"
+
+- name: Apply ELK stack
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/elk/"
+  register: elk_apply
+  changed_when: "'configured' in elk_apply.stdout or 'created' in elk_apply.stdout"
+
+- name: Wait for all fmp pods to become Ready
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --for=condition=ready
+      - pod
+      - --all
+      - -n
+      - "{{ k8s_namespace }}"
+      - --timeout=300s
+  register: fmp_wait
+  changed_when: false
+  failed_when: false   # don't abort the playbook if a pod is slow — operator can re-check
+
+- name: Show final cluster snapshot
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - get
+      - "pods,svc,hpa,ingress"
+      - -n
+      - "{{ k8s_namespace }}"
+  register: snapshot
+  changed_when: false
+
+- name: Print snapshot
+  ansible.builtin.debug:
+    var: snapshot.stdout_lines

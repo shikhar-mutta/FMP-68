@@ -1,0 +1,57 @@
+---
+# ────────────────────────────────────────────────────────────
+# Role: vault
+# Deploys HashiCorp Vault (dev mode) into the 'vault' namespace and
+# seeds JWT_SECRET / GOOGLE_CLIENT_SECRET / MongoDB URI under
+# secret/fmp/*. The seeding happens automatically via Vault's
+# postStart lifecycle hook in vault.yaml.
+#
+# All commands use the 'argv' form so paths with spaces (the project
+# root has them) are passed as a single argument, not word-split.
+# ────────────────────────────────────────────────────────────
+
+- name: Apply Vault manifests
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - apply
+      - -f
+      - "{{ project_root }}/backend/k8s/vault/"
+  register: vault_apply
+  changed_when: "'configured' in vault_apply.stdout or 'created' in vault_apply.stdout"
+
+- name: Wait for vault pod ready
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - wait
+      - --for=condition=ready
+      - pod
+      - -l
+      - "app=vault"
+      - -n
+      - "{{ vault_namespace }}"
+      - --timeout=120s
+  register: vault_wait
+  changed_when: false
+  failed_when: vault_wait.rc != 0
+
+- name: Verify seeded secrets exist
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - exec
+      - -n
+      - "{{ vault_namespace }}"
+      - deploy/vault
+      - --
+      - sh
+      - -c
+      - "VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth"
+  register: vault_check
+  changed_when: false
+  failed_when: vault_check.rc != 0
+
+- name: Show seeded keys
+  ansible.builtin.debug:
+    msg: "Vault contains secret/fmp/auth (created_time={{ vault_check.stdout | regex_search('\"created_time\":\"[^\"]+\"') }})"
