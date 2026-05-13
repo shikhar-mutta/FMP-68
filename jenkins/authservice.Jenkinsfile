@@ -44,8 +44,6 @@ pipeline {
             echo 'Auth service pipeline failed'
         }
 
-        always {
-            cleanWs()
-        }
+        
     }
 }

@@ -44,8 +44,6 @@ pipeline {
             echo 'follow-request service pipeline failed'
         }
 
-        always {
-            cleanWs()
-        }
+        
     }
 }

@@ -44,8 +44,6 @@ pipeline {
             echo 'gateway service pipeline failed'
         }
 
-        always {
-            cleanWs()
-        }
+        
     }
 }

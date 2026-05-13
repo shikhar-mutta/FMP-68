@@ -44,8 +44,6 @@ pipeline {
             echo 'Path service pipeline failed'
         }
 
-        always {
-            cleanWs()
-        }
+        
     }
 }

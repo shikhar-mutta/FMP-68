@@ -45,8 +45,6 @@ pipeline {
             echo 'Frontend pipeline failed'
         }
 
-        always {
-            cleanWs()
-        }
+        
     }
 }
