@@ -3,6 +3,12 @@ node_modules/
 .pnp
 .pnp.js
 
+# Monolith backup created during microservice refactor
+backend.monolith.bak/
+
+# Legacy monolith env (contains credentials, replaced by per-service env defaults in compose)
+backend/.env.monolith-legacy
+
 # Build output
 dist/
 build/
