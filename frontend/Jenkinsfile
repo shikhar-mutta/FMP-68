@@ -1,0 +1,178 @@
+// ─────────────────────────────────────────────────────────────
+// fmp-frontend — standalone CI/CD pipeline
+// Jenkins job name: frontend-pipeline
+// Triggered by:
+//   - githubPush() webhook (direct on this repo)
+//   - pollSCM fallback every 2 min
+// ─────────────────────────────────────────────────────────────
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 25, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    triggers {
+        githubPush()
+        pollSCM('H/2 * * * *')
+    }
+
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: "main-${env.BUILD_NUMBER}",
+            description: 'Docker image tag for this build'
+        )
+    }
+
+    environment {
+        SERVICE_NAME    = 'frontend'
+        DOCKER_REPO     = 'shikharmutta'
+        K8S_NAMESPACE   = 'fmp'
+        IMAGE_LOCAL     = "fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
+        IMAGE_REMOTE    = "${DOCKER_REPO}/fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                script {
+                    try {
+                        checkout scm
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Checkout\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Check for Changes') {
+            steps {
+                script {
+                    try {
+                        def changed = sh(
+                            script: "git diff --name-only HEAD~1 HEAD | grep '^frontend/' || true",
+                            returnStdout: true
+                        ).trim()
+                        if (changed == "") {
+                            echo "No changes in frontend/ — skipping build."
+                            currentBuild.result = 'NOT_BUILT'
+                            error("Skipping build for ${SERVICE_NAME}")
+                        }
+                        echo "Changed files in frontend/:\n${changed}"
+                    } catch (hudson.AbortException ae) {
+                        throw ae
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Check for Changes\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Install & Build') {
+            steps {
+                script {
+                    try {
+                        dir('frontend') {
+                            sh 'node --version && npm --version'
+                            sh 'npm ci --no-audit --no-fund'
+                            // CI=false so React-Scripts treats build warnings as warnings, not errors.
+                            // GENERATE_SOURCEMAP=false keeps the bundle small.
+                            sh 'CI=false GENERATE_SOURCEMAP=false npm run build'
+                        }
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Install & Build\nReason: npm ci or npm run build failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            options { timeout(time: 15, unit: 'MINUTES') }
+            steps {
+                script {
+                    try {
+                        sh 'docker info > /dev/null 2>&1'
+                        dir('frontend') {
+                            sh "docker build -t ${IMAGE_LOCAL} -t fmp-${SERVICE_NAME}:local ."
+                        }
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Docker Build\nReason: Image build failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                script {
+                    try {
+                        withCredentials([usernamePassword(
+                            credentialsId: 'docker-hub-credentials',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )]) {
+                            sh '''
+                                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                                docker tag ${IMAGE_LOCAL} ${IMAGE_REMOTE}
+                                docker push ${IMAGE_REMOTE}
+                                docker logout
+                            '''
+                        }
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Docker Push\nReason: Docker Hub push failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Minikube') {
+            steps {
+                script {
+                    try {
+                        sh """
+                            minikube image load ${IMAGE_LOCAL} || true
+                            kubectl set image deployment/${SERVICE_NAME} \
+                                ${SERVICE_NAME}=${IMAGE_LOCAL} \
+                                -n ${K8S_NAMESPACE}
+                            kubectl rollout status deployment/${SERVICE_NAME} \
+                                -n ${K8S_NAMESPACE} --timeout=180s
+                        """
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Deploy to Minikube\nReason: kubectl/minikube command failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ ${SERVICE_NAME} build #${env.BUILD_NUMBER} deployed as ${IMAGE_LOCAL}"
+            mail to: 'shikharmutta67@gmail.com',
+                 subject: "SUCCESS: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
+                 body: "Service: ${SERVICE_NAME}\nImage: ${IMAGE_LOCAL}\nRemote: ${IMAGE_REMOTE}\n\nJob: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}"
+        }
+        failure {
+            script {
+                def info = currentBuild.description ?: 'Unknown failure'
+                mail to: 'shikharmutta67@gmail.com',
+                     subject: "FAILURE: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
+                     body: "Service: ${SERVICE_NAME}\n\n${info}\n\nConsole: ${env.BUILD_URL}console"
+            }
+        }
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
+}
