@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: follow-request-service
+  namespace: fmp
+
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: follow-request-service
+
+  template:
+    metadata:
+      labels:
+        app: follow-request-service
+
+    spec:
+      containers:
+        - name: follow-request-service
+          image: follow-request-service:latest
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 3003
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          
+          env:
+            - name: RABBITMQ_URL
+              value: amqp://rabbitmq:5672

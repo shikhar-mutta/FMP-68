@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: path-service
+  namespace: fmp
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: path-service
+
+  template:
+    metadata:
+      labels:
+        app: path-service
+
+    spec:
+      containers:
+        - name: path-service
+          image: path-service:latest
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 3002
