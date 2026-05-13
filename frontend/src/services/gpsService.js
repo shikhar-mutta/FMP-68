@@ -35,9 +35,9 @@ export const getCurrentPosition = () => {
         reject(error);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        enableHighAccuracy: false,
+        timeout: 20000,
+        maximumAge: 30000,
       }
     );
   });
@@ -60,33 +60,39 @@ export const watchPosition = (onPosition, onError, interval = 3000) => {
   stopWatching();
 
   let lastEmitTime = 0;
+  let timeoutNotified = false;
 
-  watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      const now = Date.now();
-      // Throttle updates to the specified interval
-      if (now - lastEmitTime < interval) return;
-      lastEmitTime = now;
+  const onPositionFn = (position) => {
+    const now = Date.now();
+    if (now - lastEmitTime < interval) return;
+    lastEmitTime = now;
+    timeoutNotified = false; // got a position — reset the notification flag
 
-      const coord = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        timestamp: now,
-      };
+    const coord = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      timestamp: now,
+    };
 
-      onPosition(coord);
-    },
-    (error) => {
-      console.error('GPS Error:', error);
-      if (onError) onError(error);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0,
-    }
-  );
+    onPosition(coord);
+  };
+
+  const onErrorFn = (error) => {
+    console.error('GPS Error:', error);
+    // Don't spam the user — only report a TIMEOUT once. Browser watchPosition keeps
+    // trying internally; if a fix arrives later, we'll start emitting positions.
+    if (error?.code === 3 /* TIMEOUT */ && timeoutNotified) return;
+    if (error?.code === 3) timeoutNotified = true;
+    if (onError) onError(error);
+  };
+
+  // Network-based fix first (fast, works indoors / on desktop)
+  watchId = navigator.geolocation.watchPosition(onPositionFn, onErrorFn, {
+    enableHighAccuracy: false,
+    timeout: 30000,
+    maximumAge: 10000,
+  });
 
   return () => stopWatching();
 };
