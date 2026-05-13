@@ -1,0 +1,18 @@
+node_modules
+build
+coverage
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+Jenkinsfile
+*.log
+.vscode
+.idea
+README.md
+# Dev .env stays out of the production image — CRA picks up .env.production instead
+.env
+.env.local
+.env.development.local
+.env.test.local
