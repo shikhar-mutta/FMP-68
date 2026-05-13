@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
 
   /** Redirect to backend Google OAuth endpoint */
   const signInWithGoogle = useCallback(() => {
-    window.location.href = `http://localhost:3001/auth/google`;
+    window.location.href = `${API}/auth/google`;
   }, []);
 
   /** Call backend signout + clear local state */
