@@ -12,10 +12,10 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        disableConcurrentBuilds()
+        disableConcurrentBuilds(abortPrevious: true)
     }
 
-    triggers { pollSCM('H/2 * * * *') }
+    triggers { githubPush(); pollSCM('H/5 * * * *') }
 
     parameters {
         string(
@@ -163,7 +163,16 @@ pipeline {
             echo "✘ ${SERVICE_NAME} build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
-            sh 'docker image prune -f || true'
+            sh """
+                # Remove this build's tagged images (local + remote-tagged)
+                docker rmi -f ${IMAGE_LOCAL} ${IMAGE_REMOTE} 2>/dev/null || true
+                # Remove any other fmp-${SERVICE_NAME} images that earlier builds left behind
+                ids=\$(docker images fmp-${SERVICE_NAME} -q; docker images ${DOCKER_REPO}/fmp-${SERVICE_NAME} -q)
+                [ -n "\$ids" ] && docker rmi -f \$ids 2>/dev/null || true
+                # Dangling images + build cache (frees significant space)
+                docker image prune -f
+                docker builder prune -af
+            """
         }
     }
 }

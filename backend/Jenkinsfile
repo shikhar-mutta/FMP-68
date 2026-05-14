@@ -27,10 +27,10 @@ pipeline {
         timestamps()
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        disableConcurrentBuilds()
+        disableConcurrentBuilds(abortPrevious: true)
     }
 
-    triggers { pollSCM('H/2 * * * *') }
+    triggers { githubPush(); pollSCM('H/5 * * * *') }
 
     environment {
         K8S_NAMESPACE = 'fmp'
@@ -166,7 +166,10 @@ pipeline {
             echo "✘ Root pipeline #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
-            sh 'docker image prune -f || true'
+            sh '''
+                docker image prune -f
+                docker builder prune -af
+            '''
         }
     }
 }
