@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = '<your-dockerhub-username>/follow-request-service'
+        IMAGE_NAME = 'venerableharsha/follow-request-service'
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 

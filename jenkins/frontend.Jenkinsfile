@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = '<your-dockerhub-username>/frontend'
+        IMAGE_NAME = 'venerableharsha/frontend'
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
