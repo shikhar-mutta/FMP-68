@@ -1,3 +1,4 @@
+// ci-test-1778755494
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersClientService } from './users-client.service';
