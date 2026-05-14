@@ -3,8 +3,7 @@ import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import * as jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
+import { buildJwtMiddleware } from './middleware/jwt.middleware';
 
 async function bootstrap() {
   const serviceName = process.env.SERVICE_NAME || 'api-gateway';
@@ -22,30 +21,7 @@ async function bootstrap() {
   const jwtSecret =
     process.env.JWT_SECRET || 'default-secret-key';
 
-  // ── JWT verification middleware ───────────────────────────────────
-  // If Authorization: Bearer <token> is present and valid, set x-user-id header.
-  // We never reject here — downstream services enforce auth via @CurrentUserId.
-  const jwtMiddleware = (req: Request, _res: Response, next: NextFunction) => {
-    const authHeader = req.headers['authorization'];
-    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
-      try {
-        const payload = jwt.verify(token, jwtSecret) as any;
-        if (payload?.sub) {
-          req.headers['x-user-id'] = String(payload.sub);
-        }
-      } catch (err) {
-        // invalid/expired token — strip any existing header
-        delete req.headers['x-user-id'];
-      }
-    } else {
-      // No JWT — strip any client-supplied x-user-id (security)
-      delete req.headers['x-user-id'];
-    }
-    next();
-  };
-
-  expressInstance.use(jwtMiddleware);
+  expressInstance.use(buildJwtMiddleware(jwtSecret));
 
   // ── Proxy targets ─────────────────────────────────────────────────
   const routes = [

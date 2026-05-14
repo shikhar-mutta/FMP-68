@@ -7,7 +7,28 @@
     "start": "NODE_OPTIONS=--no-deprecation nest start",
     "start:dev": "NODE_OPTIONS=--no-deprecation nest start --watch",
     "start:prod": "NODE_OPTIONS=--no-deprecation node dist/main",
-    "test": "jest --passWithNoTests"
+    "test": "jest"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "**/*.ts",
+      "!**/main.ts",
+      "!**/*.module.ts",
+      "!**/*.spec.ts",
+      "!**/health/**"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/coverage/",
+      "/dist/"
+    ]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -28,6 +49,7 @@
     "@types/jsonwebtoken": "^9.0.0",
     "@types/node": "^20.0.0",
     "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.0",
     "ts-node": "^10.9.0",
     "typescript": "^5.1.3"
