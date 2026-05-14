@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // fmp-api-gateway — per-service CI/CD pipeline
 // Jenkins job name: fmp-api-gateway
+// Last verified end-to-end: U119
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
