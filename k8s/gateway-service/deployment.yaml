@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: gateway-service
-          image: gateway-service:latest
+          image: venerableharsha/gateway-service:latest
           imagePullPolicy: Always
           envFrom:
             - secretRef:

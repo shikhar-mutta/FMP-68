@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = '<your-dockerhub-username>/path-service'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Install') {
@@ -27,30 +32,71 @@ pipeline {
             }
         }
 
-stage('Deploy') {
-    steps {
+        stage('Docker Login') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
 
-        withCredentials([
-    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
-    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
-    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
-    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')        ]) {
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
+                }
+            }
+        }
 
-            sh '''
-                kubectl create secret generic path-service-secret \
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build \
+                    -t $IMAGE_NAME:$IMAGE_TAG \
+                    apps/path-service
+                '''
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                sh '''
+                    docker push $IMAGE_NAME:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+
+                withCredentials([
+                    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
+                    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')
+                ]) {
+
+                    sh '''
+                        kubectl create secret generic path-service-secret \
                         --from-literal=DATABASE_URL="$DATABASE_URL" \
                         --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
                         --from-literal=GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
                         --from-literal=GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \
-                             --namespace=fmp \
-                  --dry-run=client -o yaml | kubectl apply -f -
-            '''
+                        --namespace=fmp \
+                        --dry-run=client -o yaml | kubectl apply -f -
+                    '''
 
-            sh 'kubectl apply -f k8s/path-service/'
-            sh 'kubectl rollout restart deployment/path-service -n fmp'
+                    sh 'kubectl apply -f k8s/path-service/'
+
+                    sh '''
+                        kubectl set image deployment/path-service \
+                        path-service=$IMAGE_NAME:$IMAGE_TAG \
+                        -n fmp
+                    '''
+                }
+            }
         }
-    }
-}
     }
 
     post {
@@ -62,7 +108,5 @@ stage('Deploy') {
         failure {
             echo 'Path service pipeline failed'
         }
-
-        
     }
 }

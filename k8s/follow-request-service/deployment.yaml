@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: follow-request-service
-          image: follow-request-service:latest
+          image: venerableharsha/follow-request-service:latest
           imagePullPolicy: Always          
           envFrom:
           - secretRef:

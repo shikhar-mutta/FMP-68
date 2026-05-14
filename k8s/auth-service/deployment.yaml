@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: auth-service:latest
+          image: venerableharsha/auth-service:latest
           imagePullPolicy: Always          
           envFrom:
           - secretRef:

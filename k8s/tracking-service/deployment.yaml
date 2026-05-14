@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: tracking-service
-          image: tracking-service:latest
+          image: venerableharsha/tracking-service:latest
           imagePullPolicy: Always
           envFrom:
             - secretRef:

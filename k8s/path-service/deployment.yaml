@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: path-service
-          image: path-service:latest
+          image: venerableharsha/path-service:latest
           imagePullPolicy: Always          
           envFrom:
             - secretRef:

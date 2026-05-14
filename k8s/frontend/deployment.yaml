@@ -20,8 +20,9 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: frontend:latest
-          imagePullPolicy: Always          envFrom:
+          image: venerableharsha/frontend:latest
+          imagePullPolicy: Always          
+          envFrom:
           - secretRef:
               name: secret
 

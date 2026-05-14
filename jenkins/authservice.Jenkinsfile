@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = '<your-dockerhub-username>/auth-service'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Install') {
@@ -26,14 +31,50 @@ pipeline {
                 }
             }
         }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build \
+                    -t $IMAGE_NAME:$IMAGE_TAG \
+                    apps/auth-service
+                '''
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                sh '''
+                    docker push $IMAGE_NAME:$IMAGE_TAG
+                '''
+            }
+        }
+
         stage('Deploy') {
             steps {
 
                 withCredentials([
-    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
-    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
-    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
-    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')
+                    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
+                    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')
                 ]) {
 
                     sh '''
@@ -47,11 +88,17 @@ pipeline {
                     '''
 
                     sh 'kubectl apply -f k8s/auth-service/'
-                    sh 'kubectl rollout restart deployment/auth-service -n fmp'
+
+                    sh '''
+                        kubectl set image deployment/auth-service \
+                        auth-service=$IMAGE_NAME:$IMAGE_TAG \
+                        -n fmp
+                    '''
                 }
             }
         }
     }
+
     post {
 
         success {
@@ -61,7 +108,5 @@ pipeline {
         failure {
             echo 'Auth service pipeline failed'
         }
-
-        
     }
 }
