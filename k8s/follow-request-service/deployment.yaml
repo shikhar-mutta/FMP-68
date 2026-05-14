@@ -26,7 +26,8 @@ spec:
       containers:
         - name: follow-request-service
           image: follow-request-service:latest
-          imagePullPolicy: Always          envFrom:
+          imagePullPolicy: Always          
+          envFrom:
           - secretRef:
               name: follow-request-secret
 
