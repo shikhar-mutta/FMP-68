@@ -81,13 +81,13 @@ pipeline {
                     try {
                         dir('frontend') {
                             sh 'node --version && npm --version'
-                            sh 'npm ci --no-audit --no-fund'
+                            sh 'npm install --no-audit --no-fund'
                             // CI=false so React-Scripts treats build warnings as warnings, not errors.
                             // GENERATE_SOURCEMAP=false keeps the bundle small.
                             sh 'CI=false GENERATE_SOURCEMAP=false npm run build'
                         }
                     } catch (Exception e) {
-                        currentBuild.description = 'Failed Stage: Install & Build\nReason: npm ci or npm run build failed.'
+                        currentBuild.description = 'Failed Stage: Install & Build\nReason: npm install or npm run build failed.'
                         throw e
                     }
                 }
