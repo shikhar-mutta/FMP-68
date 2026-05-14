@@ -135,6 +135,7 @@ pipeline {
             steps {
                 script {
                     try {
+                        sh "kubectl apply -f backend/k8s/${SERVICE_NAME}/"
                         sh """
                             kubectl set image deployment/${SERVICE_NAME} \
                                 ${SERVICE_NAME}=${IMAGE_REMOTE} \

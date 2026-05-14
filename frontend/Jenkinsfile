@@ -156,6 +156,8 @@ pipeline {
             steps {
                 script {
                     try {
+                        // Apply frontend k8s manifests first (idempotent — creates Deployment/Service/Ingress/HPA on first run, no-op on subsequent). The orchestrator's "Apply Infra Changes" stage only covers backend/k8s/, so frontend/k8s/ must be applied by this pipeline. Without this, kubectl set image fails with "deployment not found" on a fresh cluster.
+                        sh "kubectl apply -f frontend/k8s/"
                         sh """
                             kubectl set image deployment/${SERVICE_NAME} \
                                 ${SERVICE_NAME}=${IMAGE_REMOTE} \
