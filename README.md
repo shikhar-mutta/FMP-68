@@ -277,3 +277,5 @@ Use the **inline env var** start command from Step 3, not `npm start` directly.
 
 ### 500 on sign-in
 Check the backend terminal for errors. Most likely MongoDB is not running as a replica set.
+
+<!-- ci-test-1778756218 -->
