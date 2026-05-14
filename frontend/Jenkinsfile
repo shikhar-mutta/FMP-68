@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 // fmp-frontend — standalone CI/CD pipeline
-// Jenkins job name: frontend-pipeline
+// Jenkins job name: fmp-frontend
 // Triggered by:
-//   - githubPush() webhook (GitHub Hook Trigger for GITScm Polling)
+//   - SCM polling every 2 min (no public webhook tunnel needed)
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -12,11 +12,10 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
     }
 
-    triggers {
-        githubPush()
-    }
+    triggers { pollSCM('H/2 * * * *') }
 
     parameters {
         string(

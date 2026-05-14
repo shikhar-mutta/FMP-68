@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // fmp-users-service — per-service CI/CD pipeline
-// Jenkins job name: users-service-pipeline
+// Jenkins job name: fmp-users-service
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -10,9 +10,10 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
     }
 
-    triggers { githubPush() }
+    triggers { pollSCM('H/2 * * * *') }
 
     parameters {
         string(
