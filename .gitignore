@@ -43,3 +43,18 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# LaTeX build artifacts (report/)
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.out
+report/*.toc
+report/*.lof
+report/*.lot
+report/*.synctex.gz
+report/*.bbl
+report/*.blg
+report/*.nav
+report/*.snm
+report/*.vrb

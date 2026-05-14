@@ -10,7 +10,8 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        disableConcurrentBuilds(abortPrevious: true)
+        // Queue, don't abort — see backend/Jenkinsfile for the rationale.
+        disableConcurrentBuilds()
     }
 
     parameters {
