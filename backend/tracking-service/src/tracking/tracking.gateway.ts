@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { TrackingService } from './tracking.service';
+import { TrailCacheService } from './trail-cache.service';
 import { LocationPayload } from './tracking.types';
 
 @WebSocketGateway({
@@ -29,7 +30,10 @@ export class TrackingGateway
 
   private userRooms = new Map<string, Set<string>>();
 
-  constructor(private readonly trackingService: TrackingService) {}
+  constructor(
+    private readonly trackingService: TrackingService,
+    private readonly trailCache: TrailCacheService,
+  ) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -76,20 +80,23 @@ export class TrackingGateway
     const { pathId, userId, coordinate, role } = data;
     const room = `path-${pathId}`;
 
+    // Cache + broadcast first, persist second. The cache and the live
+    // emit drive the user-visible feature; Mongo is the durable record
+    // and must not block the broadcast if it's slow or misses a row.
+    this.trailCache.appendCoord(pathId, coordinate).catch(() => {});
+    client.to(room).emit('location-update', {
+      pathId,
+      userId,
+      coordinate,
+      role,
+    });
+
     try {
       await this.trackingService.recordLocation(data);
-
-      client.to(room).emit('location-update', {
-        pathId,
-        userId,
-        coordinate,
-        role,
-      });
-
       return { success: true };
     } catch (error) {
       this.logger.error('Error sending location:', error);
-      return { success: false };
+      return { success: false, cached: true };
     }
   }
 
@@ -161,10 +168,17 @@ export class TrackingGateway
 
       client.to(room).emit('follower-joined', { pathId, userId });
 
+      // Prefer the cached recent trail (newest-first, capped at 200) when
+      // available; fall back to whatever Mongo returned. Cached entries
+      // are reversed so the client receives oldest-first like Mongo.
+      const cached = await this.trailCache.getRecentTrail(pathId);
+      const publisherCoordinates =
+        cached.length > 0 ? cached.slice().reverse() : path?.coordinates || [];
+
       return {
         success: true,
         message: 'Joined tracking',
-        publisherCoordinates: path?.coordinates || [],
+        publisherCoordinates,
         pathStatus: path?.status || 'idle',
       };
     } catch (error) {

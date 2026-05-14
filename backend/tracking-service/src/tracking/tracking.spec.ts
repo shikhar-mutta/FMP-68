@@ -225,7 +225,11 @@ describe('TrackingGateway', () => {
         .fn()
         .mockResolvedValue({ path: { id: 'p1' }, sessions: [] }),
     };
-    gateway = new TrackingGateway(trackingService);
+    const trailCache: any = {
+      appendCoord: jest.fn().mockResolvedValue(undefined),
+      getRecentTrail: jest.fn().mockResolvedValue([]),
+    };
+    gateway = new TrackingGateway(trackingService, trailCache);
     server = makeServer();
     (gateway as any).server = server;
   });
