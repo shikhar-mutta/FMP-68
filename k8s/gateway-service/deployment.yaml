@@ -28,8 +28,7 @@ spec:
       containers:
         - name: gateway-service
           image: gateway-service:latest
-          imagePullPolicy: Never
-
+          imagePullPolicy: Always
           envFrom:
             - secretRef:
                 name: secret

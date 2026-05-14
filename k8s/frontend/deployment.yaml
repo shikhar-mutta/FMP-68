@@ -21,8 +21,7 @@ spec:
       containers:
         - name: frontend
           image: frontend:latest
-          imagePullPolicy: Never
-          envFrom:
+          imagePullPolicy: Always          envFrom:
           - secretRef:
               name: secret
 

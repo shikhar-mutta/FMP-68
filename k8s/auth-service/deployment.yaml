@@ -28,8 +28,7 @@ spec:
       containers:
         - name: auth-service
           image: auth-service:latest
-          imagePullPolicy: Never
-          
+          imagePullPolicy: Always          
           envFrom:
           - secretRef:
               name: auth-secret

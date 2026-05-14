@@ -28,8 +28,7 @@ spec:
       containers:
         - name: tracking-service
           image: tracking-service:latest
-          imagePullPolicy: Never
-
+          imagePullPolicy: Always
           envFrom:
             - secretRef:
                 name: secret          

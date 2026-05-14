@@ -28,8 +28,7 @@ spec:
       containers:
         - name: path-service
           image: path-service:latest
-          imagePullPolicy: Never
-          
+          imagePullPolicy: Always          
           envFrom:
             - secretRef:
                 name: secret
