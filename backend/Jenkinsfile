@@ -107,7 +107,10 @@ pipeline {
                 script {
                     try {
                         echo "Applying K8s manifest updates..."
-                        sh "kubectl apply -f backend/k8s/ --recursive -n ${K8S_NAMESPACE}"
+                        // No -n flag: manifests under backend/k8s/elk and backend/k8s/vault
+                        // declare their own namespaces (elk, vault). Each YAML is
+                        // self-describing; let kubectl honour what's in the file.
+                        sh "kubectl apply -f backend/k8s/ --recursive"
                         sh "kubectl get pods,svc,hpa -n ${K8S_NAMESPACE}"
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Apply Infra\nReason: kubectl apply failed. Check manifests in backend/k8s/'
