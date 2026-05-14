@@ -1,99 +1,111 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# FMP-68 — Local Dev Launcher
-# Usage: ./start.sh
-# Runs Backend (NestJS :4000) and Frontend (React :3000)
+# FMP-68 — root launcher (Docker stack, dev orchestration)
+#
+# Brings up both backend + frontend with a single clean rebuild.
+# Equivalent to running:
+#   ./backend/start.sh
+#   ./frontend/start.sh
+# back-to-back, with extra sanity checks between them.
+#
+# Pre-reqs:
+#   - docker + docker compose v2 installed on the host
+#   - mongod running locally with bindIp 0.0.0.0 (or include
+#     the docker0 bridge) and rs0 replica set initialised
+#
+# Usage:
+#   ./start.sh            # full clean rebuild + run
+#   ./start.sh --stop     # tear everything down
+#
+# After it finishes:
+#   http://localhost:3000    Frontend (nginx)
+#   http://localhost:4000    Backend gateway (HTTP + WS)
+#   http://localhost:15672   RabbitMQ management UI  (guest / guest)
 # ─────────────────────────────────────────────────────────────
+set -e
+set -u
+set -o pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
-FRONTEND_DIR="$ROOT_DIR/frontend"
-LOG_DIR="$ROOT_DIR/logs"
 
-mkdir -p "$LOG_DIR"
+G='\033[0;32m'; C='\033[0;36m'; Y='\033[1;33m'; R='\033[0;31m'; N='\033[0m'
+banner() { echo -e "${C}══════════════════════════════════════════${N}"; echo -e "${C}  $*${N}"; echo -e "${C}══════════════════════════════════════════${N}"; }
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'
-YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+# ── --stop flag → tear everything down and exit ────────────────
+if [ "${1:-}" = "--stop" ]; then
+  banner "FMP-68 — stopping everything"
 
-echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║        FMP-68 Dev Server Launcher        ║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════╝${NC}"
-echo ""
+  echo -e "${Y}[1/4] Stop + remove frontend stack${N}"
+  docker compose -f "$ROOT_DIR/frontend/docker-compose.yml" down --rmi local --volumes --remove-orphans 2>&1 | sed 's/^/    /' || true
+  docker rmi -f $(docker images "fmp-frontend*" -q 2>/dev/null) 2>/dev/null || true
+  fuser -k 3000/tcp 2>/dev/null || true
 
-# ── Validate dirs ──────────────────────────────────────────────
-if [ ! -d "$BACKEND_DIR" ]; then echo -e "${RED}[ERROR] backend/ not found${NC}"; exit 1; fi
-if [ ! -d "$FRONTEND_DIR" ]; then echo -e "${RED}[ERROR] frontend/ not found${NC}"; exit 1; fi
+  echo -e "${Y}[2/4] Stop + remove backend stack${N}"
+  docker compose -f "$ROOT_DIR/backend/docker-compose.yml"  down --rmi local --volumes --remove-orphans 2>&1 | sed 's/^/    /' || true
+  imgs=""
+  for svc in api-gateway auth-service users-service paths-service tracking-service notification-service; do
+    ids=$(docker images "fmp-${svc}" -q 2>/dev/null | tr '\n' ' ')
+    imgs="$imgs $ids"
+  done
+  imgs=$(echo "$imgs" | xargs)
+  [ -n "$imgs" ] && docker rmi -f $imgs >/dev/null 2>&1 || true
+  for port in 4000 4001 4002 4003 4004 4005 5672 15672 6379; do
+    fuser -k ${port}/tcp 2>/dev/null || true
+  done
 
-# ── Check backend .env ─────────────────────────────────────────
-if [ ! -f "$BACKEND_DIR/.env" ]; then
-  echo -e "${YELLOW}[WARN] backend/.env missing — copying from root .env${NC}"
-  cp "$ROOT_DIR/.env" "$BACKEND_DIR/.env"
-  sed -i 's|host.docker.internal|localhost|g' "$BACKEND_DIR/.env"
+  echo -e "${Y}[3/4] Remove fmp-net bridge${N}"
+  docker network rm fmp-net 2>/dev/null && echo "    removed fmp-net" || echo "    already gone"
+
+  echo -e "${Y}[4/4] Prune dangling images + build cache${N}"
+  docker image prune -f 2>&1 | tail -2 | sed 's/^/    /' || true
+  docker builder prune -f 2>&1 | tail -2 | sed 's/^/    /' || true
+
+  echo ""
+  echo -e "${G}✅ Stopped. Remaining fmp-* artifacts:${N}"
+  docker ps -a --filter "name=fmp-" --format "    {{.Names}}" | head -10
+  docker images "fmp-*" --format "    {{.Repository}}:{{.Tag}}" | head -10
+  exit 0
 fi
 
-# ── Install deps if needed ─────────────────────────────────────
-if [ ! -d "$BACKEND_DIR/node_modules" ]; then
-  echo -e "${YELLOW}[BACKEND] Installing dependencies...${NC}"
-  npm install --prefix "$BACKEND_DIR"
+banner "FMP-68 — clean rebuild + launch (backend + frontend)"
+
+# ── Pre-flight ─────────────────────────────────────────────────
+echo -e "${Y}[pre-flight] docker daemon${N}"
+if ! docker info >/dev/null 2>&1; then
+  echo -e "${R}    ✘ docker daemon not reachable. Start Docker, then re-run.${N}"; exit 1
 fi
+echo "    ✓ docker is up"
 
-if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
-  echo -e "${YELLOW}[FRONTEND] Installing dependencies...${NC}"
-  npm install --prefix "$FRONTEND_DIR"
-fi
-
-# ── Prisma setup ───────────────────────────────────────────────
-echo -e "${GREEN}[BACKEND] Generating Prisma client...${NC}"
-cd "$BACKEND_DIR" && npx prisma generate 2>&1 | tail -3
-echo -e "${GREEN}[BACKEND] Pushing Prisma schema...${NC}"
-npx prisma db push --skip-generate 2>&1 | tail -5
-cd "$ROOT_DIR"
-
-# ── Launch helper ──────────────────────────────────────────────
-launch_in_terminal() {
-  local title="$1"
-  local cmd="$2"
-
-  if command -v gnome-terminal &>/dev/null; then
-    gnome-terminal --title="$title" -- bash -c "$cmd; exec bash" &
-  elif command -v xfce4-terminal &>/dev/null; then
-    xfce4-terminal --title="$title" -x bash -c "$cmd; exec bash" &
-  elif command -v konsole &>/dev/null; then
-    konsole --title "$title" -e bash -c "$cmd; exec bash" &
-  elif command -v xterm &>/dev/null; then
-    xterm -T "$title" -e bash -c "$cmd; exec bash" &
+echo -e "${Y}[pre-flight] host MongoDB${N}"
+if command -v mongosh >/dev/null 2>&1; then
+  if mongosh --quiet --eval "rs.status().ok" 2>/dev/null | grep -q '^1$'; then
+    echo "    ✓ mongod rs0 healthy"
   else
-    # Fallback: run in background, log to file
-    echo -e "${YELLOW}[INFO] No terminal emulator found — running $title in background${NC}"
-    bash -c "$cmd" >> "$LOG_DIR/$(echo $title | tr ' ' '_').log" 2>&1 &
-    echo $! > "$LOG_DIR/$(echo $title | tr ' ' '_').pid"
+    echo -e "${R}    ⚠ mongod replica set not reachable.  Backend will fail Prisma calls.${N}"
+    echo -e "${R}      Ensure mongod is running and rs.status() returns ok=1.${N}"
   fi
-}
+else
+  echo "    (mongosh not installed — skipping check)"
+fi
 
-# ── Clear ports ───────────────────────────────────────────────
-echo -e "${YELLOW}[INFO] Clearing ports 4000 and 3000...${NC}"
-fuser -k 4000/tcp 2>/dev/null || true
-fuser -k 3000/tcp 2>/dev/null || true
-sleep 1
+# ── 1. Backend ────────────────────────────────────────────────
+banner "Backend stack"
+"$ROOT_DIR/backend/start.sh"
 
-# ── Start Backend ──────────────────────────────────────────────
-echo -e "${GREEN}[BACKEND]  Starting NestJS  → http://localhost:4000${NC}"
-launch_in_terminal "FMP-68 Backend" "cd \"$BACKEND_DIR\" && npm run start:dev"
+# ── 2. Frontend ───────────────────────────────────────────────
+banner "Frontend stack"
+"$ROOT_DIR/frontend/start.sh"
 
-sleep 2
-
-# ── Start Frontend ─────────────────────────────────────────────
-echo -e "${BLUE}[FRONTEND] Starting React   → http://localhost:3000${NC}"
-launch_in_terminal "FMP-68 Frontend" "cd \"$FRONTEND_DIR\" && HOST=localhost REACT_APP_API_URL=http://localhost:4000 npm start"
-
+# ── 3. Final report ───────────────────────────────────────────
+banner "Done"
 echo ""
-echo -e "${CYAN}══════════════════════════════════════════════${NC}"
-echo -e "${GREEN} ✔ Backend  → http://localhost:4000${NC}"
-echo -e "${GREEN} ✔ Frontend → http://localhost:3000${NC}"
-echo -e "${CYAN}══════════════════════════════════════════════${NC}"
+echo -e "${G}Running containers${N}"
+docker ps --filter "name=fmp-" --format "  {{.Names}}  {{.Status}}  →  {{.Ports}}" 2>&1 | head -15
 echo ""
-echo -e "${YELLOW} Logs (if no terminal emulator): $LOG_DIR/${NC}"
-echo -e "${YELLOW} To stop: kill \$(cat $LOG_DIR/*.pid 2>/dev/null)${NC}"
+echo -e "${G}Open in your browser:${N}"
+echo "  http://localhost:3000    Frontend"
+echo "  http://localhost:4000    Backend gateway"
+echo "  http://localhost:15672   RabbitMQ UI  (guest / guest)"
 echo ""
+echo -e "${G}Stop everything later with:${N}"
+echo "  ./start.sh --stop"
