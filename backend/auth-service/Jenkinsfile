@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // fmp-auth-service — per-service CI/CD pipeline
-// Jenkins job name: auth-service-pipeline
+// Jenkins job name: fmp-auth-service
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -10,9 +10,8 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
     }
-
-    triggers { githubPush() }
 
     parameters {
         string(
@@ -50,6 +49,7 @@ pipeline {
             steps {
                 script {
                     try {
+                        sh "git fetch origin main || true"
                         def changed = sh(
                             script: "git diff --name-only HEAD~1 HEAD | grep '^backend/${SERVICE_NAME}/' || true",
                             returnStdout: true
@@ -105,6 +105,7 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {
@@ -129,6 +130,7 @@ pipeline {
         }
 
         stage('Deploy to Minikube') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {

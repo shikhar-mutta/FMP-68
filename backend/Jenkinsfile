@@ -3,7 +3,7 @@
 //
 // Pattern mirrored from the reference repo
 // (KetanGhungralekar/Movie-Booking-System-Microservices):
-//   1. githubPush() webhook trigger fires this pipeline.
+//   1. SCM polling (every 2 min) triggers this pipeline.
 //   2. Detect Changes — compare HEAD with HEAD~1, map folders to
 //      Jenkins job names.
 //   3. Apply Infra Changes — kubectl apply backend/k8s/ on any infra diff.
@@ -12,12 +12,12 @@
 //   5. "Nothing Changed" branch is a no-op.
 //
 // Jenkins job names (must be created in the Jenkins UI):
-//   api-gateway-pipeline
-//   auth-service-pipeline
-//   users-service-pipeline
-//   paths-service-pipeline
-//   tracking-service-pipeline
-//   notification-service-pipeline
+//   fmp-api-gateway
+//   fmp-auth-service
+//   fmp-users-service
+//   fmp-paths-service
+//   fmp-tracking-service
+//   fmp-notification-service
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -30,7 +30,7 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    triggers { githubPush() }
+    triggers { pollSCM('H/2 * * * *') }
 
     environment {
         K8S_NAMESPACE = 'fmp'
@@ -63,12 +63,12 @@ pipeline {
                         echo "Changed files:\n${changedFiles.join('\n')}"
 
                         def serviceMap = [
-                            "backend/api-gateway"          : "api-gateway-pipeline",
-                            "backend/auth-service"         : "auth-service-pipeline",
-                            "backend/users-service"        : "users-service-pipeline",
-                            "backend/paths-service"        : "paths-service-pipeline",
-                            "backend/tracking-service"     : "tracking-service-pipeline",
-                            "backend/notification-service" : "notification-service-pipeline"
+                            "backend/api-gateway"          : "fmp-api-gateway",
+                            "backend/auth-service"         : "fmp-auth-service",
+                            "backend/users-service"        : "fmp-users-service",
+                            "backend/paths-service"        : "fmp-paths-service",
+                            "backend/tracking-service"     : "fmp-tracking-service",
+                            "backend/notification-service" : "fmp-notification-service"
                         ]
                         def infraFolders = ["backend/k8s"]
 
