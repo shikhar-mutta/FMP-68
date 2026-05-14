@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-# fmp-frontend — standalone compose
+# fmp-frontend — standalone compose (ci-trigger-test-1778755215)
 #
 # Brings the frontend container up on host port 3000 and attaches it
 # to the existing 'fmp-net' bridge created by backend/docker-compose.yml.
