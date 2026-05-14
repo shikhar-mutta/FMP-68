@@ -30,10 +30,10 @@ pipeline {
             steps {
 
                 withCredentials([
-                    string(credentialsId: 'google-client-id', variable: 'GOOGLE_CLIENT_ID'),
-                    string(credentialsId: 'google-client-secret', variable: 'GOOGLE_CLIENT_SECRET'),
-                    string(credentialsId: 'google-callback-url', variable: 'GOOGLE_CALLBACK_URL'),
-                    string(credentialsId: 'database-url', variable: 'DATABASE_URL')
+    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
+    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')
                 ]) {
 
                     sh '''

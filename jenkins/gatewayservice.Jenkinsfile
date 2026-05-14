@@ -31,13 +31,17 @@ stage('Deploy') {
     steps {
 
         withCredentials([
-            string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET')
-        ]) {
+    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+    string(credentialsId: 'GOOGLE_CALLBACK_URL', variable: 'GOOGLE_CALLBACK_URL'),
+    string(credentialsId: 'DATABASE_URL', variable: 'DATABASE_URL')        ]) {
 
             sh '''
                 kubectl create secret generic gateway-secret \
-                  --from-literal=JWT_SECRET="$JWT_SECRET" \
-                  --namespace=fmp \
+                        --from-literal=DATABASE_URL="$DATABASE_URL" \
+                        --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+                        --from-literal=GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+                        --from-literal=GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \                  --namespace=fmp \
                   --dry-run=client -o yaml | kubectl apply -f -
             '''
 
