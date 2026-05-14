@@ -68,30 +68,31 @@
 \begin{titlepage}
 \thispagestyle{empty}
 \begin{center}
-\vspace*{1.5cm}
+\vspace*{0.5cm}
 
-{\Large \textbf{CSE 816 — Software Production Engineering}}\\[0.4cm]
-{\large Final Project Report}\\[3cm]
+{\Large \textbf{CSE 816 — Software Production Engineering}}\\[0.3cm]
+{\large Final Project Report}\\[1.5cm]
 
-{\Huge \textbf{FMP-68}}\\[0.4cm]
+{\Huge \textbf{FMP-68}}\\[0.2cm]
+{\large \emph{Follow My Path}}\\[0.3cm]
 {\LARGE \textbf{A DevSecOps SDLC Automation Platform}}\\[0.2cm]
 {\large with selective-rebuild CI/CD, container image scanning,\\
-in-cluster secrets vaulting, and dashboards-as-code observability}\\[2cm]
+in-cluster secrets vaulting, and dashboards-as-code observability}\\[1cm]
 
 \rule{0.7\textwidth}{0.4pt}\\[0.3cm]
 {\large Built around a realistic NestJS microservices workload:\\
 Google-OAuth identity, online presence, and live GPS path-tracking.}\\
-\rule{0.7\textwidth}{0.4pt}\\[2cm]
+\rule{0.7\textwidth}{0.4pt}\\[1cm]
 
-\textbf{\Large Author}\\[0.3cm]
-{\large Shikhar Mutta}\\[2cm]
+\textbf{\Large Group Members}\\[0.3cm]
+{\large Shikhar Mutta\quad--\quad MT2025114}\\[0.2cm]
+{\large Harsha Chigurupati\quad--\quad MS2025502}\\[1cm]
 
-\textbf{\Large Source Code Repository}\\[0.3cm]
-\texttt{github.com/shikhar-mutta/FMP-68}\\[3cm]
-
-\vfill
-{\small Submitted in partial fulfilment of CSE 816 — Software Production Engineering}\\
-{\small Final Project, Spring 2026}
+\textbf{\Large GitHub Repositories}\\[0.3cm]
+{\large Backend:}\\
+\url{https://github.com/shikhar-mutta/FMP-68/tree/main/backend}\\[0.4cm]
+{\large Frontend:}\\
+\url{https://github.com/shikhar-mutta/FMP-68/tree/main/frontend}
 \end{center}
 \end{titlepage}
 
@@ -113,9 +114,10 @@ Google-OAuth identity, online presence, and live GPS path-tracking.}\\
 % ═════════════════════════════════════════════════════════════════════════════
 \section{System Overview}
 
-\textbf{FMP-68} is a full-stack microservices platform whose primary
-contribution is not the application code itself but the \emph{DevSecOps
-software-development-lifecycle (SDLC) automation} built around it.  The
+\textbf{FMP-68} (\emph{Follow My Path}) is a full-stack microservices
+platform whose primary contribution is not the application code itself
+but the \emph{DevSecOps software-development-lifecycle (SDLC)
+automation} built around it.  The
 reference application — a Google-OAuth identity service with real-time user
 presence and live GPS path-tracking — is intentionally non-trivial: it
 spans six independently deployable backend services, a React single-page
@@ -1342,9 +1344,25 @@ position, so the gap is invisible to the user.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Notification Service}
 
-\dummyfig{RabbitMQ management UI showing the
-\texttt{fmp.notifications} exchange and the
-\texttt{notification-service.consumer} queue.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figures/rabbitmq-ui.png}
+\caption{RabbitMQ management UI (\texttt{Overview} tab) for the
+in-cluster broker, accessed through \texttt{kubectl port-forward
+svc/rabbitmq 15672:15672}.  The pane reports broker version
+\texttt{RabbitMQ 3.13.7} on Erlang \texttt{26.2.5.16}, a cluster
+node uptime of just under five hours, and live counts of
+connections, channels, exchanges, queues, and consumers.  Memory
+usage (\texttt{56 MiB}) sits well under the \texttt{9 GiB} high
+watermark, demonstrating that the broker is healthy and idle ---
+the application-level exchange and queue topology
+(\texttt{fmp.notifications} + \texttt{notification-service.consumer})
+is created lazily by each consumer at boot via \texttt{assertExchange}
+and \texttt{assertQueue} calls, and is therefore visible only when
+the notification-service consumer is fully wired and running (see
+the \emph{Current Implementation Status} subsection below).}
+\label{fig:rabbitmq-ui}
+\end{figure}
 
 \subsection{Responsibilities}
 notification-service is the asynchronous fan-out point for any
@@ -1402,8 +1420,27 @@ privileged capabilities.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Redis}
 
-\dummyfig{Redis CLI output showing the \texttt{trail:*} keys with
-TTLs, demonstrating the live-broadcast cache layer.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figures/redis-cli.png}
+\caption{Live \texttt{redis-cli} session against the in-cluster Redis
+deployment, captured after driving thirteen \texttt{send-location}
+WebSocket events into tracking-service across two synthetic paths.
+\texttt{KEYS} confirms the two \texttt{trail:\{pathId\}} entries
+exist; \texttt{TTL} shows the keys decaying from the 3600\,s
+expiration that \texttt{EXPIRE} sets on every write; \texttt{LLEN}
+matches the number of coordinates each session received (8 and 5);
+\texttt{LRANGE 0 2} returns the three most recent coordinates in
+newest-first order, exactly as the \texttt{LPUSH} write pattern
+prescribes.  Together these commands demonstrate the live-broadcast
+cache layer end-to-end --- the tracking-service gateway's
+\texttt{TrailCacheService} writes via an \texttt{LPUSH +
+LTRIM 0 199 + EXPIRE 3600} pipeline on every coordinate, and the
+follower's \texttt{join-tracking} handler reads with
+\texttt{LRANGE 0 -1} for an immediate replay of the last 200 points
+without a MongoDB round-trip.}
+\label{fig:redis-cli}
+\end{figure}
 
 \subsection{Role of Redis in the Tracking Workflow}
 Redis is the short-lived cache used by tracking-service to give a
@@ -1546,8 +1583,30 @@ requires them.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Docker Containerization}
 
-\dummyfig{Docker Hub view of the \texttt{shikhar68/fmp-*} repository
-list, showing the most recent build tags.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/dockerhub-repos.png}
+\caption{Docker Hub view of the \texttt{shikhar68} namespace, listing
+the seven \texttt{fmp-*} repositories the Jenkins per-service
+pipelines push to (one repository per backend microservice plus the
+frontend Nginx image).  The \emph{Last Pushed} column reflects
+selective-rebuild behaviour: services that were touched by recent
+commits show recent pushes, while services unchanged for hours
+retain older timestamps.}
+\label{fig:dockerhub-repos}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/dockerhub-tags.png}
+\caption{Tags view for one of the seven repositories
+(\texttt{shikhar68/fmp-api-gateway}), showing the build-numbered tags
+(\texttt{main-1} through \texttt{main-20}) emitted by successive
+Jenkins pipeline runs.  Every successful per-service pipeline run
+publishes both the build-numbered tag and \texttt{latest}, giving
+the rollout step an immutable artefact to reference.}
+\label{fig:dockerhub-tags}
+\end{figure}
 
 \subsection{Per-Service Dockerfiles}
 Every backend service has a multi-stage Dockerfile.  The two-stage
@@ -1627,8 +1686,29 @@ a DevOps platform must give you.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Jenkins and CI/CD Automation}
 
-\dummyfig{Jenkins dashboard showing the orchestrator and seven
-per-service pipelines, with their last build status.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figures/jenkins-dashboard.png}
+\caption{Jenkins controller (\texttt{2.555.1}) listing the eight
+pipelines that make up the FMP-68 CI/CD topology: the root
+\texttt{fmp-backend-orchestrator} and seven per-service jobs
+(\texttt{fmp-api-gateway}, \texttt{fmp-auth-service},
+\texttt{fmp-users-service}, \texttt{fmp-paths-service},
+\texttt{fmp-tracking-service}, \texttt{fmp-notification-service},
+and \texttt{fmp-frontend}).  Every job has a populated \emph{Last
+Success} column --- the highest build number for each pipeline ranges
+from \#5 (tracking-service) to \#34 (frontend) --- and a healthy
+weather indicator (sun icon for all jobs; partly-cloudy on
+tracking-service reflecting one recent flaky run).  The
+\emph{Build Queue} panel on the left captures a live trigger of
+\texttt{fmp-backend-orchestrator \#28}, demonstrating the
+\texttt{githubPush()} webhook fan-out from a real \texttt{git push};
+the \emph{Build Executor Status} shows the single executor saturated
+during fan-out, which is exactly the queueing behaviour configured
+in commit \texttt{U114} after the earlier
+\texttt{abortPrevious: true} concurrency policy was removed.}
+\label{fig:jenkins-dashboard}
+\end{figure}
 
 \subsection{Overall CI/CD Architecture}
 The CI/CD system is two-tiered.  The root orchestrator pipeline
@@ -1803,9 +1883,27 @@ build, but their absence is visible in the Jenkins console output.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{Kubernetes Orchestration}
 
-\dummyfig{Output of \texttt{kubectl get pods -A} after a clean
-\texttt{ansible-playbook} run, showing all pods in
-Running / Ready state across the fmp, elk, and vault namespaces.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{figures/kubectl-pods.png}
+\caption{Pod state across the three application namespaces
+(\texttt{fmp}, \texttt{elk}, \texttt{vault}) on the Minikube cluster.
+All thirteen workloads are \emph{1/1 Running}: the eight backend
+microservices and supporting infrastructure (\texttt{rabbitmq},
+\texttt{redis}) in \texttt{fmp}; the full ELK stack
+(\texttt{elasticsearch}, \texttt{filebeat}, \texttt{kibana},
+\texttt{logstash}) in \texttt{elk}; and HashiCorp Vault in
+\texttt{vault}.  Non-zero \emph{RESTARTS} on \texttt{filebeat} and
+\texttt{logstash} reflect Kubernetes' self-healing behaviour during
+the initial \texttt{ansible-playbook} bring-up --- when Elasticsearch
+takes longer to become ready than its dependants expect, the
+dependants crash and are restarted by the kubelet until ES accepts
+their connection.  The output is captured per-namespace via
+\texttt{for ns in fmp elk vault; do kubectl get pods -n \$ns; done}
+to keep the figure focused on application workloads rather than
+\texttt{kube-system} infrastructure.}
+\label{fig:kubectl-pods}
+\end{figure}
 
 \subsection{Role of Kubernetes in the System}
 Kubernetes orchestrates every workload: it schedules pods, restarts
@@ -2128,9 +2226,25 @@ credentials but no structural change.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{HashiCorp Vault — Secrets Management}
 
-\dummyfig{Vault UI showing the kv-v2 secrets engine mounted at
-\texttt{secret/} with the \texttt{fmp/auth},
-\texttt{fmp/db}, and \texttt{fmp/rabbitmq} paths.}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/vault-ui.png}
+\caption{Vault UI confirming the seeded secrets topology.  The
+\texttt{secret/} engine is mounted as \emph{kv-v2} (\textit{version
+2}), and the \texttt{fmp/} prefix holds exactly three sibling
+secrets: \texttt{auth} (JWT and Google OAuth credentials),
+\texttt{db} (MongoDB URI), and \texttt{rabbitmq} (AMQP URL).  These
+paths are populated automatically at Vault boot by the
+\texttt{vault-seed} ConfigMap, executed through the Vault pod's
+\texttt{postStart} lifecycle hook --- no manual seeding step is
+required after \texttt{ansible-playbook} completes.  Each backend
+service fetches its credentials from the matching path at boot
+using the dev-mode root token \texttt{fmp-dev-root}; in production
+this token would be replaced with short-lived
+\texttt{kubernetes/auth} role-scoped tokens via the Vault Agent
+Injector.}
+\label{fig:vault-ui}
+\end{figure}
 
 \subsection{Why Vault?}
 Kubernetes Secrets are base64-encoded, not encrypted at rest by
@@ -2279,10 +2393,23 @@ gives a tight signal-to-noise ratio for a developer-facing pipeline.
 % ═════════════════════════════════════════════════════════════════════════════
 \section{ELK Stack for Centralized Logging}
 
-\dummyfig{Kibana Discover view filtered to
-\texttt{service: paths-service}, showing structured log entries with
-the \texttt{kubernetes.pod.name} and \texttt{message} fields
-expanded.}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{figures/kibana-discover.png}
+  \caption{Kibana \texttt{Discover} view of the \texttt{FMP Logs} data
+  view, browsing the full \texttt{fmp-logs-*} index over a 14-day
+  window.  The histogram (top) shows event counts bucketed by
+  \texttt{@timestamp}; the document table (bottom) lists the most
+  recent ingested entries with their raw structured fields
+  (\texttt{@timestamp}, \texttt{kubernetes.pod.name},
+  \texttt{log.file.path}, \texttt{agent.name}, \texttt{message},
+  \ldots).  The 5{,}328 indexed documents are produced by the
+  Filebeat\,$\rightarrow$\,Logstash\,$\rightarrow$\,Elasticsearch
+  pipeline running in the \texttt{elk} namespace, confirming that
+  every container's stdout/stderr is being shipped, parsed, and made
+  queryable in near-real-time.}
+  \label{fig:kibana-discover}
+\end{figure}
 
 \subsection{Purpose of Centralized Logging}
 Across the \texttt{fmp} namespace there are seven or more pods at
@@ -3182,6 +3309,10 @@ NGINX Ingress Controller  & latest stable                & Minikube addon \\
 \subsection{Repository}
 \begin{itemize}[leftmargin=*]
   \item Source code: \url{https://github.com/shikhar-mutta/FMP-68}
+  \item Backend (microservices):
+        \url{https://github.com/shikhar-mutta/FMP-68/tree/main/backend}
+  \item Frontend (React app):
+        \url{https://github.com/shikhar-mutta/FMP-68/tree/main/frontend}
   \item This report: \texttt{report/main.pdf} in the same repository.
 \end{itemize}
 

@@ -16,6 +16,8 @@ data:
   DATABASE_URL: "mongodb://mongo-external:27017/fmp68?replicaSet=rs0&directConnection=true"
   # RabbitMQ (in-cluster)
   RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+  # Redis (in-cluster) — tracking-service trail:* coord cache (LPUSH/LTRIM/EXPIRE)
+  REDIS_URL: "redis://redis:6379"
   # OAuth public values
   GOOGLE_CLIENT_ID: "430506095007-u8g4b06sed14stgkrlk11oqvfqrmshk4.apps.googleusercontent.com"
   GOOGLE_CALLBACK_URL: "http://localhost:4000/auth/google/callback"
