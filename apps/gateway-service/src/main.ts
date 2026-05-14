@@ -17,25 +17,29 @@ async function bootstrap() {
     changeOrigin: true,
   }),
 );
-
-  // PATHS
-  app.use(
-    '/paths',
-    createProxyMiddleware({
-      target: 'http://path-service:3002',
-      changeOrigin: true,
-    }),
-  );
+app.use(
+  createProxyMiddleware({
+    pathFilter: '/users',
+    target: 'http://auth-service:3001',
+    changeOrigin: true,
+  }),
+);
+app.use(
+  createProxyMiddleware({
+    pathFilter: '/paths',
+    target: 'http://path-service:3002',
+    changeOrigin: true,
+  }),
+);
 
   // FOLLOW REQUESTS
-  app.use(
-    '/follow-requests',
-    createProxyMiddleware({
-      target: 'http://follow-request-service:3003',
-      changeOrigin: true,
-    }),
-  );
-
+app.use(
+  createProxyMiddleware({
+    pathFilter: '/follow-requests',
+    target: 'http://follow-request-service:3003',
+    changeOrigin: true,
+  }),
+);
   await app.listen(3000);
 
   console.log('gateway-service running on 3000');

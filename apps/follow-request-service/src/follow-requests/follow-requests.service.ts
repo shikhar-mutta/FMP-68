@@ -30,7 +30,7 @@ export class FollowRequestsService {
     const request = await this.prisma.followRequest.create({
       data: {
         pathId: dto.pathId,
-        publisherId: dto.publisherId,
+        publisherId: 'temporary-publisher-id',
         requesterId,
         status: FollowRequestStatus.PENDING,
       },
@@ -42,6 +42,7 @@ export class FollowRequestsService {
   async approveFollowRequest(
     pathId: string,
     requesterId: string,
+    publisherId: string,
   ) {
     const request = await this.prisma.followRequest.findFirst({
       where: {
@@ -54,6 +55,9 @@ export class FollowRequestsService {
     if (!request) {
       throw new Error('Follow request not found');
     }
+    if (request.publisherId !== publisherId) {
+  throw new Error('Unauthorized');
+}
 
     await this.prisma.followRequest.update({
     where: {
@@ -79,6 +83,7 @@ export class FollowRequestsService {
   async rejectFollowRequest(
     pathId: string,
     requesterId: string,
+      publisherId: string,
   ) {
     const request = await this.prisma.followRequest.findFirst({
       where: {
@@ -91,7 +96,9 @@ export class FollowRequestsService {
     if (!request) {
       throw new Error('Follow request not found');
     }
-
+    if (request.publisherId !== publisherId) {
+  throw new Error('Unauthorized');
+}
     await this.prisma.followRequest.update({
       where: {
         id: request.id,
@@ -113,4 +120,65 @@ export class FollowRequestsService {
       },
     });
   }
+  async cancelFollowRequest(
+  pathId: string,
+  requesterId: string,
+) {
+  const request = await this.prisma.followRequest.findFirst({
+    where: {
+      pathId,
+      requesterId,
+      status: 'PENDING',
+    },
+  });
+
+  if (!request) {
+    throw new Error('Follow request not found');
+  }
+
+  await this.prisma.followRequest.update({
+    where: {
+      id: request.id,
+    },
+    data: {
+      status: FollowRequestStatus.CANCELLED,
+    },
+  });
+
+  return {
+    message: 'Follow request cancelled',
+  };
+}
+
+async getPendingRequestsForPublisher(
+  publisherId: string,
+) {
+  return this.prisma.followRequest.findMany({
+    where: {
+      publisherId,
+      status: FollowRequestStatus.PENDING,
+    },
+  });
+}
+
+async getSentRequests(
+  requesterId: string,
+) {
+  return this.prisma.followRequest.findMany({
+    where: {
+      requesterId,
+    },
+  });
+}
+
+async getRequestsForPath(
+  pathId: string,
+) {
+  return this.prisma.followRequest.findMany({
+    where: {
+      pathId,
+      status: FollowRequestStatus.PENDING,
+    },
+  });
+}
 }
