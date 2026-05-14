@@ -13,8 +13,6 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    triggers { pollSCM('H/2 * * * *') }
-
     parameters {
         string(
             name: 'IMAGE_TAG',
@@ -51,6 +49,7 @@ pipeline {
             steps {
                 script {
                     try {
+                        sh "git fetch origin main || true"
                         def changed = sh(
                             script: "git diff --name-only HEAD~1 HEAD | grep '^backend/${SERVICE_NAME}/' || true",
                             returnStdout: true
@@ -106,6 +105,7 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {
@@ -130,6 +130,7 @@ pipeline {
         }
 
         stage('Deploy to Minikube') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {

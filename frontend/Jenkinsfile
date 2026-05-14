@@ -52,6 +52,7 @@ pipeline {
             steps {
                 script {
                     try {
+                        sh "git fetch origin main || true"
                         def changed = sh(
                             script: "git diff --name-only HEAD~1 HEAD | grep '^frontend/' || true",
                             returnStdout: true
@@ -109,6 +110,7 @@ pipeline {
         }
 
         stage('Docker Push') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {
@@ -133,6 +135,7 @@ pipeline {
         }
 
         stage('Deploy to Minikube') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
             steps {
                 script {
                     try {
