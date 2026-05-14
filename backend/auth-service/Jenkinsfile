@@ -77,7 +77,7 @@ pipeline {
                         dir("backend/${SERVICE_NAME}") {
                             sh 'node --version && npm --version'
                             sh 'npm install --no-audit --no-fund'
-                            sh 'npm test -- --passWithNoTests --coverage || true'
+                            sh 'npm test -- --coverage'
                         }
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Install & Test\nReason: npm install or npm test failed.'
