@@ -36,7 +36,7 @@ following DevSecOps controls end-to-end:
 | **Image Registry** | Docker Hub (`shikhar68/fmp-*`) | pushed from every Jenkins pipeline |
 | **Config Management** | Ansible — 4 modular roles | [backend/ansible/site.yml](backend/ansible/site.yml), [backend/ansible/roles/](backend/ansible/roles/) |
 | **Orchestration** | Kubernetes (Minikube) | [backend/k8s/](backend/k8s/), [frontend/k8s/](frontend/k8s/) |
-| **Autoscaling** | HPA on api-gateway + tracking-service | [backend/k8s/api-gateway/hpa.yaml](backend/k8s/api-gateway/hpa.yaml), [backend/k8s/tracking-service/hpa.yaml](backend/k8s/tracking-service/hpa.yaml) |
+| **Autoscaling** | HPA on api-gateway + tracking-service + frontend | [backend/k8s/api-gateway/hpa.yaml](backend/k8s/api-gateway/hpa.yaml), [backend/k8s/tracking-service/hpa.yaml](backend/k8s/tracking-service/hpa.yaml), [frontend/k8s/hpa.yaml](frontend/k8s/hpa.yaml) |
 | **Secrets** | HashiCorp Vault (kv-v2 at `secret/fmp/*`) | [backend/k8s/vault/vault.yaml](backend/k8s/vault/vault.yaml) |
 | **Observability** | Filebeat → Logstash → Elasticsearch → Kibana | [backend/k8s/elk/](backend/k8s/elk/) |
 | **Pre-built Dashboard** | Auto-imported on deploy via Kubernetes `Job` | [backend/k8s/elk/kibana-import-job.yaml](backend/k8s/elk/kibana-import-job.yaml) |
@@ -74,7 +74,7 @@ following DevSecOps controls end-to-end:
             │  Kubernetes (Minikube)                        │
             │  RollingUpdate, maxUnavailable=0              │
             │  → zero-downtime live patching                │
-            │  → HPA scales api-gateway + tracking-service  │
+            │  → HPA scales api-gateway, tracking, frontend │
             └────────────────────┬──────────────────────────┘
                                  ▼
             ┌───────────────────────────────────────────────┐
@@ -162,7 +162,7 @@ which is what makes the per-service breakdown work without any application chang
 | **Working Project total** | **20 / 20** | |
 | **Vault (secure storage)** | ✅ | [backend/k8s/vault/vault.yaml](backend/k8s/vault/vault.yaml) |
 | **Ansible roles (modular)** | ✅ | `common`, `minikube`, `vault`, `deploy-fmp` |
-| **Kubernetes HPA** | ✅ | api-gateway + tracking-service |
+| **Kubernetes HPA** | ✅ | api-gateway + tracking-service + frontend |
 | **Advanced Features total** | **3 / 3** | |
 | **Innovation** — selective-rebuild, Vault postStart, dashboards-as-code, live-patching | ✅ | see Innovations section above |
 | **Innovation total** | **2 / 2** | |

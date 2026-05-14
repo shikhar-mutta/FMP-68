@@ -73,19 +73,35 @@ pipeline {
             }
         }
 
-        stage('Install & Build') {
+        stage('Install & Test') {
             steps {
                 script {
                     try {
                         dir('frontend') {
                             sh 'node --version && npm --version'
                             sh 'npm install --no-audit --no-fund'
+                            // CI=true ensures jest runs once (no watch) and exits with a non-zero code on failure.
+                            sh 'CI=true npm test -- --watchAll=false --coverage'
+                        }
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Install & Test\nReason: npm install or npm test failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    try {
+                        dir('frontend') {
                             // CI=false so React-Scripts treats build warnings as warnings, not errors.
                             // GENERATE_SOURCEMAP=false keeps the bundle small.
                             sh 'CI=false GENERATE_SOURCEMAP=false npm run build'
                         }
                     } catch (Exception e) {
-                        currentBuild.description = 'Failed Stage: Install & Build\nReason: npm install or npm run build failed.'
+                        currentBuild.description = 'Failed Stage: Build\nReason: npm run build failed.'
                         throw e
                     }
                 }
