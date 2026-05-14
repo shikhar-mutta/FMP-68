@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: fmp-auth-service:local
-          imagePullPolicy: Never
+          image: shikhar68/fmp-auth-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 4001 }
           env:

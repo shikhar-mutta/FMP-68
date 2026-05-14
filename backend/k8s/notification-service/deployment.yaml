@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: fmp-notification-service:local
-          imagePullPolicy: Never
+          image: shikhar68/fmp-notification-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 4005 }
           env:

@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: tracking-service
-          image: fmp-tracking-service:local
-          imagePullPolicy: Never
+          image: shikhar68/fmp-tracking-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - { name: ws, containerPort: 4004 }
           env:

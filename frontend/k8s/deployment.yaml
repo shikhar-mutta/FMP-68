@@ -19,8 +19,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: frontend
-          image: fmp-frontend:local
-          imagePullPolicy: Never        # use the image loaded into Minikube
+          image: shikhar68/fmp-frontend:latest
+          imagePullPolicy: IfNotPresent        # use the image loaded into Minikube
           ports:
             - { name: http, containerPort: 80 }
           resources:

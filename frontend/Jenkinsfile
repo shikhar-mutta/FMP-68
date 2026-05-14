@@ -140,9 +140,8 @@ pipeline {
                 script {
                     try {
                         sh """
-                            minikube image load ${IMAGE_LOCAL} || true
                             kubectl set image deployment/${SERVICE_NAME} \
-                                ${SERVICE_NAME}=${IMAGE_LOCAL} \
+                                ${SERVICE_NAME}=${IMAGE_REMOTE} \
                                 -n ${K8S_NAMESPACE}
                             kubectl rollout status deployment/${SERVICE_NAME} \
                                 -n ${K8S_NAMESPACE} --timeout=180s

@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: users-service
-          image: fmp-users-service:local
-          imagePullPolicy: Never
+          image: shikhar68/fmp-users-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 4002 }
           env:

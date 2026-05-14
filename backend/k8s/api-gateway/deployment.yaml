@@ -22,8 +22,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api-gateway
-          image: fmp-api-gateway:local
-          imagePullPolicy: Never            # use the locally-loaded minikube image
+          image: shikhar68/fmp-api-gateway:latest
+          imagePullPolicy: IfNotPresent            # use the locally-loaded minikube image
           ports:
             - { name: http, containerPort: 4000 }
           env:
