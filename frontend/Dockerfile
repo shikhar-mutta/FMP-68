@@ -22,6 +22,13 @@ COPY public  ./public
 COPY src     ./src
 COPY .env.production ./
 
+# Build-time API URL override. CRA reads process.env first, so this
+# wins over the value baked into .env.production. Local docker-compose
+# passes http://localhost:4000; K8s build leaves the default and the
+# Ingress hostname from .env.production takes effect.
+ARG REACT_APP_API_URL=http://localhost:4000
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 # CI=false so build warnings don't fail the build (React-Scripts behaviour)
 ENV CI=false
 RUN npm run build

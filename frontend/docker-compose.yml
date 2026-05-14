@@ -16,6 +16,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Browser calls the backend gateway directly on host port 4000.
+        # Overrides .env.production (http://fmp.local) which is only
+        # correct in the K8s + Ingress deployment path.
+        REACT_APP_API_URL: http://localhost:4000
     image: fmp-frontend:local
     container_name: fmp-frontend
     restart: unless-stopped
