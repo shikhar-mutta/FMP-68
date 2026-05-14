@@ -12,8 +12,8 @@ pipeline {
         timestamps()
         timeout(time: 25, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        // Queue, don't abort — see backend/Jenkinsfile for the rationale.
-        disableConcurrentBuilds()
+        // Abort in-progress run on new commit — see backend/Jenkinsfile for rationale.
+        disableConcurrentBuilds(abortPrevious: true)
     }
 
     triggers { githubPush(); pollSCM('H/5 * * * *') }
@@ -186,9 +186,10 @@ pipeline {
                 # Remove any other fmp-${SERVICE_NAME} images that earlier builds left behind
                 ids=\$(docker images fmp-${SERVICE_NAME} -q; docker images ${DOCKER_REPO}/fmp-${SERVICE_NAME} -q)
                 [ -n "\$ids" ] && docker rmi -f \$ids 2>/dev/null || true
-                # Dangling images + build cache (frees significant space)
-                docker image prune -f
-                docker builder prune -af
+                # NOTE: global `docker image prune` / `docker builder prune` deliberately omitted here.
+                # Parallel sibling builds share the daemon's cache; pruning here destroys layers/snapshots
+                # other in-flight builds depend on (containerd CreateDiff / "No such image" errors).
+                # The orchestrator's post.always runs the global prune once after all children finish.
             """
         }
     }

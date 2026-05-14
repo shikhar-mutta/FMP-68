@@ -27,12 +27,13 @@ pipeline {
         timestamps()
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '20'))
-        // Queue concurrent triggers instead of aborting previous runs.
-        // Rapid sequential pushes (one per service path) must each get a
-        // full pipeline run so each service's path-scoped change detection
-        // can fire — abortPrevious would cascade-cancel downstream child
-        // pipelines and skip the very rebuilds we want to trigger.
-        disableConcurrentBuilds()
+        // Abort any in-progress run when a newer commit arrives — only the
+        // latest commit's build is interesting, and aborting old runs frees
+        // executors for the new one.
+        // Trade-off: rapid sequential pushes (one per service path) will
+        // cascade-cancel each other's child pipelines, so only the very
+        // last push's per-service jobs run. Acceptable for typical CI usage.
+        disableConcurrentBuilds(abortPrevious: true)
     }
 
     triggers { githubPush(); pollSCM('H/5 * * * *') }
