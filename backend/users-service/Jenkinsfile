@@ -12,7 +12,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '20'))
     }
 
-    triggers { githubPush() }
+    triggers { pollSCM('H/2 * * * *') }
 
     parameters {
         string(
@@ -25,7 +25,7 @@ pipeline {
     environment {
         SERVICE_NAME    = 'users-service'
         SERVICE_PORT    = '4002'
-        DOCKER_REPO     = 'shikharmutta'
+        DOCKER_REPO     = 'shikhar68'
         K8S_NAMESPACE   = 'fmp'
         IMAGE_LOCAL     = "fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
         IMAGE_REMOTE    = "${DOCKER_REPO}/fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
@@ -152,17 +152,9 @@ pipeline {
     post {
         success {
             echo "✅ ${SERVICE_NAME} build #${env.BUILD_NUMBER} deployed as ${IMAGE_LOCAL}"
-            mail to: 'shikharmutta67@gmail.com',
-                 subject: "SUCCESS: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
-                 body: "Service: ${SERVICE_NAME}\nImage: ${IMAGE_LOCAL}\nRemote: ${IMAGE_REMOTE}\n\nJob: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}"
         }
         failure {
-            script {
-                def info = currentBuild.description ?: 'Unknown failure'
-                mail to: 'shikharmutta67@gmail.com',
-                     subject: "FAILURE: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
-                     body: "Service: ${SERVICE_NAME}\n\n${info}\n\nConsole: ${env.BUILD_URL}console"
-            }
+            echo "✘ ${SERVICE_NAME} build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
             sh 'docker image prune -f || true'

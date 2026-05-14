@@ -2,8 +2,7 @@
 // fmp-frontend — standalone CI/CD pipeline
 // Jenkins job name: frontend-pipeline
 // Triggered by:
-//   - githubPush() webhook (direct on this repo)
-//   - pollSCM fallback every 2 min
+//   - pollSCM every 2 min (no webhook required)
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -16,7 +15,6 @@ pipeline {
     }
 
     triggers {
-        githubPush()
         pollSCM('H/2 * * * *')
     }
 
@@ -30,7 +28,7 @@ pipeline {
 
     environment {
         SERVICE_NAME    = 'frontend'
-        DOCKER_REPO     = 'shikharmutta'
+        DOCKER_REPO     = 'shikhar68'
         K8S_NAMESPACE   = 'fmp'
         IMAGE_LOCAL     = "fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
         IMAGE_REMOTE    = "${DOCKER_REPO}/fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
@@ -159,17 +157,9 @@ pipeline {
     post {
         success {
             echo "✅ ${SERVICE_NAME} build #${env.BUILD_NUMBER} deployed as ${IMAGE_LOCAL}"
-            mail to: 'shikharmutta67@gmail.com',
-                 subject: "SUCCESS: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
-                 body: "Service: ${SERVICE_NAME}\nImage: ${IMAGE_LOCAL}\nRemote: ${IMAGE_REMOTE}\n\nJob: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}"
         }
         failure {
-            script {
-                def info = currentBuild.description ?: 'Unknown failure'
-                mail to: 'shikharmutta67@gmail.com',
-                     subject: "FAILURE: ${SERVICE_NAME} Pipeline - Build #${env.BUILD_NUMBER}",
-                     body: "Service: ${SERVICE_NAME}\n\n${info}\n\nConsole: ${env.BUILD_URL}console"
-            }
+            echo "✘ ${SERVICE_NAME} build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
             sh 'docker image prune -f || true'

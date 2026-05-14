@@ -3,7 +3,7 @@
 //
 // Pattern mirrored from the reference repo
 // (KetanGhungralekar/Movie-Booking-System-Microservices):
-//   1. githubPush() webhook triggers this pipeline.
+//   1. pollSCM (every 2 min) triggers this pipeline.
 //   2. Detect Changes — compare HEAD with HEAD~1, map folders to
 //      Jenkins job names.
 //   3. Apply Infra Changes — kubectl apply backend/k8s/ on any infra diff.
@@ -30,7 +30,7 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    triggers { githubPush() }
+    triggers { pollSCM('H/2 * * * *') }
 
     environment {
         K8S_NAMESPACE = 'fmp'
@@ -157,18 +157,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Root pipeline #${env.BUILD_NUMBER} succeeded."
-            mail to: 'shikharmutta67@gmail.com',
-                 subject: "SUCCESS: FMP-68 Root Pipeline - Build #${env.BUILD_NUMBER}",
-                 body: "Built services: ${env.MICROSERVICES_TO_BUILD ?: '<none>'}\nInfra changed: ${env.INFRA_CHANGED}\n\nJob: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}"
+            echo "✅ Root pipeline #${env.BUILD_NUMBER} succeeded. Services built: ${env.MICROSERVICES_TO_BUILD ?: '<none>'} | Infra changed: ${env.INFRA_CHANGED}"
         }
         failure {
-            script {
-                def info = currentBuild.description ?: 'Unknown failure'
-                mail to: 'shikharmutta67@gmail.com',
-                     subject: "FAILURE: FMP-68 Root Pipeline - Build #${env.BUILD_NUMBER}",
-                     body: "Pipeline failed.\n\n${info}\n\nConsole: ${env.BUILD_URL}console"
-            }
+            echo "✘ Root pipeline #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
             sh 'docker image prune -f || true'
