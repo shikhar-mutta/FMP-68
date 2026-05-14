@@ -27,12 +27,25 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
-            steps {
-                sh 'kubectl apply -f k8s/path-service/'
-                sh 'kubectl rollout restart deployment/path-service -n fmp'
-            }
+stage('Deploy') {
+    steps {
+
+        withCredentials([
+            string(credentialsId: 'database-url', variable: 'DATABASE_URL')
+        ]) {
+
+            sh '''
+                kubectl create secret generic path-service-secret \
+                  --from-literal=DATABASE_URL="$DATABASE_URL" \
+                  --namespace=fmp \
+                  --dry-run=client -o yaml | kubectl apply -f -
+            '''
+
+            sh 'kubectl apply -f k8s/path-service/'
+            sh 'kubectl rollout restart deployment/path-service -n fmp'
         }
+    }
+}
     }
 
     post {
