@@ -85,7 +85,9 @@ describe('LiveTrackingPage', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    // resetAllMocks (vs clearAllMocks) also clears mockImplementation, so a
+    // non-resolving promise set by a prior test cannot bleed into this one.
+    jest.resetAllMocks();
     jest.useRealTimers();
     useParams.mockReturnValue({ pathId: 'path-1' });
     useNavigate.mockReturnValue(mockNavigate);

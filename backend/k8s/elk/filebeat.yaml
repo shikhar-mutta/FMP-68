@@ -55,17 +55,30 @@ data:
                 - logs_path:
                     logs_path: /var/log/containers/
 
-    # Don't forward Filebeat's own logs (loop) or the kube-system noise
+    # Drop everything except fmp/elk/vault application logs.
+    # We match on log.file.path because add_kubernetes_metadata isn't
+    # reliably enriching events — kubernetes.namespace is often empty,
+    # so the previous namespace-based drop_event never fired and
+    # kube-system/etcd/apiserver JSON noise flooded Logstash, causing
+    # ES status:400 mapping conflicts and Logstash OOM-crash loops.
+    # log.file.path is always populated (Filebeat sets it natively).
     processors:
       - drop_event:
           when:
-            or:
-              - equals: { kubernetes.namespace: kube-system }
-              - equals: { kubernetes.namespace: ingress-nginx }
-              - equals: { kubernetes.container.name: filebeat }
+            not:
+              regexp:
+                log.file.path: '_(fmp|elk|vault)_'
+      - drop_event:
+          when:
+            regexp:
+              log.file.path: '_(filebeat|logstash)-'
 
     output.logstash:
       hosts: ["logstash:5044"]
+      # Cap batch size so Logstash isn't asked to receive 25-35MB chunks
+      # when Filebeat is draining a backlog. 500 events ≈ 4-6 MB per batch,
+      # well inside Logstash's pre-allocated netty pool.
+      bulk_max_size: 500
 
     logging.level: info
     logging.to_files: false
