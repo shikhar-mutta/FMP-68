@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # ─────────────────────────────────────────────────────────────
-# fmp-paths-service — 3-stage slim build with Prisma
+# fmp-paths-service — 2-stage slim build with Prisma
 # ─────────────────────────────────────────────────────────────
 
 FROM node:20-alpine AS builder
@@ -12,12 +12,7 @@ COPY tsconfig.json nest-cli.json ./
 COPY prisma ./prisma
 COPY src ./src
 RUN npx prisma generate
-RUN npm run build
-
-FROM node:20-alpine AS prod-deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+RUN npm run build && npm prune --omit=dev
 
 FROM node:20-alpine
 WORKDIR /app
@@ -28,12 +23,10 @@ ENV NODE_ENV=production \
 
 RUN addgroup -S app && adduser -S app -G app
 
-COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
-COPY --from=builder  --chown=app:app /app/node_modules/.prisma  ./node_modules/.prisma
-
-COPY --from=builder  --chown=app:app /app/dist ./dist
-COPY --from=builder  --chown=app:app /app/prisma ./prisma
-COPY --from=builder  --chown=app:app /app/package.json ./package.json
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/prisma ./prisma
+COPY --from=builder --chown=app:app /app/package.json ./package.json
 
 USER app
 

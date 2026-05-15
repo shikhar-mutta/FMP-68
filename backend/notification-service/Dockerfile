@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # ─────────────────────────────────────────────────────────────
-# fmp-notification-service — 3-stage slim build
+# fmp-notification-service — 2-stage slim build
 # ─────────────────────────────────────────────────────────────
 
 FROM node:20-alpine AS builder
@@ -9,12 +9,7 @@ COPY package*.json ./
 RUN npm install --no-audit --no-fund
 COPY tsconfig.json nest-cli.json ./
 COPY src ./src
-RUN npm run build
-
-FROM node:20-alpine AS prod-deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+RUN npm run build && npm prune --omit=dev
 
 FROM node:20-alpine
 WORKDIR /app
@@ -23,9 +18,9 @@ ENV NODE_ENV=production \
     PORT=4005
 
 RUN addgroup -S app && adduser -S app -G app
-COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
-COPY --from=builder  --chown=app:app /app/dist ./dist
-COPY --from=builder  --chown=app:app /app/package.json ./package.json
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/package.json ./package.json
 USER app
 
 EXPOSE 4005

@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1.6
 # ─────────────────────────────────────────────────────────────
-# fmp-api-gateway — 3-stage slim build
-#   builder    → installs all deps, runs nest build
-#   prod-deps  → fresh install of prod-only deps (no devDep traces)
-#   runtime    → minimal: prod node_modules + dist + package.json
+# fmp-api-gateway — 2-stage slim build
+#   builder    → install all deps, nest build, prune devDeps
+#   runtime    → pruned node_modules + dist + package.json
 # ─────────────────────────────────────────────────────────────
 
 # === Stage 1: builder ===
@@ -13,15 +12,9 @@ COPY package*.json ./
 RUN npm install --no-audit --no-fund
 COPY tsconfig.json nest-cli.json ./
 COPY src ./src
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
-# === Stage 2: production node_modules only ===
-FROM node:20-alpine AS prod-deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund
-
-# === Stage 3: runtime ===
+# === Stage 2: runtime ===
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -29,9 +22,9 @@ ENV NODE_ENV=production \
     PORT=4000
 
 RUN addgroup -S app && adduser -S app -G app
-COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
-COPY --from=builder  --chown=app:app /app/dist ./dist
-COPY --from=builder  --chown=app:app /app/package.json ./package.json
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/package.json ./package.json
 USER app
 
 EXPOSE 4000
