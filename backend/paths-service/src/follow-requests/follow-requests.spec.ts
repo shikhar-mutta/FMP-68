@@ -7,6 +7,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 describe('FollowRequestsService', () => {
   let repo: any;
   let usersClient: any;
+  let notificationsService: any;
   let service: FollowRequestsService;
 
   const follower = { id: 'u-follower', followedPathIds: [] };
@@ -30,7 +31,8 @@ describe('FollowRequestsService', () => {
       approveFollowRequest: jest.fn(),
     };
     usersClient = { findById: jest.fn(), findManyByIds: jest.fn() };
-    service = new FollowRequestsService(repo, usersClient);
+    notificationsService = { create: jest.fn().mockResolvedValue(undefined) };
+    service = new FollowRequestsService(repo, usersClient, notificationsService);
   });
 
   describe('createFollowRequest', () => {

@@ -5,6 +5,7 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PathsModule } from './paths/paths.module';
 import { FollowRequestsModule } from './follow-requests/follow-requests.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { FollowRequestsModule } from './follow-requests/follow-requests.module';
     HealthModule,
     PathsModule,
     FollowRequestsModule,
+    NotificationsModule,
   ],
   providers: [
     {

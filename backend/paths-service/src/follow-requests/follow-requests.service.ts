@@ -11,12 +11,14 @@ import {
   withoutValue,
 } from '../paths/path.mapper';
 import { PathsRepository } from '../paths/paths.repository';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class FollowRequestsService {
   constructor(
     private readonly pathsRepository: PathsRepository,
     private readonly usersClient: UsersClientService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createFollowRequest(
@@ -86,6 +88,8 @@ export class FollowRequestsService {
       withoutValue(followRequests, userId),
       withValueOnce(followerIds, userId),
     );
+
+    void this.notificationsService.create(userId, pathId, updatedPath.title);
 
     return {
       message: 'Follow request approved',

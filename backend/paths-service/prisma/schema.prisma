@@ -56,6 +56,18 @@ model Path {
   @@map("paths")
 }
 
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  type      String   // "follow_approved"
+  pathId    String   @db.ObjectId
+  pathTitle String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@map("notifications")
+}
+
 model TrackingSession {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   pathId          String   @db.ObjectId
