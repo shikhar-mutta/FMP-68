@@ -8,11 +8,16 @@ const Toast = () => {
   return (
     <div className="toast-container">
       {toasts.map((toast) => (
-        <div key={toast.id} className={`toast toast-${toast.type}`}>
+        <div
+          key={toast.id}
+          className={`toast toast-${toast.type}${toast.onClick ? ' toast-clickable' : ''}`}
+          onClick={toast.onClick ? () => { toast.onClick(); removeToast(toast.id); } : undefined}
+        >
           <span className="toast-message">{toast.message}</span>
+          {toast.onClick && <span className="toast-arrow">→</span>}
           <button
             className="toast-close"
-            onClick={() => removeToast(toast.id)}
+            onClick={(e) => { e.stopPropagation(); removeToast(toast.id); }}
             aria-label="Close toast"
           >
             ×
