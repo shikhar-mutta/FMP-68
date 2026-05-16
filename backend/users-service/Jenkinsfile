@@ -135,6 +135,11 @@ pipeline {
             steps {
                 script {
                     try {
+                        // Ensure the fmp namespace exists before applying namespace-scoped
+                        // manifests. Idempotent: no-op on existing clusters, self-heals
+                        // on fresh Minikube. Independently safe even if the orchestrator's
+                        // "Apply Infra Changes" stage didn't run (e.g. no backend/k8s/ diff).
+                        sh "kubectl apply -f backend/k8s/namespace.yaml"
                         sh "kubectl apply -f backend/k8s/${SERVICE_NAME}/"
                         sh """
                             kubectl set image deployment/${SERVICE_NAME} \
