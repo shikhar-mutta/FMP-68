@@ -29,6 +29,7 @@ async function bootstrap() {
     { path: '/users', target: process.env.USERS_SERVICE_URL || 'http://localhost:4002' },
     { path: '/paths', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
     { path: '/follow-requests', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
+    { path: '/notifications', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
   ];
 
   for (const { path, target } of routes) {
