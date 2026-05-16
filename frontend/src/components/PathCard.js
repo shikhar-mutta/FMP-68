@@ -50,6 +50,10 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
   useEffect(() => {
     if (!currentUserId || isPublisher || isFollowing) {
       setRequestLoading(false);
+      // Becoming a follower invalidates any prior pending-request state. Without
+      // this reset, the click handler below would still route into the cancel-
+      // request branch and the backend would respond "Follow request not found".
+      setHasRequest(false);
       return;
     }
 
@@ -224,7 +228,11 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (hasRequest) {
+                    // Match the label's priority: isFollowing wins over hasRequest.
+                    // Guards against stale hasRequest=true after a pending request was approved.
+                    if (isFollowing) {
+                      handleFollowToggle();
+                    } else if (hasRequest) {
                       setShowCancelConfirm(true);
                     } else {
                       handleFollowToggle();

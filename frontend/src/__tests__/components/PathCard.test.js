@@ -197,6 +197,35 @@ describe('PathCard', () => {
     expect(onFollowChange).toHaveBeenCalledWith('path-1', false);
   });
 
+  it('unfollows (does NOT show cancel-confirm) when isFollowing is true even with a stale pending request', async () => {
+    // Regression: prior pending request was approved; parent flipped isFollowing → true.
+    // Before the fix, the click handler routed to cancel-request and the backend
+    // responded "Follow request not found".
+    getSentFollowRequests.mockResolvedValue([{ pathId: 'path-1', status: 'pending' }]);
+    apiClient.post.mockResolvedValue({});
+    const onFollowChange = jest.fn();
+    const { container } = renderCard({
+      currentUserId: 'user-1',
+      isFollowing: true,
+      onFollowChange,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(container.querySelector('.follow-button'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('.cancel-confirmation')).toBeFalsy();
+    expect(cancelFollowRequest).not.toHaveBeenCalled();
+    expect(apiClient.post).toHaveBeenCalledWith('/paths/path-1/unfollow');
+    expect(onFollowChange).toHaveBeenCalledWith('path-1', false);
+  });
+
   it('shows cancel confirmation when request exists', async () => {
     getSentFollowRequests.mockResolvedValue([{ pathId: 'path-1', status: 'pending' }]);
     const { container } = renderCard({ currentUserId: 'user-1' });
