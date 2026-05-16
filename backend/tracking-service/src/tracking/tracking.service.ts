@@ -104,6 +104,18 @@ export class TrackingService {
     });
   }
 
+  async republishTrack(pathId: string) {
+    await this.prisma.path.update({
+      where: { id: pathId },
+      data: { status: 'idle', isLive: false, coordinates: [] },
+    });
+
+    await this.prisma.trackingSession.updateMany({
+      where: { pathId, isActive: true },
+      data: { isActive: false, endedAt: new Date() },
+    });
+  }
+
   async getTrackingData(pathId: string) {
     const [path, sessions] = await Promise.all([
       this.prisma.path.findUnique({

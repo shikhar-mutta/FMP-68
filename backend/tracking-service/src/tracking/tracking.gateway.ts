@@ -210,6 +210,32 @@ export class TrackingGateway
     }
   }
 
+  @SubscribeMessage('republish-track')
+  async handleRepublishTrack(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { pathId: string; userId: string },
+  ) {
+    const { pathId, userId } = data;
+    this.logger.log(`Publisher ${userId} republishing track for path ${pathId}`);
+
+    try {
+      await this.trackingService.republishTrack(pathId);
+      this.trailCache.clearTrail(pathId);
+
+      const room = `path-${pathId}`;
+      // Ensure publisher is in the room so they receive their own broadcast
+      client.join(room);
+      this.addRoom(client.id, room);
+
+      this.server.to(room).emit('tracking-republished', { pathId, userId });
+
+      return { success: true, message: 'Track republished' };
+    } catch (error) {
+      this.logger.error('Error republishing track:', error);
+      return { success: false, message: 'Failed to republish track' };
+    }
+  }
+
   @SubscribeMessage('get-tracking-data')
   async handleGetTrackingData(
     @ConnectedSocket() client: Socket,

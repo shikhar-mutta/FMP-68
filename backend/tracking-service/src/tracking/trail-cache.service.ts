@@ -57,6 +57,15 @@ export class TrailCacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Delete the cached trail for a path (e.g. after a republish).
+   */
+  clearTrail(pathId: string): void {
+    this.client.del(`trail:${pathId}`).catch((err) => {
+      this.logger.warn(`clearTrail failed for ${pathId}: ${(err as Error).message}`);
+    });
+  }
+
+  /**
    * Returns the most recent coordinates for a path, newest first.
    * Empty list on cache miss or Redis outage.
    */
