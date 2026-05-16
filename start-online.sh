@@ -75,4 +75,4 @@ echo ""
 echo "▶ Starting ngrok tunnel (Ctrl-C stops the tunnel; containers keep running)…"
 echo ""
 
-exec ngrok http --domain="${NGROK_DOMAIN}" 3000
+exec ngrok http --url="${NGROK_DOMAIN}" 3000
