@@ -142,6 +142,15 @@
   font-weight: 600;
 }
 
+/* Header actions group (live tracking + unfollow) */
+.pd-header-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
 /* Live tracking button */
 .pd-live-btn {
   flex-shrink: 0;
@@ -155,6 +164,34 @@
   cursor: pointer;
   transition: all 0.3s ease;
   white-space: nowrap;
+}
+
+/* Unfollow button */
+.pd-unfollow-btn {
+  flex-shrink: 0;
+  padding: 9px 22px;
+  background: var(--accent-red-soft);
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  color: var(--accent-red);
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.pd-unfollow-btn:hover:not(:disabled) {
+  background: var(--accent-red);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.pd-unfollow-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .pd-live-btn:hover {
@@ -468,9 +505,14 @@
     font-size: 1.4rem;
   }
 
-  .pd-live-btn {
+  .pd-live-btn,
+  .pd-unfollow-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .pd-header-actions {
+    width: 100%;
   }
 
   .pd-meta-row {

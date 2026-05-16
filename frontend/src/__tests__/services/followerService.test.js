@@ -2,6 +2,7 @@ import apiClient from '../../services/api';
 import {
   getFollowersForPath,
   removeFollowerFromPath,
+  unfollowPath,
 } from '../../services/followerService';
 
 jest.mock('../../services/api');
@@ -104,6 +105,35 @@ describe('followerService', () => {
       await expect(removeFollowerFromPath('path-123', 'user-456')).rejects.toThrow(
         'Failed to remove follower'
       );
+    });
+  });
+
+  describe('unfollowPath', () => {
+    it('should unfollow a path successfully', async () => {
+      const mockResponse = { message: 'Unfollowed' };
+      apiClient.post.mockResolvedValue({ data: mockResponse });
+
+      const result = await unfollowPath('path-123');
+
+      expect(apiClient.post).toHaveBeenCalledWith('/paths/path-123/unfollow');
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should throw error when pathId is missing', async () => {
+      await expect(unfollowPath('')).rejects.toThrow('pathId is required');
+    });
+
+    it('should handle API error response', async () => {
+      const errorResponse = { response: { data: { message: 'Not a follower' } } };
+      apiClient.post.mockRejectedValue(errorResponse);
+
+      await expect(unfollowPath('path-123')).rejects.toThrow('Not a follower');
+    });
+
+    it('should use default error message for unknown errors', async () => {
+      apiClient.post.mockRejectedValue({ response: { data: {} } });
+
+      await expect(unfollowPath('path-123')).rejects.toThrow('Failed to unfollow path');
     });
   });
 });

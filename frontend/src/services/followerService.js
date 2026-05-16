@@ -27,3 +27,17 @@ export const removeFollowerFromPath = async (pathId, followerId) => {
     throw new Error(message);
   }
 };
+
+// Current user unfollows a path they are following
+export const unfollowPath = async (pathId) => {
+  try {
+    if (!pathId) {
+      throw new Error('pathId is required');
+    }
+    const response = await apiClient.post(`/paths/${pathId}/unfollow`);
+    return response.data;
+  } catch (error) {
+    const message = error.response?.data?.message || error.message || 'Failed to unfollow path';
+    throw new Error(message);
+  }
+};

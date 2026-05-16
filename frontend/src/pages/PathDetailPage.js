@@ -9,6 +9,7 @@ import {
 import {
   getFollowersForPath,
   removeFollowerFromPath,
+  unfollowPath,
 } from '../services/followerService';
 import apiClient from '../services/api';
 import { POLLING_INTERVALS } from '../config/constants';
@@ -34,6 +35,7 @@ const PathDetailPage = () => {
   const [followersLoading, setFollowersLoading] = useState(false);
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+  const [unfollowing, setUnfollowing] = useState(false);
   const pollingRef = useRef(null);
 
   const isPublisher = user?.id && path?.publisherId === user.id;
@@ -124,6 +126,24 @@ const PathDetailPage = () => {
     }
   }, [pathId, isPublisher]);
 
+  // Handle current user unfollowing this path
+  const handleUnfollow = async () => {
+    if (unfollowing) return;
+    const confirmed = window.confirm('Are you sure you want to unfollow this path?');
+    if (!confirmed) return;
+
+    setUnfollowing(true);
+    try {
+      await unfollowPath(pathId);
+      if (window.showToast) window.showToast('You have unfollowed this path', 'info');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error unfollowing path:', err);
+      if (window.showToast) window.showToast(err.message || 'Failed to unfollow path', 'error');
+      setUnfollowing(false);
+    }
+  };
+
   // Handle remove follower
   const handleRemoveFollower = async (followerId) => {
     try {
@@ -201,14 +221,26 @@ const PathDetailPage = () => {
                 </div>
               </div>
 
-              {canLiveTrack && (
-                <button
-                  className="pd-live-btn"
-                  onClick={() => navigate(`/path/${path.id}/live`)}
-                >
-                  🗺️ Open Live Tracking
-                </button>
-              )}
+              <div className="pd-header-actions">
+                {canLiveTrack && (
+                  <button
+                    className="pd-live-btn"
+                    onClick={() => navigate(`/path/${path.id}/live`)}
+                  >
+                    🗺️ Open Live Tracking
+                  </button>
+                )}
+                {isFollower && !isPublisher && (
+                  <button
+                    className="pd-unfollow-btn"
+                    onClick={handleUnfollow}
+                    disabled={unfollowing}
+                    title="Stop following this path"
+                  >
+                    {unfollowing ? 'Unfollowing…' : '✕ Unfollow Path'}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="pd-meta-row">

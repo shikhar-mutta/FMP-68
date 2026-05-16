@@ -76,8 +76,10 @@ describe('PathDetailPage', () => {
     followRequestService.approveFollowRequest = jest.fn().mockResolvedValue({});
     followRequestService.rejectFollowRequest = jest.fn().mockResolvedValue({});
     followerService.removeFollowerFromPath = jest.fn().mockResolvedValue({});
-    
+    followerService.unfollowPath = jest.fn().mockResolvedValue({});
+
     window.showToast = jest.fn();
+    window.confirm = jest.fn(() => true);
   });
 
   afterEach(() => {
@@ -801,6 +803,85 @@ describe('PathDetailPage', () => {
       expect(container.querySelector('.pd-avatar-fallback')).toBeInTheDocument();
       expect(container.querySelector('.pd-avatar-fallback')).toHaveTextContent('J');
     });
+  });
+
+  it('should show Unfollow Path button for non-publisher followers', async () => {
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+    render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+  });
+
+  it('should not show Unfollow Path button for the publisher', async () => {
+    render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Your Path')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/✕ Unfollow Path/)).not.toBeInTheDocument();
+  });
+
+  it('should not show Unfollow Path button for non-followers', async () => {
+    useAuth.mockReturnValue({ user: { id: 'user-3', name: 'Bob' } });
+    render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/✕ Unfollow Path/)).not.toBeInTheDocument();
+  });
+
+  it('should call unfollowPath and navigate to dashboard on confirm', async () => {
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+    render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+
+    await waitFor(() => {
+      expect(followerService.unfollowPath).toHaveBeenCalledWith('path-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+    expect(window.showToast).toHaveBeenCalledWith('You have unfollowed this path', 'info');
+  });
+
+  it('should NOT unfollow when user cancels the confirm dialog', async () => {
+    window.confirm = jest.fn(() => false);
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+    render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+
+    expect(followerService.unfollowPath).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('should show error toast when unfollow fails', async () => {
+    followerService.unfollowPath = jest.fn().mockRejectedValue(new Error('Network down'));
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('Network down', 'error');
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard');
   });
 
   it('should refresh followers on button click', async () => {
