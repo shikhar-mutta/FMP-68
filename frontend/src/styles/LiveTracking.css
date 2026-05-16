@@ -419,6 +419,24 @@
   box-shadow: 0 6px 24px rgba(239, 68, 68, 0.4);
 }
 
+/* Republish button */
+.btn-republish {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+  margin-top: 0.75rem;
+}
+
+.btn-republish:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.45);
+}
+
+.btn-republish:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 /* Follow button */
 .btn-follow {
   background: linear-gradient(135deg, #22c55e, #16a34a);

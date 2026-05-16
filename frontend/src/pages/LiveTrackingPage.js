@@ -22,11 +22,13 @@ import {
   joinTracking,
   leaveTracking,
   sendLocation,
+  republishTrack,
   onLocationUpdate,
   onTrackingStarted,
   onTrackingPaused,
   onTrackingResumed,
   onTrackingEnded,
+  onTrackingRepublished,
   onFollowerJoined,
 } from '../services/socketService';
 import '../styles/LiveTracking.css';
@@ -114,6 +116,10 @@ export default function LiveTrackingPage() {
   const [elapsedTime, setElapsedTime] = useState(null);
   const [followersCount, setFollowersCount] = useState(0);
   const [currentSpeed, setCurrentSpeed] = useState(0);
+
+  // Button loading states
+  const [isStarting, setIsStarting] = useState(false);
+  const [isRepublishing, setIsRepublishing] = useState(false);
 
   // Refs
   const stopWatchRef = useRef(null);
@@ -223,6 +229,20 @@ export default function LiveTrackingPage() {
       }
     });
 
+    const unsubRepublished = onTrackingRepublished((data) => {
+      if (data.pathId === pathId) {
+        setTrackingStatus('idle');
+        setPublisherCoords([]);
+        setFollowerCoords([]);
+        setStartTime(null);
+        setElapsedTime(null);
+        setCurrentSpeed(0);
+        trackedFollowerRef.current = null;
+        lastCoordRef.current = null;
+        if (window.showToast) window.showToast('🔄 Track republished — ready to start fresh!', 'success');
+      }
+    });
+
     cleanupFnsRef.current = [
       unsubLocation,
       unsubStarted,
@@ -230,6 +250,7 @@ export default function LiveTrackingPage() {
       unsubResumed,
       unsubEnded,
       unsubFollowerJoined,
+      unsubRepublished,
     ];
 
     return () => {
@@ -286,10 +307,8 @@ export default function LiveTrackingPage() {
 
   // ── Publisher: Start ─────────────────────────────────────
   const handleStartTracking = useCallback(async () => {
-    if (!user?.id) {
-      if (window.showToast) window.showToast('Please log in first', 'error');
-      return;
-    }
+    if (!user?.id || isStarting) return;
+    setIsStarting(true);
     try {
       await startTracking(pathId, user?.id);
       setTrackingStatus('recording');
@@ -301,8 +320,10 @@ export default function LiveTrackingPage() {
     } catch (err) {
       console.error('Error starting tracking:', err);
       if (window.showToast) window.showToast('Failed to start tracking', 'error');
+    } finally {
+      setIsStarting(false);
     }
-  }, [pathId, user?.id, startGpsWatch]);
+  }, [pathId, user?.id, startGpsWatch, isStarting]);
 
   // ── Publisher: Pause ─────────────────────────────────────
   const handlePauseTracking = useCallback(async () => {
@@ -354,6 +375,23 @@ export default function LiveTrackingPage() {
       console.error('Error ending tracking:', err);
     }
   }, [pathId, user?.id]);
+
+  // ── Publisher: Republish Track ───────────────────────────
+  const handleRepublishTrack = useCallback(async () => {
+    if (!user?.id || isRepublishing) return;
+    setIsRepublishing(true);
+    try {
+      const result = await republishTrack(pathId, user?.id);
+      if (!result.success) throw new Error(result.message);
+      // UI reset is handled by the onTrackingRepublished socket event
+      // so all connected clients (publisher + followers) reset together.
+    } catch (err) {
+      console.error('Error republishing track:', err);
+      if (window.showToast) window.showToast('Failed to republish track', 'error');
+    } finally {
+      setIsRepublishing(false);
+    }
+  }, [pathId, user?.id, isRepublishing]);
 
   // ── Follower: Join ───────────────────────────────────────
   const handleJoinTracking = useCallback(async () => {
@@ -655,9 +693,11 @@ export default function LiveTrackingPage() {
                     <button
                       className="btn-control btn-start"
                       onClick={handleStartTracking}
+                      disabled={isStarting}
+                      style={isStarting ? { opacity: 0.7, cursor: 'not-allowed' } : undefined}
                     >
-                      <span className="btn-icon">▶️</span>
-                      <span>Start Publishing Path</span>
+                      <span className="btn-icon">{isStarting ? '⏳' : '▶️'}</span>
+                      <span>{isStarting ? 'Starting…' : 'Start Publishing Path'}</span>
                     </button>
                   )}
 
@@ -707,6 +747,14 @@ export default function LiveTrackingPage() {
                         Total: {formatDistance(publisherDistance)}
                         {elapsedTime ? ` in ${formatDuration(elapsedTime)}` : ''}
                       </p>
+                      <button
+                        className="btn-control btn-republish"
+                        onClick={handleRepublishTrack}
+                        disabled={isRepublishing}
+                      >
+                        <span className="btn-icon">{isRepublishing ? '⏳' : '🔄'}</span>
+                        <span>{isRepublishing ? 'Republishing…' : 'Republish Track'}</span>
+                      </button>
                     </div>
                   )}
                 </>

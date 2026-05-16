@@ -58,8 +58,10 @@ export const disconnectSocket = () => {
  */
 export const startTracking = (pathId, userId) => {
   const s = getSocket();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('start-tracking timed out')), 8000);
     s.emit('start-tracking', { pathId, userId }, (response) => {
+      clearTimeout(timer);
       resolve(response);
     });
   });
@@ -179,4 +181,25 @@ export const onFollowerLeft = (callback) => {
   const s = getSocket();
   s.on('follower-left', callback);
   return () => s.off('follower-left', callback);
+};
+
+/**
+ * Republish (reset) a track — clears all recorded coordinates and resets
+ * status back to idle so the publisher can start a fresh session.
+ */
+export const republishTrack = (pathId, userId) => {
+  const s = getSocket();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('republish-track timed out')), 8000);
+    s.emit('republish-track', { pathId, userId }, (response) => {
+      clearTimeout(timer);
+      resolve(response);
+    });
+  });
+};
+
+export const onTrackingRepublished = (callback) => {
+  const s = getSocket();
+  s.on('tracking-republished', callback);
+  return () => s.off('tracking-republished', callback);
 };
