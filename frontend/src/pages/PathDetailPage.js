@@ -36,6 +36,7 @@ const PathDetailPage = () => {
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
   const [unfollowing, setUnfollowing] = useState(false);
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
   const pollingRef = useRef(null);
 
   const isPublisher = user?.id && path?.publisherId === user.id;
@@ -129,14 +130,11 @@ const PathDetailPage = () => {
   // Handle current user unfollowing this path
   const handleUnfollow = async () => {
     if (unfollowing) return;
-    const confirmed = window.confirm('Are you sure you want to unfollow this path?');
-    if (!confirmed) return;
-
     setUnfollowing(true);
     try {
       await unfollowPath(pathId);
       if (window.showToast) window.showToast('You have unfollowed this path', 'info');
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       console.error('Error unfollowing path:', err);
       if (window.showToast) window.showToast(err.message || 'Failed to unfollow path', 'error');
@@ -231,14 +229,33 @@ const PathDetailPage = () => {
                   </button>
                 )}
                 {isFollower && !isPublisher && (
-                  <button
-                    className="pd-unfollow-btn"
-                    onClick={handleUnfollow}
-                    disabled={unfollowing}
-                    title="Stop following this path"
-                  >
-                    {unfollowing ? 'Unfollowing…' : '✕ Unfollow Path'}
-                  </button>
+                  showUnfollowConfirm ? (
+                    <div className="pd-unfollow-confirm">
+                      <p>Unfollow this path?</p>
+                      <button
+                        className="pd-unfollow-confirm-yes"
+                        onClick={handleUnfollow}
+                        disabled={unfollowing}
+                      >
+                        {unfollowing ? 'Unfollowing…' : 'Yes, Unfollow'}
+                      </button>
+                      <button
+                        className="pd-unfollow-confirm-no"
+                        onClick={() => setShowUnfollowConfirm(false)}
+                        disabled={unfollowing}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="pd-unfollow-btn"
+                      onClick={() => setShowUnfollowConfirm(true)}
+                      title="Stop following this path"
+                    >
+                      ✕ Unfollow Path
+                    </button>
+                  )
                 )}
               </div>
             </div>

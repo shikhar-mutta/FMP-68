@@ -194,6 +194,68 @@
   cursor: not-allowed;
 }
 
+.pd-unfollow-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pd-unfollow-confirm p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pd-unfollow-confirm-yes {
+  padding: 9px 18px;
+  background: var(--accent-red-soft);
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  color: var(--accent-red);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.pd-unfollow-confirm-yes:hover:not(:disabled) {
+  background: var(--accent-red);
+  color: white;
+}
+
+.pd-unfollow-confirm-yes:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pd-unfollow-confirm-no {
+  padding: 9px 18px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.pd-unfollow-confirm-no:hover:not(:disabled) {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.pd-unfollow-confirm-no:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .pd-live-btn:hover {
   background: linear-gradient(135deg, #6366f1, #4f46e5);
   color: white;
@@ -535,7 +597,65 @@
     text-align: center;
   }
 
-  .pd-requests-card {
+  .pd-requests-card,
+  .pd-followers-section {
     padding: 18px 16px;
+  }
+}
+
+/* Phones */
+@media (max-width: 640px) {
+  .path-detail-page {
+    padding: 16px 12px;
+  }
+  .path-detail-container {
+    gap: 14px;
+  }
+  .pd-header-card {
+    padding: 16px 16px;
+    gap: 12px;
+  }
+  .pd-title {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+  .pd-description {
+    font-size: 0.88rem;
+  }
+  .pd-section-title {
+    font-size: 0.95rem;
+  }
+  .pd-requester-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  .pd-requester-details h3 {
+    font-size: 0.9rem;
+  }
+  .pd-requester-details p {
+    font-size: 0.78rem;
+  }
+  .pd-request-item {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+}
+
+/* Very small phones (≤380px) */
+@media (max-width: 380px) {
+  .path-detail-page {
+    padding: 12px 8px;
+  }
+  .pd-header-card,
+  .pd-requests-card,
+  .pd-followers-section {
+    padding: 14px 12px;
+  }
+  .pd-title {
+    font-size: 1.1rem;
+  }
+  .pd-btn-back {
+    padding: 7px 14px;
+    font-size: 0.82rem;
   }
 }
