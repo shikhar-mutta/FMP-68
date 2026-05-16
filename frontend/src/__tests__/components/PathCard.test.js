@@ -391,10 +391,8 @@ describe('PathCard', () => {
 
   it('logs error when checking requests fails', async () => {
     getSentFollowRequests.mockRejectedValue(new Error('check failed'));
-    renderCard({ currentUserId: 'user-1' });
-
     await act(async () => {
-      await Promise.resolve();
+      renderCard({ currentUserId: 'user-1' });
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();
@@ -402,10 +400,8 @@ describe('PathCard', () => {
 
   it('logs error when fetching pending count fails', async () => {
     getFollowRequestsForPath.mockRejectedValue(new Error('pending failed'));
-    renderCard({ currentUserId: 'pub-1' });
-
     await act(async () => {
-      await Promise.resolve();
+      renderCard({ currentUserId: 'pub-1' });
     });
 
     expect(consoleErrorSpy).toHaveBeenCalled();

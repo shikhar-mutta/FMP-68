@@ -41,7 +41,8 @@
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/src/__tests__/"
-    ]
+    ],
+    "coverageReporters": ["text", "lcov", "json-summary"]
   },
   "browserslist": {
     "production": [

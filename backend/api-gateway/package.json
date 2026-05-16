@@ -17,18 +17,21 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "testEnvironment": "node",
+    "setupFiles": ["<rootDir>/test-setup.ts"],
     "collectCoverageFrom": [
       "**/*.ts",
       "!**/main.ts",
       "!**/*.module.ts",
       "!**/*.spec.ts",
-      "!**/health/**"
+      "!**/health/**",
+      "!**/test-setup.ts"
     ],
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/coverage/",
       "/dist/"
-    ]
+    ],
+    "coverageReporters": ["text", "lcov", "json-summary"]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

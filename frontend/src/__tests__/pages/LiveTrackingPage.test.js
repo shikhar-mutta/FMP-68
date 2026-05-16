@@ -164,7 +164,9 @@ describe('LiveTrackingPage', () => {
   it('renders error state and navigates back', async () => {
     apiClient.get.mockRejectedValue(new Error('Failed'));
 
-    render(<LiveTrackingPage />);
+    await act(async () => {
+      render(<LiveTrackingPage />);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to load path data/i)).toBeInTheDocument();
@@ -416,7 +418,9 @@ describe('LiveTrackingPage', () => {
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
-    fireEvent.click(joinBtn);
+    await act(async () => {
+      fireEvent.click(joinBtn);
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to join tracking', 'error');
@@ -437,7 +441,9 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Leave Tracking/i));
+    });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith(
@@ -1350,11 +1356,13 @@ describe('LiveTrackingPage', () => {
     });
 
     // Send location update
-    socketHandlers.location({
-      pathId: 'path-1',
-      role: 'publisher',
-      userId: 'user-1',
-      coordinate: { lat: 10.0, lng: 20.0, timestamp: 1000 },
+    act(() => {
+      socketHandlers.location({
+        pathId: 'path-1',
+        role: 'publisher',
+        userId: 'user-1',
+        coordinate: { lat: 10.0, lng: 20.0, timestamp: 1000 },
+      });
     });
 
     await waitFor(() => {
@@ -1406,11 +1414,15 @@ describe('LiveTrackingPage', () => {
       expect(startTracking).toHaveBeenCalled();
     });
 
-    gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+    act(() => {
+      gpsSuccess({ lat: 10.0, lng: 20.0, timestamp: 1000 });
+    });
     expect(sendLocation).toHaveBeenCalledTimes(1);
 
     userObj.id = null;
-    gpsSuccess(null);
+    act(() => {
+      gpsSuccess(null);
+    });
 
     expect(sendLocation).toHaveBeenCalledTimes(1);
   });

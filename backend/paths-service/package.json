@@ -18,19 +18,22 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "testEnvironment": "node",
+    "setupFiles": ["<rootDir>/test-setup.ts"],
     "collectCoverageFrom": [
       "**/*.ts",
       "!**/main.ts",
       "!**/*.module.ts",
       "!**/*.dto.ts",
       "!**/*.spec.ts",
-      "!**/health/**"
+      "!**/health/**",
+      "!**/test-setup.ts"
     ],
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/coverage/",
       "/dist/"
-    ]
+    ],
+    "coverageReporters": ["text", "lcov", "json-summary"]
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",
@@ -39,6 +42,7 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@prisma/client": "^5.22.0",
+    "amqplib": "^0.10.9",
     "axios": "^1.7.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -48,6 +52,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
+    "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",

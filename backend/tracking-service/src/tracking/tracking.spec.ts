@@ -375,6 +375,28 @@ describe('TrackingGateway', () => {
       expect((result as any).pathStatus).toBe('idle');
     });
 
+    it('handleJoinTracking prefers the cached trail (reversed) when non-empty', async () => {
+      // Cache returns newest-first; the gateway must reverse to oldest-first.
+      const newestFirst = [
+        { lat: 3, lng: 3, timestamp: 3 },
+        { lat: 2, lng: 2, timestamp: 2 },
+        { lat: 1, lng: 1, timestamp: 1 },
+      ];
+      const trailCache = (gateway as any).trailCache;
+      trailCache.getRecentTrail.mockResolvedValue(newestFirst);
+
+      const result = await gateway.handleJoinTracking(makeClient(), {
+        pathId: 'p1',
+        userId: 'u2',
+      });
+
+      expect((result as any).publisherCoordinates).toEqual([
+        { lat: 1, lng: 1, timestamp: 1 },
+        { lat: 2, lng: 2, timestamp: 2 },
+        { lat: 3, lng: 3, timestamp: 3 },
+      ]);
+    });
+
     it('handleJoinTracking returns failure on service error', async () => {
       trackingService.joinTracking.mockRejectedValue(new Error('x'));
       const result = await gateway.handleJoinTracking(makeClient(), {

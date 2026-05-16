@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import RequestSummaryModalPanel from '../../components/RequestSummaryModalPanel';
 import * as followRequestService from '../../services/followRequestService';
@@ -68,8 +68,10 @@ describe('RequestSummaryModalPanel', () => {
     followRequestService.getPendingFollowRequests.mockRejectedValue(
       new Error('Failed to fetch')
     );
-    renderWithRouter(<RequestSummaryModalPanel />);
-    
+    await act(async () => {
+      renderWithRouter(<RequestSummaryModalPanel />);
+    });
+
     await waitFor(() => {
       expect(screen.getByText('Failed to load pending requests')).toBeInTheDocument();
     });
@@ -131,9 +133,11 @@ describe('RequestSummaryModalPanel', () => {
     followRequestService.getPendingFollowRequests
       .mockRejectedValueOnce(new Error('Network error'))
       .mockResolvedValueOnce([]);
-    
-    renderWithRouter(<RequestSummaryModalPanel />);
-    
+
+    await act(async () => {
+      renderWithRouter(<RequestSummaryModalPanel />);
+    });
+
     await waitFor(() => {
       expect(screen.getByText('Failed to load pending requests')).toBeInTheDocument();
     });

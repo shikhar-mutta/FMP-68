@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import PathDetailPage from '../../pages/PathDetailPage';
 import { useAuth } from '../../context/AuthContext';
 import * as followRequestService from '../../services/followRequestService';
@@ -233,8 +233,11 @@ describe('PathDetailPage', () => {
 
   it('should show error state when path not found', async () => {
     apiClient.get = jest.fn().mockRejectedValue(new Error('Not found'));
-    const { container } = render(<PathDetailPage />);
-    
+    let container;
+    await act(async () => {
+      ({ container } = render(<PathDetailPage />));
+    });
+
     await waitFor(() => {
       expect(container.querySelector('.detail-error')).toBeInTheDocument();
       expect(screen.getByText('Not found')).toBeInTheDocument();
@@ -243,7 +246,10 @@ describe('PathDetailPage', () => {
 
   it('should navigate back from error state', async () => {
     apiClient.get = jest.fn().mockRejectedValue(new Error('Not found'));
-    const { container } = render(<PathDetailPage />);
+    let container;
+    await act(async () => {
+      ({ container } = render(<PathDetailPage />));
+    });
 
     await waitFor(() => {
       expect(container.querySelector('.detail-error')).toBeInTheDocument();
@@ -519,7 +525,10 @@ describe('PathDetailPage', () => {
   it('should handle error when fetching followers', async () => {
     followerService.getFollowersForPath = jest.fn().mockRejectedValue(new Error('Fetch error'));
 
-    render(<PathDetailPage />);
+    await act(async () => {
+      render(<PathDetailPage />);
+    });
+
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalled();
     });
@@ -541,7 +550,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✓ Approve')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✓ Approve'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to approve request', 'error');
     });
@@ -561,7 +572,9 @@ describe('PathDetailPage', () => {
       expect(screen.getByText('✗ Reject')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('✗ Reject'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to reject request', 'error');
     });

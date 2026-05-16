@@ -111,6 +111,67 @@ or any Kubernetes resources you may also have running.
 
 ---
 
+## Running tests with coverage
+
+Three scripts mirror the `start.sh` layout — one per side, plus a
+root orchestrator. Each prints the Jest coverage table to the
+terminal and writes an HTML report under `coverage/lcov-report/`.
+
+| Command | What it runs |
+|---------|--------------|
+| `./run_test.sh` | Backend (all 6 services) + frontend, with combined summary |
+| `./run_test.sh backend` | Backend only |
+| `./run_test.sh frontend` | Frontend only |
+| `./backend/run_test.sh` | All 6 microservices, per-service summary |
+| `./backend/run_test.sh auth-service` | One specific microservice |
+| `./frontend/run_test.sh` | Frontend React + Jest coverage |
+
+### What each script does
+
+- **Frontend** — runs `react-scripts test --coverage --watchAll=false`
+  with `CI=true` so Jest exits after one run and prints the coverage
+  summary table (`% Stmts / % Branch / % Funcs / % Lines`).
+- **Backend** — iterates over `api-gateway`, `auth-service`,
+  `users-service`, `paths-service`, `tracking-service`,
+  `notification-service`. For each: runs `npm ci` if `node_modules`
+  is missing, runs `prisma generate` if a `schema.prisma` exists,
+  then `jest --coverage`. Exits non-zero if any service fails.
+- **Root** — invokes the backend and frontend scripts in sequence
+  and prints a combined PASS / FAIL table. Useful for CI.
+
+### Where the reports land
+
+After a successful run:
+
+```
+backend/<service>/src/coverage/lcov-report/index.html   # one per service
+frontend/coverage/lcov-report/index.html                # frontend SPA
+```
+
+Open any of these in a browser for the colour-coded line-by-line
+coverage view.
+
+### Coverage scope
+
+Backend (`jest.config` in each service's `package.json`):
+- includes all `*.ts` files under `src/`
+- excludes `main.ts`, `*.module.ts`, `strategies/`, `guards/`,
+  `health/`, and `*.spec.ts`
+
+Frontend (`jest` block in `frontend/package.json`):
+- includes all `src/**/*.{js,jsx}`
+- excludes `index.js`, `reportWebVitals.js`, `setupTests.js`,
+  any `__tests__/`, `__mocks__/`, and `*.test.*` / `*.spec.*` files
+
+### Requirements
+
+- Node 18+ and npm available on the host (the test scripts run
+  outside Docker, directly against the source tree).
+- No running backend stack is required — tests use mocks and an
+  in-process Jest environment.
+
+---
+
 ## What "clean rebuild" actually means
 
 Every `start.sh` invocation:
@@ -138,13 +199,16 @@ above the `--no-cache` flag still helps for base images).
 ```
 FMP-68/
 ├── start.sh                        ← root orchestrator (this file's option A)
+├── run_test.sh                     ← root test runner (backend + frontend coverage)
 ├── RUN.md                          ← you are here
 ├── backend/
 │   ├── start.sh                    ← option B
+│   ├── run_test.sh                 ← jest --coverage across all 6 services
 │   ├── docker-compose.yml          ← 6 services + RabbitMQ + Redis
 │   └── …
 └── frontend/
     ├── start.sh                    ← option C
+    ├── run_test.sh                 ← react-scripts test --coverage
     ├── docker-compose.yml          ← joins the existing fmp-net network
     └── …
 ```

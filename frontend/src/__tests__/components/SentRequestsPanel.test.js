@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import SentRequestsPanel from '../../components/SentRequestsPanel';
 import * as followRequestService from '../../services/followRequestService';
 import { REQUEST_STATUSES } from '../../config/constants';
@@ -152,8 +152,10 @@ describe('SentRequestsPanel', () => {
     });
     
     const cancelButton = screen.getByText('Cancel');
-    fireEvent.click(cancelButton);
-    
+    await act(async () => {
+      fireEvent.click(cancelButton);
+    });
+
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to cancel request', 'error');
       expect(screen.getByText(/Error: Cancel failed/)).toBeInTheDocument();
@@ -164,8 +166,10 @@ describe('SentRequestsPanel', () => {
     followRequestService.getSentFollowRequests.mockRejectedValue(
       new Error('Failed to fetch')
     );
-    render(<SentRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
-    
+    await act(async () => {
+      render(<SentRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
+    });
+
     await waitFor(() => {
       expect(screen.getByText(/Error: Failed to fetch/)).toBeInTheDocument();
     });
@@ -282,16 +286,18 @@ describe('SentRequestsPanel', () => {
     ];
     followRequestService.getSentFollowRequests.mockResolvedValue(mockRequests);
     followRequestService.cancelFollowRequest.mockRejectedValue(new Error('Cancel failed'));
-    
+
     render(<SentRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
-    
+
     await waitFor(() => {
       expect(screen.getByText('Cancel')).toBeInTheDocument();
     });
-    
+
     const cancelButton = screen.getByText('Cancel');
-    fireEvent.click(cancelButton);
-    
+    await act(async () => {
+      fireEvent.click(cancelButton);
+    });
+
     await waitFor(() => {
       expect(screen.getByText(/Error: Cancel failed/)).toBeInTheDocument();
     });

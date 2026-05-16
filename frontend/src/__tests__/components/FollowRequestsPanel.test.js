@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import FollowRequestsPanel from '../../components/FollowRequestsPanel';
 import * as followRequestService from '../../services/followRequestService';
 
@@ -174,8 +174,10 @@ describe('FollowRequestsPanel', () => {
     });
     
     const approveButton = screen.getByText('✓ Approve');
-    fireEvent.click(approveButton);
-    
+    await act(async () => {
+      fireEvent.click(approveButton);
+    });
+
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to approve request', 'error');
       expect(screen.getByText(/Error: Approval failed/)).toBeInTheDocument();
@@ -202,8 +204,10 @@ describe('FollowRequestsPanel', () => {
     });
     
     const rejectButton = screen.getByText('✕ Reject');
-    fireEvent.click(rejectButton);
-    
+    await act(async () => {
+      fireEvent.click(rejectButton);
+    });
+
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Failed to reject request', 'error');
       expect(screen.getByText(/Error: Reject failed/)).toBeInTheDocument();
@@ -214,8 +218,10 @@ describe('FollowRequestsPanel', () => {
     followRequestService.getPendingFollowRequests.mockRejectedValue(
       new Error('Failed to fetch')
     );
-    render(<FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
-    
+    await act(async () => {
+      render(<FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
+    });
+
     await waitFor(() => {
       expect(screen.getByText(/Error: Failed to fetch/)).toBeInTheDocument();
     });
