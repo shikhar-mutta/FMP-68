@@ -1,25 +1,42 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import UserCard from '../components/UserCard';
 import PathPublishForm from '../components/PathPublishForm';
 import PathCard from '../components/PathCard';
-import RequestSummaryModalPanel from '../components/RequestSummaryModalPanel';
-import SentRequestsPanel from '../components/SentRequestsPanel';
+import FollowRequestsPanel from '../components/FollowRequestsPanel';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
+  const location = useLocation();
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [paths, setPaths] = useState([]);
   const [followedPathIds, setFollowedPathIds] = useState([]);
   const [loadingPaths, setLoadingPaths] = useState(true);
-  const [activeTab, setActiveTab] = useState('paths'); // 'paths', 'users', 'received-requests', 'sent-requests'
-  const [refreshRequests, setRefreshRequests] = useState(0);
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'paths');
+const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Selecting a tab on mobile closes the drawer; on desktop it's a no-op.
+  const selectTab = (tab) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+  };
+
+  const myPaths = paths.filter((p) => p.publisher?.id === user?.id);
+  const otherPaths = paths.filter((p) => p.publisher?.id !== user?.id);
+
+  const tabLabels = {
+    paths: `📍 Paths (${otherPaths.length})`,
+    'my-paths': `🗂️ My Paths (${myPaths.length})`,
+    users: `👥 Users (${users.length})`,
+    requests: `📬 Requests`,
+  };
 
   // ── Fetch other users ────────────────────────────────────
   useEffect(() => {
@@ -49,7 +66,10 @@ export default function DashboardPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        setPaths(res.data || []);
+        const sorted = (res.data || []).slice().sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setPaths(sorted);
         // Get followed paths for current user
         if (user?.id) {
           axios
@@ -71,6 +91,7 @@ export default function DashboardPage() {
   const handlePathPublished = (newPath) => {
     setPaths([newPath, ...paths]);
     setFollowedPathIds([...followedPathIds, newPath.id]);
+    setActiveTab('my-paths');
   };
 
   // ── Handle follow/unfollow path ──────────────────────────
@@ -84,8 +105,18 @@ export default function DashboardPage() {
 
   // ── Handle request sent ──────────────────────────────────
   const handleRequestSent = (pathId) => {
-    // Optionally trigger a refresh
     console.log('Request sent for path:', pathId);
+  };
+
+  // ── Handle path updated (republish) ──────────────────────
+  const handlePathUpdated = (updatedPath) => {
+    setPaths((prev) => prev.map((p) => (p.id === updatedPath.id ? updatedPath : p)));
+  };
+
+  // ── Handle path deleted ───────────────────────────────────
+  const handlePathDeleted = (pathId) => {
+    setPaths((prev) => prev.filter((p) => p.id !== pathId));
+    setFollowedPathIds((prev) => prev.filter((id) => id !== pathId));
   };
 
   // ── Auto sign-out after 30 min inactivity ────────────────
@@ -125,7 +156,7 @@ export default function DashboardPage() {
               Welcome back, {user?.name?.split(' ')[0]} 👋
             </h1>
             <p className="dashboard-desc">
-              {paths.length} path{paths.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
+              {otherPaths.length} path{otherPaths.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
               {users.length} other user{users.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
               <span style={{ color: 'var(--accent-green)' }}>
                 {users.filter((u) => u.isOnline).length} online
@@ -133,52 +164,104 @@ export default function DashboardPage() {
             </p>
           </header>
 
-          {/* Tab Navigation */}
-          <div className="dashboard-tabs">
+          {/* Hamburger toggle — visible only on mobile (CSS handles it). */}
+          <button
+            className="dashboard-tabs-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={sidebarOpen}
+          >
+            <span className="hamburger-icon">☰</span>
+            <span className="current-tab-label">{tabLabels[activeTab]}</span>
+          </button>
+
+          {/* Backdrop — only rendered while the drawer is open on mobile. */}
+          {sidebarOpen && (
+            <div
+              className="dashboard-tabs-overlay"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Tab Navigation — desktop: horizontal bar; mobile: slide-out drawer */}
+          <aside className={`dashboard-tabs ${sidebarOpen ? 'open' : ''}`}>
+            {/* Profile header — hidden on desktop via CSS */}
+            <div className="ds-profile">
+              {user?.picture && (
+                <img
+                  className="ds-profile-avatar"
+                  src={user.picture}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <div className="ds-profile-info">
+                <div className="ds-profile-name">
+                  {user?.name?.split(' ').slice(0, 2).join(' ')}
+                </div>
+                <div className="ds-profile-role">Member</div>
+              </div>
+              <button
+                className="dashboard-tabs-close"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close menu"
+              >
+                →
+              </button>
+            </div>
             <button
               className={`tab-button ${activeTab === 'paths' ? 'active' : ''}`}
-              onClick={() => setActiveTab('paths')}
+              onClick={() => selectTab('paths')}
             >
-              📍 Paths ({paths.length})
+              📍 Paths ({otherPaths.length})
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'my-paths' ? 'active' : ''}`}
+              onClick={() => selectTab('my-paths')}
+            >
+              🗂️ My Paths ({myPaths.length})
             </button>
             <button
               className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
+              onClick={() => selectTab('users')}
             >
               👥 Users ({users.length})
             </button>
             <button
-              className={`tab-button ${activeTab === 'received-requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('received-requests')}
+              className={`tab-button ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => selectTab('requests')}
             >
               📬 Requests
             </button>
+            {/* Sign out — pushed to bottom of drawer (margin-top: auto via CSS) */}
             <button
-              className={`tab-button ${activeTab === 'sent-requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('sent-requests')}
+              className="ds-signout"
+              onClick={() => {
+                setSidebarOpen(false);
+                signOut();
+              }}
             >
-              📤 My Requests
+              🚪 Log Out
             </button>
-          </div>
+          </aside>
 
           {/* Paths Tab */}
           {activeTab === 'paths' && (
             <div className="tab-content">
-              <PathPublishForm onPathPublished={handlePathPublished} />
-
               {loadingPaths ? (
                 <div className="spinner-overlay">
                   <div className="spinner" />
                 </div>
-                ) : paths.length === 0 ? (
+              ) : otherPaths.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">📍</div>
-                  <p className="empty-title">No paths yet</p>
-                  <p className="empty-subtitle">Be the first to publish a path!</p>
+                  <p className="empty-title">No paths from others yet</p>
+                  <p className="empty-subtitle">Paths published by other users will appear here.</p>
                 </div>
               ) : (
                 <div className="paths-grid">
-                  {paths.map((path) => (
+                  {otherPaths.map((path) => (
                     <PathCard
                       key={path.id}
                       path={path}
@@ -186,6 +269,42 @@ export default function DashboardPage() {
                       onFollowChange={handleFollowChange}
                       currentUserId={user?.id}
                       onRequestSent={handleRequestSent}
+                      onPathUpdated={handlePathUpdated}
+                      onPathDeleted={handlePathDeleted}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* My Paths Tab */}
+          {activeTab === 'my-paths' && (
+            <div className="tab-content">
+              <PathPublishForm onPathPublished={handlePathPublished} />
+
+              {loadingPaths ? (
+                <div className="spinner-overlay">
+                  <div className="spinner" />
+                </div>
+              ) : myPaths.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">🗂️</div>
+                  <p className="empty-title">No paths published yet</p>
+                  <p className="empty-subtitle">Use the form above to publish your first path!</p>
+                </div>
+              ) : (
+                <div className="paths-grid">
+                  {myPaths.map((path) => (
+                    <PathCard
+                      key={path.id}
+                      path={path}
+                      isFollowing={followedPathIds.includes(path.id)}
+                      onFollowChange={handleFollowChange}
+                      currentUserId={user?.id}
+                      onRequestSent={handleRequestSent}
+                      onPathUpdated={handlePathUpdated}
+                      onPathDeleted={handlePathDeleted}
                     />
                   ))}
                 </div>
@@ -217,19 +336,9 @@ export default function DashboardPage() {
           )}
 
           {/* Received Follow Requests Tab */}
-          {activeTab === 'received-requests' && (
+          {activeTab === 'requests' && (
             <div className="tab-content">
-              <RequestSummaryModalPanel />
-            </div>
-          )}
-
-          {/* Sent Follow Requests Tab */}
-          {activeTab === 'sent-requests' && (
-            <div className="tab-content">
-              <SentRequestsPanel
-                currentUserId={user?.id}
-                onRefresh={refreshRequests}
-              />
+              <FollowRequestsPanel currentUserId={user?.id} />
             </div>
           )}
         </div>
