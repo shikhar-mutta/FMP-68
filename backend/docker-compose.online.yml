@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────────────
+# FMP-68 — Online Mode Compose Override (backend)
+#
+# Overrides the few env vars that need to change when exposing the
+# stack publicly via ngrok. Leaves the base docker-compose.yml
+# untouched, so local-dev (./start.sh) continues to work as-is.
+#
+# Run together with the base file:
+#   docker compose --env-file .env.online \
+#     -f docker-compose.yml -f docker-compose.online.yml up -d --build
+#
+# Values come from ./.env.online (ONLINE_PUBLIC_URL, ONLINE_GOOGLE_CALLBACK_URL).
+# ─────────────────────────────────────────────────────────────────────
+services:
+  api-gateway:
+    environment:
+      FRONTEND_URL: ${ONLINE_PUBLIC_URL}
+
+  auth-service:
+    environment:
+      FRONTEND_URL: ${ONLINE_PUBLIC_URL}
+      GOOGLE_CALLBACK_URL: ${ONLINE_GOOGLE_CALLBACK_URL}
+
+  tracking-service:
+    environment:
+      FRONTEND_URL: ${ONLINE_PUBLIC_URL}

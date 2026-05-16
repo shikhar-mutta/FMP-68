@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────
+# fmp-frontend — Online Mode Compose Override
+#
+# Two things change for online mode:
+#   1) The React bundle is rebuilt with an EMPTY REACT_APP_API_URL,
+#      so axios + socket.io fall back to relative URLs (single origin).
+#   2) The nginx container uses nginx.online.conf, which reverse-
+#      proxies backend routes to api-gateway:4000 over fmp-net.
+#
+# Run together with the base file:
+#   docker compose --env-file .env.online \
+#     -f docker-compose.yml -f docker-compose.online.yml up -d --build
+# ─────────────────────────────────────────────────────────────────────
+services:
+  frontend:
+    build:
+      args:
+        # Empty string → relative URLs in the built bundle.
+        # Compose substitutes ${ONLINE_REACT_APP_API_URL} (set to "" in .env.online).
+        REACT_APP_API_URL: "${ONLINE_REACT_APP_API_URL}"
+    volumes:
+      - ./nginx.online.conf:/etc/nginx/conf.d/default.conf:ro

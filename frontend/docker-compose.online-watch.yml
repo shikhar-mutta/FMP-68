@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────────────
+# fmp-frontend — ONLINE WATCH MODE (CRA dev server + HMR)
+#
+# Standalone compose file (does NOT extend docker-compose.yml). Replaces
+# the production nginx container with a Node container that runs
+# `react-scripts start`. Source code is bind-mounted, so any edit in
+# frontend/src/ triggers a hot-reload to every connected browser —
+# including the phone on the public ngrok URL.
+#
+# Run:
+#   docker compose -f docker-compose.online-watch.yml up -d
+#
+# First start is slow (~3-5 min for npm install). Subsequent starts
+# are fast because node_modules sits in the named volume.
+# ─────────────────────────────────────────────────────────────────────
+services:
+  frontend:
+    image: node:20-alpine
+    container_name: fmp-frontend-watch
+    working_dir: /app
+    # Install deps (incl. http-proxy-middleware for setupProxy.js) then
+    # start CRA. --no-save avoids touching the host package.json.
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        # Copy package files into the container's writable layer so npm
+        # can update them freely without touching the host files (the
+        # host versions are bind-mounted read-only at /host/).
+        cp /host/package.json        /app/package.json
+        cp /host/package-lock.json   /app/package-lock.json
+        cp /host/setupProxy.online.js /app/src/setupProxy.js
+        echo "▶ Installing project deps (first run only — cached in volume)…"
+        npm install --no-audit --no-fund
+        echo "▶ Installing http-proxy-middleware (dev-only, not saved)…"
+        npm install --no-save --no-audit --no-fund http-proxy-middleware
+        # CRA 5 has no env var for the HMR WebSocket protocol; the dev
+        # server picks ws:// from its own non-HTTPS listener, which the
+        # browser then blocks on the HTTPS ngrok page. Patch the config
+        # to force wss://. Idempotent: only runs if the line isn't there.
+        CFG=/app/node_modules/react-scripts/config/webpackDevServer.config.js
+        if ! grep -q "protocol: 'wss:'," "$$CFG"; then
+          echo "▶ Patching react-scripts webpackDevServer config for wss…"
+          sed -i "s|hostname: sockHost,|protocol: 'wss:',\n        hostname: sockHost,|" "$$CFG"
+        fi
+        echo "▶ Starting react-scripts dev server…"
+        exec npm start
+    environment:
+      # CRA dev server config
+      PORT: "80"                              # match container port the host maps to
+      HOST: "0.0.0.0"
+      BROWSER: "none"                         # don't try to open a browser inside container
+      CI: "false"                             # warnings don't fail the build
+      DANGEROUSLY_DISABLE_HOST_CHECK: "true"  # allow requests via the ngrok hostname
+      # File-watching: polling is more reliable inside Docker on some hosts
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      # HMR WebSocket must connect back via the PUBLIC URL (ngrok HTTPS:443)
+      WDS_SOCKET_HOST: patriarchic-georgianne-acetimetric.ngrok-free.dev
+      WDS_SOCKET_PORT: "443"
+      WDS_SOCKET_PROTOCOL: wss
+      # API base — full public URL (not empty). See frontend/.env.online
+      # for why: some frontend files use `||` instead of `??`, so an
+      # empty value would fall back to http://localhost:4000.
+      # The browser sends absolute requests to the same ngrok origin,
+      # which CRA dev server proxies to api-gateway via setupProxy.js.
+      REACT_APP_API_URL: "${ONLINE_REACT_APP_API_URL}"
+      BACKEND_PROXY_TARGET: http://api-gateway:4000
+    volumes:
+      # Bind-mount source so edits on the host are seen instantly
+      - ./src:/app/src:rw
+      - ./public:/app/public:rw
+      # Package files mounted read-only at /host/ — copied into /app/
+      # at startup so npm can rewrite the lockfile inside the container
+      # without modifying the host files. Host changes still take effect
+      # because the container is recreated on restart.
+      - ./package.json:/host/package.json:ro
+      - ./package-lock.json:/host/package-lock.json:ro
+      # Watch-mode proxy config: mounted at /host/ and copied into src/
+      # at startup. Mounting it directly at /app/src/setupProxy.js would
+      # make Docker create an empty stub at frontend/src/setupProxy.js
+      # on the host (which then shows up in `git status`). Copy is clean.
+      - ./setupProxy.online.js:/host/setupProxy.online.js:ro
+      # node_modules lives on a named volume so npm install survives restarts
+      - fmp_frontend_watch_modules:/app/node_modules
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    networks:
+      - fmp-net
+
+volumes:
+  fmp_frontend_watch_modules:
+
+networks:
+  fmp-net:
+    external: true
+    name: fmp-net
