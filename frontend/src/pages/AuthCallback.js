@@ -18,7 +18,11 @@ export default function AuthCallback() {
     const token = searchParams.get('token');
     if (token) {
       handleCallback(token)
-        .then(() => navigate('/', { replace: true }))
+        .then(() => {
+          const redirectTo = sessionStorage.getItem('fmp68_redirect_after_login') || '/';
+          sessionStorage.removeItem('fmp68_redirect_after_login');
+          navigate(redirectTo, { replace: true });
+        })
         .catch(() => navigate('/login', { replace: true }));
     } else {
       navigate('/login', { replace: true });

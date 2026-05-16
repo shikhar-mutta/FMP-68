@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useToast } from './context/ToastContext';
 import LoginPage from './pages/LoginPage';
@@ -11,6 +11,7 @@ import Toast from './components/Toast';
 
 export function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="spinner-overlay">
@@ -18,7 +19,11 @@ export function PrivateRoute({ children }) {
       </div>
     );
   }
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) {
+    sessionStorage.setItem('fmp68_redirect_after_login', location.pathname + location.search);
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 export default function App() {

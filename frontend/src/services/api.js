@@ -33,6 +33,10 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - token expired or invalid
       localStorage.removeItem('fmp68_token');
+      const current = window.location.pathname + window.location.search;
+      if (current !== '/login' && current !== '/oauth/callback') {
+        sessionStorage.setItem('fmp68_redirect_after_login', current);
+      }
       window.location.href = '/login';
     }
     return Promise.reject(error);
