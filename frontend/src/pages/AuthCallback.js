@@ -3,8 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * /auth/callback?token=xxx
- * This page is hit after Google OAuth redirect.
+ * /oauth/callback?token=xxx
+ * This page is hit after Google OAuth redirect (auth-service does the
+ * final hop here; the path lives outside /auth/* so the frontend nginx
+ * proxy and cluster ingress don't grab it).
  * It grabs the JWT from the URL, stores it, then navigates to dashboard.
  */
 export default function AuthCallback() {

@@ -109,7 +109,7 @@ describe('AuthController', () => {
         googleId: 'g',
       });
       expect(res.redirect).toHaveBeenCalledWith(
-        'http://frontend/auth/callback?token=tok',
+        'http://frontend/oauth/callback?token=tok',
       );
     });
 
@@ -124,7 +124,7 @@ describe('AuthController', () => {
       await controller.googleCallback({ user: {} } as any, res as any);
 
       expect(res.redirect).toHaveBeenCalledWith(
-        'http://localhost:3000/auth/callback?token=tok',
+        'http://localhost:3000/oauth/callback?token=tok',
       );
     });
   });
