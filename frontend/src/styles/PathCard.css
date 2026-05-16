@@ -84,11 +84,33 @@
 
 .path-publisher {
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .path-publisher strong {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.publisher-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.publisher-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-blue), #6366f1);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .path-followers {
@@ -251,6 +273,72 @@
     width: 100%;
     text-align: center;
   }
+}
+
+/* Publisher action buttons (edit / delete) */
+.publisher-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.publisher-action-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.publisher-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.publisher-action-btn.edit-btn:hover {
+  background: rgba(74, 144, 226, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.publisher-action-btn.delete-btn:hover {
+  background: rgba(255, 107, 91, 0.15);
+  border-color: #ff6b5b;
+  color: #ff6b5b;
+}
+
+/* Delete confirmation panel */
+.delete-confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 107, 91, 0.08);
+  border: 1px solid rgba(255, 107, 91, 0.35);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  animation: slideIn 0.2s ease;
+}
+
+.delete-confirmation p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Edit form inside a card */
+.path-card--editing {
+  cursor: default;
 }
 
 /* Path card actions container */
