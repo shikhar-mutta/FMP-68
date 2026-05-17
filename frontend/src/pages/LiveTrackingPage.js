@@ -699,7 +699,7 @@ export default function LiveTrackingPage() {
 
   // ── Main render ──────────────────────────────────────────
   return (
-    <>
+    <div className="live-tracking-shell">
       <Navbar />
       <div className="live-tracking-page">
         {/* ── Header ── */}
@@ -1151,6 +1151,6 @@ export default function LiveTrackingPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

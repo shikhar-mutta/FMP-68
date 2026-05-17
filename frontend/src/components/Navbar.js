@@ -12,7 +12,7 @@ import {
   dismissNotification,
 } from '../services/notificationService';
 
-export default function Navbar() {
+export default function Navbar({ onMenuOpen } = {}) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -111,6 +111,11 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
+      {onMenuOpen && (
+        <button className="navbar-hamburger" onClick={onMenuOpen} aria-label="Open menu">
+          ☰
+        </button>
+      )}
       <div className="navbar-brand">FMP-68</div>
 
       {user && (

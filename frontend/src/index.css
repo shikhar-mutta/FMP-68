@@ -71,7 +71,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -82,7 +82,7 @@ body {
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -136,7 +136,7 @@ body::after {
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
 }
@@ -162,6 +162,22 @@ body::after {
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+.navbar-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.navbar-hamburger:hover {
+  background: var(--bg-card-hover);
 }
 
 .navbar-brand {
@@ -808,7 +824,6 @@ body::after {
 }
 
 /* Mobile drawer chrome — all hidden on desktop, shown via mobile media query */
-.dashboard-tabs-toggle,
 .dashboard-tabs-close,
 .dashboard-tabs-overlay,
 .ds-profile,
@@ -872,13 +887,22 @@ body::after {
     padding: 0 14px;
   }
   .navbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
     padding: 12px 16px;
-    gap: 8px;
+    gap: 0;
+  }
+  .navbar-hamburger {
+    display: block;
+    justify-self: start;
   }
   .navbar-brand {
+    justify-self: center;
     font-size: 1.2rem;
   }
   .navbar-user {
+    justify-self: end;
     gap: 10px;
   }
   /* Hide full name on phones — avatar carries the identity */
@@ -934,37 +958,6 @@ body::after {
   .user-badge {
     display: none;
   }
-  /* Tabs become a slide-out drawer on mobile (hamburger-triggered) */
-  .dashboard-tabs-toggle {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: var(--font);
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-  }
-  .dashboard-tabs-toggle:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--border-hover);
-  }
-  .dashboard-tabs-toggle .hamburger-icon {
-    font-size: 1.15rem;
-    margin-right: 12px;
-    color: var(--accent-blue);
-  }
-  .dashboard-tabs-toggle .current-tab-label {
-    flex: 1;
-    text-align: left;
-  }
-
   /* Backdrop behind the drawer */
   .dashboard-tabs-overlay {
     display: block;

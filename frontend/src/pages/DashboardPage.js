@@ -148,7 +148,7 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <>
-      <Navbar />
+      <Navbar onMenuOpen={() => setSidebarOpen(true)} />
       <main className="dashboard">
         <div className="container">
           <header className="dashboard-header">
@@ -156,24 +156,12 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
               Welcome back, {user?.name?.split(' ')[0]} 👋
             </h1>
             <p className="dashboard-desc">
-              {otherPaths.length} path{otherPaths.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
               {users.length} other user{users.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
               <span style={{ color: 'var(--accent-green)' }}>
                 {users.filter((u) => u.isOnline).length} online
               </span>
             </p>
           </header>
-
-          {/* Hamburger toggle — visible only on mobile (CSS handles it). */}
-          <button
-            className="dashboard-tabs-toggle"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
-            aria-expanded={sidebarOpen}
-          >
-            <span className="hamburger-icon">☰</span>
-            <span className="current-tab-label">{tabLabels[activeTab]}</span>
-          </button>
 
           {/* Backdrop — only rendered while the drawer is open on mobile. */}
           {sidebarOpen && (
@@ -207,7 +195,7 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Close menu"
               >
-                →
+                ←
               </button>
             </div>
             <button
