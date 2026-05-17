@@ -155,6 +155,18 @@ no domain, OAuth keeps working. Two flavours:
 ./start-online-watch.sh      # watch / HMR
 ```
 
+To run the watch script in **detached mode** (keeps running after terminal closes):
+
+```bash
+nohup bash start-online-watch.sh > watch.log 2>&1 &
+```
+
+- `nohup` — immune to terminal hangup
+- `> watch.log 2>&1` — stdout + stderr go to `watch.log`
+- `&` — sends to background; note the PID printed (or run `echo $!` right after)
+
+Stop it with `kill <PID>` or `./stop-online.sh`.
+
 What each script does:
 
 1. Pre-flight (Docker, ngrok install + authtoken).
