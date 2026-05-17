@@ -94,6 +94,18 @@
   font-weight: 600;
 }
 
+.publisher-name-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.publisher-username {
+  font-size: 0.75rem;
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
 .publisher-avatar {
   width: 24px;
   height: 24px;

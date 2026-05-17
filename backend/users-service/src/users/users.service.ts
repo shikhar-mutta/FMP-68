@@ -1,5 +1,5 @@
 // ci-test-1778755724
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import { GoogleProfile } from './users.types';
@@ -43,6 +43,14 @@ export class UsersService {
 
   async setOnlineStatus(userId: string, isOnline: boolean): Promise<User> {
     return this.usersRepository.updateOnlineStatus(userId, isOnline);
+  }
+
+  async updateUsername(userId: string, username: string): Promise<User> {
+    const taken = await this.usersRepository.findByUsername(username);
+    if (taken && taken.id !== userId) {
+      throw new ConflictException('Username is already taken');
+    }
+    return this.usersRepository.updateUsername(userId, username);
   }
 
   async findAll(): Promise<User[]> {

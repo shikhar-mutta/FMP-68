@@ -16,6 +16,7 @@ model User {
   googleId        String   @unique
   email           String   @unique
   name            String
+  username        String?
   picture         String   @default("")
   isOnline        Boolean  @default(false)
   lastSeen        DateTime?

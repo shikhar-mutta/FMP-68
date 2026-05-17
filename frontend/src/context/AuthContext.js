@@ -54,9 +54,19 @@ export function AuthProvider({ children }) {
     setUser(res.data);
   }, []);
 
+  /** Refresh user data from server (e.g. after username update) */
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('fmp68_token');
+    if (!token) return;
+    const res = await axios.get(`${API}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser(res.data);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, signInWithGoogle, signOut, handleCallback }}
+      value={{ user, loading, signInWithGoogle, signOut, handleCallback, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

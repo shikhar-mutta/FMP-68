@@ -8,6 +8,7 @@ import PathDetailPage from './pages/PathDetailPage';
 import LiveTrackingPage from './pages/LiveTrackingPage';
 import AuthCallback from './pages/AuthCallback';
 import Toast from './components/Toast';
+import UsernameModal from './components/UsernameModal';
 
 export function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -48,6 +49,7 @@ export default function App() {
   return (
     <div className="app-wrapper">
       <Toast />
+      {user && !user.username && <UsernameModal />}
       <Routes>
         <Route
           path="/login"

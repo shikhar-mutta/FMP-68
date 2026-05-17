@@ -8,6 +8,19 @@ export class PrismaService
 {
   async onModuleInit() {
     await this.$connect();
+    // Sparse unique index on username — Prisma doesn't support sparse natively,
+    // so we ensure it exists at startup. createIndex is idempotent.
+    await this.$runCommandRaw({
+      createIndexes: 'users',
+      indexes: [
+        {
+          key: { username: 1 },
+          name: 'users_username_unique_sparse',
+          unique: true,
+          sparse: true,
+        },
+      ],
+    });
   }
 
   async onModuleDestroy() {

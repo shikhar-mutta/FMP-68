@@ -143,8 +143,8 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
     };
   }, [signOut]);
 
-  const onlineCount = users.filter((u) => u.isOnline).length;
-  const offlineCount = users.filter((u) => !u.isOnline).length;
+  const onlineCount = users.filter((u) => u.isOnline).length + 1; // +1 for current user
+  const totalCount = users.length + 1;
 
   return (
     <>
@@ -156,9 +156,9 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
               Welcome back, {user?.name?.split(' ')[0]} 👋
             </h1>
             <p className="dashboard-desc">
-              {users.length} other user{users.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
+              {totalCount} user{totalCount !== 1 ? 's' : ''}&nbsp;·&nbsp;
               <span style={{ color: 'var(--accent-green)' }}>
-                {users.filter((u) => u.isOnline).length} online
+                {onlineCount} online
               </span>
             </p>
           </header>

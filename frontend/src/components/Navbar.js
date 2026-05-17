@@ -19,8 +19,10 @@ export default function Navbar({ onMenuOpen } = {}) {
   const [requests, setRequests] = useState([]);
   const [approvalNotifs, setApprovalNotifs] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const dropdownRef = useRef(null);
+  const avatarMenuRef = useRef(null);
 
   const fetchRequests = useCallback(async () => {
     if (!user) return;
@@ -54,7 +56,7 @@ export default function Navbar({ onMenuOpen } = {}) {
     return () => clearInterval(id);
   }, [fetchApprovalNotifs]);
 
-  // Close dropdown when clicking outside
+  // Close bell dropdown when clicking outside
   useEffect(() => {
     if (!dropdownOpen) return;
     const handler = (e) => {
@@ -65,6 +67,18 @@ export default function Navbar({ onMenuOpen } = {}) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [dropdownOpen]);
+
+  // Close avatar menu when clicking outside
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const handler = (e) => {
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) {
+        setAvatarMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [avatarMenuOpen]);
 
   const handleApprove = async (pathId, followerId) => {
     const key = `${pathId}-${followerId}`;
@@ -111,10 +125,12 @@ export default function Navbar({ onMenuOpen } = {}) {
 
   return (
     <nav className="navbar">
-      {onMenuOpen && (
+      {onMenuOpen ? (
         <button className="navbar-hamburger" onClick={onMenuOpen} aria-label="Open menu">
           ☰
         </button>
+      ) : (
+        <div className="navbar-hamburger" aria-hidden="true" style={{ visibility : 'hidden', pointerEvents: 'none' }} />
       )}
       <div className="navbar-brand">FMP-68</div>
 
@@ -239,26 +255,42 @@ export default function Navbar({ onMenuOpen } = {}) {
             )}
           </div>
 
-          <div className="navbar-avatar-wrap">
-            {user.picture && (
-              <img
-                className="navbar-avatar"
-                src={user.picture}
-                alt={user.name}
-                referrerPolicy="no-referrer"
-              />
+          <div className="navbar-avatar-wrap" ref={avatarMenuRef}>
+            <button
+              className="navbar-avatar-btn"
+              onClick={() => setAvatarMenuOpen((v) => !v)}
+              aria-label="User menu"
+              aria-expanded={avatarMenuOpen}
+            >
+              {user.picture && (
+                <img
+                  className="navbar-avatar"
+                  src={user.picture}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <span className="navbar-online-dot" title="You are online" />
+            </button>
+
+            {avatarMenuOpen && (
+              <div className="avatar-dropdown">
+                <div className="avatar-dropdown-header">
+                  <span className="avatar-dropdown-name">{user.name}</span>
+                  {user.username && (
+                    <span className="avatar-dropdown-username">@{user.username}</span>
+                  )}
+                </div>
+                <button
+                  className="avatar-dropdown-item avatar-dropdown-item--signout"
+                  onClick={() => { setAvatarMenuOpen(false); signOut(); }}
+                >
+                  Sign Out
+                </button>
+              </div>
             )}
-            <span className="navbar-online-dot" title="You are online" />
           </div>
           <span className="navbar-name">{user.name}</span>
-
-          <button
-            id="signout-btn"
-            className="btn btn-signout"
-            onClick={signOut}
-          >
-            Sign Out
-          </button>
         </div>
       )}
     </nav>

@@ -23,6 +23,9 @@ export default function UserCard({ user, index }) {
 
       <div className="user-info">
         <div className="user-name">{user.name}</div>
+        {user.username && (
+          <div className="user-username">@{user.username}</div>
+        )}
         <div className="user-email">{user.email}</div>
       </div>
 

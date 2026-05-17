@@ -56,6 +56,17 @@ export class UsersRepository {
     });
   }
 
+  findByUsername(username: string) {
+    return this.prisma.user.findFirst({ where: { username } });
+  }
+
+  updateUsername(userId: string, username: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { username },
+    });
+  }
+
   updateOnlineStatus(userId: string, isOnline: boolean) {
     return this.prisma.user.update({
       where: { id: userId },

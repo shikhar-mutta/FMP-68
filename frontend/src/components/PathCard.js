@@ -354,7 +354,12 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
               {path.publisher?.name?.charAt(0).toUpperCase()}
             </span>
           )}
-          <strong>{path.publisher?.name}</strong>
+          <span className="publisher-name-wrap">
+            <strong>{path.publisher?.name}</strong>
+            {path.publisher?.username && (
+              <span className="publisher-username">@{path.publisher.username}</span>
+            )}
+          </span>
         </span>
         <span className="path-followers">
           {path.followers?.length || path.followerIds?.length || 0} followers
