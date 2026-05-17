@@ -49,6 +49,10 @@ Thumbs.db
 .idea/
 .claude/
 
+# Ignored top-level directories
+Movie-Booking-Service-Frontend/
+Movie-Booking-System-Microservices/
+
 # LaTeX build artifacts (report/)
 report/*.aux
 report/*.fdb_latexmk
