@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap() {
   const serviceName = process.env.SERVICE_NAME || 'api-gateway';
@@ -11,6 +12,8 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = parseInt(process.env.PORT || '4000', 10);
   await app.listen(port);

@@ -4,6 +4,7 @@ import { Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { buildJwtMiddleware } from './middleware/jwt.middleware';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap() {
   const serviceName = process.env.SERVICE_NAME || 'api-gateway';
@@ -14,6 +15,8 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   const httpAdapter = app.getHttpAdapter();
   const expressInstance = httpAdapter.getInstance();
