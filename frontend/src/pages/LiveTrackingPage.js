@@ -107,6 +107,7 @@ export default function LiveTrackingPage() {
   const [followerCoords, setFollowerCoords] = useState([]);
   const [currentPosition, setCurrentPosition] = useState(null);
   const [autoFollow, setAutoFollow] = useState(true);
+  const [recenterTrigger, setRecenterTrigger] = useState(0);
 
   // For publisher: track which follower's path to display (first one who sends data)
   const trackedFollowerRef = useRef(null);
@@ -117,15 +118,91 @@ export default function LiveTrackingPage() {
   const [followersCount, setFollowersCount] = useState(0);
   const [currentSpeed, setCurrentSpeed] = useState(0);
 
+  // Pause points: coord recorded each time publisher/follower pauses
+  const [pausePoints, setPausePoints] = useState([]);
+  const [followerPausePoints, setFollowerPausePoints] = useState([]);
+
   // Button loading states
   const [isStarting, setIsStarting] = useState(false);
   const [isRepublishing, setIsRepublishing] = useState(false);
+  const [followerActive, setFollowerActive] = useState(false);
+  const [followerPaused, setFollowerPaused] = useState(false);
+  const [sessionTerminated, setSessionTerminated] = useState(false);
+
+  // Compass / device orientation
+  const [deviceHeading, setDeviceHeading] = useState(null);
+  const [needsCompassPerm, setNeedsCompassPerm] = useState(false);
 
   // Refs
   const stopWatchRef = useRef(null);
   const timerRef = useRef(null);
   const cleanupFnsRef = useRef([]);
   const lastCoordRef = useRef(null);
+
+  // ── Lock body scroll so only sidebar scrolls on mobile ──
+  useEffect(() => {
+    const appWrapper = document.querySelector('.app-wrapper');
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevWrapperOverflow = appWrapper ? appWrapper.style.overflow : '';
+    const prevWrapperHeight = appWrapper ? appWrapper.style.height : '';
+    document.body.style.overflow = 'hidden';
+    if (appWrapper) {
+      appWrapper.style.overflow = 'hidden';
+      appWrapper.style.height = '100dvh';
+    }
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      if (appWrapper) {
+        appWrapper.style.overflow = prevWrapperOverflow;
+        appWrapper.style.height = prevWrapperHeight;
+      }
+    };
+  }, []);
+
+  // ── Device orientation (compass heading) ────────────────
+  useEffect(() => {
+    if (typeof DeviceOrientationEvent === 'undefined') return;
+    const handler = (e) => {
+      let h = null;
+      if (e.webkitCompassHeading != null) {
+        h = e.webkitCompassHeading; // iOS: clockwise from North
+      } else if (e.alpha != null) {
+        // Android: alpha is CCW from North; convert to CW
+        h = (360 - e.alpha + 360) % 360;
+      }
+      if (h != null) setDeviceHeading(Math.round(h));
+    };
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      setNeedsCompassPerm(true); // iOS 13+ — need user gesture
+    } else {
+      window.addEventListener('deviceorientationabsolute', handler, true);
+      window.addEventListener('deviceorientation', handler, true);
+      return () => {
+        window.removeEventListener('deviceorientationabsolute', handler, true);
+        window.removeEventListener('deviceorientation', handler, true);
+      };
+    }
+  }, []);
+
+  const handleRecenter = useCallback(() => {
+    setAutoFollow(true);
+    setRecenterTrigger((v) => v + 1);
+  }, []);
+
+  const handleEnableCompass = useCallback(async () => {
+    if (typeof DeviceOrientationEvent?.requestPermission !== 'function') return;
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm === 'granted') {
+        setNeedsCompassPerm(false);
+        const handler = (e) => {
+          const h = e.webkitCompassHeading ?? null;
+          if (h != null) setDeviceHeading(Math.round(h));
+        };
+        window.addEventListener('deviceorientation', handler, true);
+      }
+    } catch (_) {}
+  }, []);
 
   // ── Fetch path data ──────────────────────────────────────
   useEffect(() => {
@@ -234,6 +311,7 @@ export default function LiveTrackingPage() {
         setTrackingStatus('idle');
         setPublisherCoords([]);
         setFollowerCoords([]);
+        setPausePoints([]);
         setStartTime(null);
         setElapsedTime(null);
         setCurrentSpeed(0);
@@ -261,7 +339,11 @@ export default function LiveTrackingPage() {
 
   // ── Elapsed-time timer ───────────────────────────────────
   useEffect(() => {
-    if (trackingStatus === 'recording' && startTime) {
+    const shouldRun = startTime && (
+      (isPublisher && trackingStatus === 'recording') ||
+      (!isPublisher && followerActive && !followerPaused)
+    );
+    if (shouldRun) {
       timerRef.current = setInterval(() => {
         setElapsedTime(Date.now() - startTime);
       }, 1000);
@@ -269,7 +351,7 @@ export default function LiveTrackingPage() {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
-  }, [trackingStatus, startTime]);
+  }, [trackingStatus, startTime, isPublisher, followerActive, followerPaused]);
 
   // ── GPS watch helper ─────────────────────────────────────
   const startGpsWatch = useCallback(
@@ -335,8 +417,10 @@ export default function LiveTrackingPage() {
       await pauseTracking(pathId, user?.id);
       setTrackingStatus('paused');
       setCurrentSpeed(0);
+      if (lastCoordRef.current) {
+        setPausePoints((prev) => [...prev, lastCoordRef.current]);
+      }
       stopWatching();
-      if (window.showToast) window.showToast('⏸️ Tracking paused', 'warning');
     } catch (err) {
       console.error('Error pausing tracking:', err);
     }
@@ -352,7 +436,6 @@ export default function LiveTrackingPage() {
       await resumeTracking(pathId, user?.id);
       setTrackingStatus('recording');
       stopWatchRef.current = startGpsWatch('publisher');
-      if (window.showToast) window.showToast('▶️ Tracking resumed', 'success');
     } catch (err) {
       console.error('Error resuming tracking:', err);
     }
@@ -370,7 +453,6 @@ export default function LiveTrackingPage() {
       setCurrentSpeed(0);
       stopWatching();
       clearInterval(timerRef.current);
-      if (window.showToast) window.showToast('🏁 Tracking ended!', 'success');
     } catch (err) {
       console.error('Error ending tracking:', err);
     }
@@ -393,6 +475,35 @@ export default function LiveTrackingPage() {
     }
   }, [pathId, user?.id, isRepublishing]);
 
+  // ── Follower: Follow Ended Path (GPS-only, no socket needed) ───────────
+  // When a path is ended the publisher's coordinates are already loaded from
+  // the REST fetch, so we don't need to join a socket room — just start GPS.
+  const handleFollowEndedPath = useCallback(() => {
+    if (!user?.id) {
+      if (window.showToast) window.showToast('Please log in first', 'error');
+      return;
+    }
+    setStartTime(Date.now());
+    setFollowerCoords([]);
+    lastCoordRef.current = null;
+    stopWatchRef.current = watchPosition(
+      (coord) => {
+        if (lastCoordRef.current) setCurrentSpeed(calcSpeed(lastCoordRef.current, coord));
+        lastCoordRef.current = coord;
+        setCurrentPosition(coord);
+        setFollowerCoords((prev) => [...prev, coord]);
+      },
+      (err) => {
+        console.error('GPS Error:', err);
+        if (window.showToast) window.showToast('GPS error: ' + err.message, 'error');
+      },
+      3000,
+    );
+    setFollowerActive(true);
+    setFollowerPaused(false);
+    if (window.showToast) window.showToast('🟢 Following recorded path!', 'success');
+  }, [user?.id]);
+
   // ── Follower: Join ───────────────────────────────────────
   const handleJoinTracking = useCallback(async () => {
     if (!user?.id) {
@@ -411,11 +522,14 @@ export default function LiveTrackingPage() {
         setFollowerCoords([]);
         lastCoordRef.current = null;
         stopWatchRef.current = startGpsWatch('follower');
+        setFollowerActive(true);
+        setFollowerPaused(false);
         if (window.showToast) window.showToast('🟢 Now following path!', 'success');
       }
     } catch (err) {
       console.error('Error joining tracking:', err);
-      if (window.showToast) window.showToast('Failed to join tracking', 'error');
+      if (window.showToast)
+        window.showToast(err.message || 'Failed to join tracking', 'error');
     }
   }, [pathId, user?.id, startGpsWatch]);
 
@@ -434,8 +548,11 @@ export default function LiveTrackingPage() {
       
       stopWatching();
       setCurrentSpeed(0);
+      setFollowerActive(false);
+      setFollowerPaused(false);
+      setFollowerPausePoints([]);
       clearInterval(timerRef.current);
-      if (window.showToast) window.showToast('✓ Stopped following path', 'success');
+      if (window.showToast) window.showToast('✓ Session terminated', 'success');
       
       // Navigate back to dashboard
       navigate('/');
@@ -444,6 +561,53 @@ export default function LiveTrackingPage() {
       if (window.showToast) window.showToast('Error stopping follow: ' + err.message, 'error');
     }
   }, [pathId, user?.id, navigate]);
+
+  // ── Follower: Pause own trip ────────────────────────────
+  const handlePauseFollower = useCallback(() => {
+    stopWatching();
+    setFollowerPaused(true);
+    setCurrentSpeed(0);
+    if (lastCoordRef.current) {
+      setFollowerPausePoints((prev) => [...prev, lastCoordRef.current]);
+    }
+    if (window.showToast) window.showToast('⏸️ Trip paused', 'warning');
+  }, []);
+
+  // ── Follower: Resume own trip ────────────────────────────
+  const handleResumeFollower = useCallback(() => {
+    setFollowerPaused(false);
+    if (trackingStatus === 'ended') {
+      stopWatchRef.current = watchPosition(
+        (coord) => {
+          if (lastCoordRef.current) setCurrentSpeed(calcSpeed(lastCoordRef.current, coord));
+          lastCoordRef.current = coord;
+          setCurrentPosition(coord);
+          setFollowerCoords((prev) => [...prev, coord]);
+        },
+        (err) => {
+          if (window.showToast) window.showToast('GPS error: ' + err.message, 'error');
+        },
+        3000,
+      );
+    } else {
+      stopWatchRef.current = startGpsWatch('follower');
+    }
+    if (window.showToast) window.showToast('▶️ Trip resumed', 'success');
+  }, [trackingStatus, startGpsWatch]);
+
+  // ── Follower: Terminate session (no unfollow) ────────────
+  const handleTerminateSession = useCallback(async () => {
+    stopWatching();
+    setCurrentSpeed(0);
+    setFollowerActive(false);
+    setFollowerPaused(false);
+    clearInterval(timerRef.current);
+    setSessionTerminated(true);
+    try {
+      await leaveTracking(pathId, user?.id);
+    } catch (_) {}
+    if (window.showToast) window.showToast('✓ Trip saved', 'success');
+  }, [pathId, user?.id]);
 
   // ── Cleanup on unmount ───────────────────────────────────
   useEffect(() => {
@@ -519,7 +683,7 @@ export default function LiveTrackingPage() {
   // ── Error state ──────────────────────────────────────────
   if (error || !path) {
     return (
-      <>
+      <div className="live-tracking-shell">
         <Navbar />
         <div className="live-tracking-page">
           <div className="tracking-error">
@@ -529,7 +693,7 @@ export default function LiveTrackingPage() {
             </button>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -550,21 +714,26 @@ export default function LiveTrackingPage() {
                 By {path.publisher?.name || 'Unknown'}
               </span>
               <span className="meta-separator">•</span>
-              <span className={`meta-status status-${trackingStatus}`}>
-                {trackingStatus === 'idle' && (
-                  <span className="lt-status-dot lt-dot-idle" />
-                )}
-                {trackingStatus === 'recording' && (
-                  <span className="lt-status-dot lt-dot-live" />
-                )}
-                {trackingStatus === 'paused' && (
-                  <span className="lt-status-dot lt-dot-paused" />
-                )}
-                {trackingStatus === 'idle' && 'Not Started'}
-                {trackingStatus === 'recording' && 'Live'}
-                {trackingStatus === 'paused' && 'Paused'}
-                {trackingStatus === 'ended' && '🏁 Ended'}
-              </span>
+              {(() => {
+                // Follower: show their own trip status
+                if (isFollower && !isPublisher) {
+                  if (sessionTerminated) return <span className="meta-status status-ended">🏁 Trip Ended</span>;
+                  if (followerActive && !followerPaused) return <span className="meta-status status-recording"><span className="lt-status-dot lt-dot-live" />Following</span>;
+                  if (followerActive && followerPaused) return <span className="meta-status status-paused"><span className="lt-status-dot lt-dot-paused" />Paused</span>;
+                }
+                // Publisher or follower not yet started: show publisher path status
+                return (
+                  <span className={`meta-status status-${trackingStatus}`}>
+                    {trackingStatus === 'idle' && <span className="lt-status-dot lt-dot-idle" />}
+                    {trackingStatus === 'recording' && <span className="lt-status-dot lt-dot-live" />}
+                    {trackingStatus === 'paused' && <span className="lt-status-dot lt-dot-paused" />}
+                    {trackingStatus === 'idle' && 'Not Started'}
+                    {trackingStatus === 'recording' && 'Live'}
+                    {trackingStatus === 'paused' && 'Paused'}
+                    {trackingStatus === 'ended' && '🏁 Ended'}
+                  </span>
+                );
+              })()}
               {followersCount > 0 && (
                 <>
                   <span className="meta-separator">•</span>
@@ -587,15 +756,22 @@ export default function LiveTrackingPage() {
               currentPosition={currentPosition}
               role={isPublisher ? 'publisher' : 'follower'}
               autoFollow={autoFollow}
+              recenterTrigger={recenterTrigger}
               pathStatus={trackingStatus}
               publisherName={path.publisher?.name || 'Publisher'}
               followerName={user?.name || 'You'}
               directionInfo={directionInfo}
+              pausePoints={pausePoints}
+              followerPausePoints={followerPausePoints}
+              deviceHeading={deviceHeading}
+              needsCompassPerm={needsCompassPerm}
+              onEnableCompass={handleEnableCompass}
+              onRecenter={handleRecenter}
             />
             <button
-              className={`btn-auto-follow ${autoFollow ? 'active' : ''}`}
-              onClick={() => setAutoFollow((v) => !v)}
-              title={autoFollow ? 'Disable auto-center' : 'Enable auto-center'}
+              className="btn-auto-follow active"
+              onClick={() => { setAutoFollow(true); setRecenterTrigger((v) => v + 1); }}
+              title="Center on my location"
             >
               🎯
             </button>
@@ -603,6 +779,60 @@ export default function LiveTrackingPage() {
 
           {/* Sidebar */}
           <div className="tracking-sidebar">
+            {/* Mobile-only legend (hidden on desktop via CSS) */}
+            <div className="sidebar-legend">
+              <div className="legend-item">
+                <span className="legend-line legend-publisher" />
+                <span>{path.publisher?.name || 'Publisher'}'s Path</span>
+              </div>
+              {followerCoords.length > 0 && (
+                <div className="legend-item">
+                  <span className="legend-line legend-follower" />
+                  <span>{isFollower ? 'Your Path' : `${user?.name || 'Follower'}'s Path`}</span>
+                </div>
+              )}
+              <div className="legend-item">
+                <span className="legend-dot" style={{ background: '#fbbf24', border: '1px solid white' }} />
+                <span>Publisher Start</span>
+              </div>
+              {publisherCoords.length > 1 && trackingStatus === 'ended' && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#3b82f6' }} />
+                  <span>Publisher End</span>
+                </div>
+              )}
+              {followerCoords.length > 0 && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#4ade80' }} />
+                  <span>Follower Start</span>
+                </div>
+              )}
+              {publisherCoords.length > 11 && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#f97316' }} />
+                  <span>Publisher Waypoint</span>
+                </div>
+              )}
+              {followerCoords.length > 11 && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#2dd4bf' }} />
+                  <span>Follower Waypoint</span>
+                </div>
+              )}
+              {pausePoints.length > 0 && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#a855f7' }} />
+                  <span>Publisher Paused</span>
+                </div>
+              )}
+              {followerPausePoints.length > 0 && (
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: '#f472b6' }} />
+                  <span>Follower Paused</span>
+                </div>
+              )}
+            </div>
+
             {/* Stats */}
             <div className="stats-grid">
               <div className="stat-card">
@@ -620,7 +850,8 @@ export default function LiveTrackingPage() {
               <div className="stat-card">
                 <div className="stat-icon">⚡</div>
                 <div className="stat-value">
-                  {isTracking && trackingStatus === 'recording'
+                  {((isPublisher && trackingStatus === 'recording') ||
+                    (!isPublisher && followerActive && !followerPaused))
                     ? `${currentSpeed} km/h`
                     : '--'}
                 </div>
@@ -763,66 +994,142 @@ export default function LiveTrackingPage() {
               {/* Follower controls */}
               {isFollower && !isPublisher && (
                 <>
-                  {(trackingStatus === 'recording' ||
-                    trackingStatus === 'paused') && (
-                    <div className="control-group">
-                      {followerCoords.length === 0 ? (
+                  {/* ── Session terminated: show path summary + Go Home ── */}
+                  {sessionTerminated ? (
+                    <div className="session-terminated-summary">
+                      <div className="terminated-icon">🏁</div>
+                      <p className="terminated-title">Trip Complete</p>
+                      <p className="terminated-sub">Your path is shown on the map</p>
+                      <div className="terminated-stats">
+                        <div className="terminated-stat">
+                          <span className="tstat-label">Distance</span>
+                          <span className="tstat-value">
+                            {formatDistance(calculateTotalDistance(followerCoords))}
+                          </span>
+                        </div>
+                        <div className="terminated-stat">
+                          <span className="tstat-label">Duration</span>
+                          <span className="tstat-value">
+                            {elapsedTime ? formatDuration(elapsedTime) : '--'}
+                          </span>
+                        </div>
+                        <div className="terminated-stat">
+                          <span className="tstat-label">GPS Points</span>
+                          <span className="tstat-value">{followerCoords.length}</span>
+                        </div>
+                      </div>
+                      <div className="terminated-actions">
                         <button
-                          className="btn-control btn-follow"
-                          onClick={handleJoinTracking}
+                          className="btn-control btn-go-home"
+                          onClick={() => navigate('/')}
                         >
-                          <span className="btn-icon">🟢</span>
-                          <span>Start Following Path</span>
+                          <span className="btn-icon">🏠</span>
+                          <span>Go Home</span>
                         </button>
-                      ) : (
                         <button
-                          className="btn-control btn-leave"
-                          onClick={handleLeaveTracking}
+                          className="btn-control btn-refollow"
+                          onClick={() => navigate(0)}
                         >
-                          <span className="btn-icon">🚪</span>
-                          <span>Leave Tracking</span>
+                          <span className="btn-icon">🔄</span>
+                          <span>Re-follow Trip</span>
                         </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {(trackingStatus === 'recording' ||
+                        trackingStatus === 'paused') && (
+                        <div className="control-group">
+                          {followerCoords.length === 0 ? (
+                            <button
+                              className="btn-control btn-follow"
+                              onClick={handleJoinTracking}
+                            >
+                              <span className="btn-icon">🟢</span>
+                              <span>Start Following Path</span>
+                            </button>
+                          ) : (
+                            <>
+                              {!followerPaused ? (
+                                <button
+                                  className="btn-control btn-pause"
+                                  onClick={handlePauseFollower}
+                                >
+                                  <span className="btn-icon">⏸️</span>
+                                  <span>Pause Trip</span>
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-control btn-resume"
+                                  onClick={handleResumeFollower}
+                                >
+                                  <span className="btn-icon">▶️</span>
+                                  <span>Resume Trip</span>
+                                </button>
+                              )}
+                              <button
+                                className="btn-control btn-end"
+                                onClick={handleTerminateSession}
+                              >
+                                <span className="btn-icon">🛑</span>
+                                <span>Terminate Session</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
 
-                  {trackingStatus === 'idle' && (
-                    <div className="tracking-waiting">
-                      <div className="waiting-icon">⏳</div>
-                      <p>Waiting for publisher to start...</p>
-                    </div>
-                  )}
-
-                  {trackingStatus === 'ended' && (
-                    <div className="tracking-ended-follower">
-                      <div className="ended-icon">🏁</div>
-                      <p>Publisher completed this path</p>
-                      <p className="ended-note">The recorded route is still available — you can walk it!</p>
-                      {followerCoords.length === 0 ? (
-                        <button
-                          className="btn-control btn-follow"
-                          style={{ marginTop: '12px' }}
-                          onClick={handleJoinTracking}
-                        >
-                          <span className="btn-icon">🟢</span>
-                          <span>Follow Recorded Path</span>
-                        </button>
-                      ) : (
-                        <>
-                          <p className="ended-stats">
-                            You covered: {formatDistance(followerDistance)}
-                          </p>
-                          <button
-                            className="btn-control btn-leave"
-                            style={{ marginTop: '12px' }}
-                            onClick={handleLeaveTracking}
-                          >
-                            <span className="btn-icon">🚪</span>
-                            <span>Stop Following</span>
-                          </button>
-                        </>
+                      {trackingStatus === 'idle' && (
+                        <div className="tracking-waiting">
+                          <div className="waiting-icon">⏳</div>
+                          <p>Waiting for publisher to start...</p>
+                        </div>
                       )}
-                    </div>
+
+                      {trackingStatus === 'ended' && (
+                        <div className="tracking-ended-follower">
+                          <div className="ended-icon">🏁</div>
+                          <p>Publisher completed this path</p>
+                          <p className="ended-note">The recorded route is still available — you can walk it!</p>
+                          {followerCoords.length === 0 ? (
+                            <button
+                              className="btn-control btn-follow"
+                              onClick={handleFollowEndedPath}
+                            >
+                              <span className="btn-icon">🟢</span>
+                              <span>Follow Recorded Path</span>
+                            </button>
+                          ) : (
+                            <div className="control-group">
+                              {!followerPaused ? (
+                                <button
+                                  className="btn-control btn-pause"
+                                  onClick={handlePauseFollower}
+                                >
+                                  <span className="btn-icon">⏸️</span>
+                                  <span>Pause Trip</span>
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-control btn-resume"
+                                  onClick={handleResumeFollower}
+                                >
+                                  <span className="btn-icon">▶️</span>
+                                  <span>Resume Trip</span>
+                                </button>
+                              )}
+                              <button
+                                className="btn-control btn-end"
+                                onClick={handleTerminateSession}
+                              >
+                                <span className="btn-icon">🛑</span>
+                                <span>Terminate Session</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}

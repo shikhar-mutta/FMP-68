@@ -35,9 +35,9 @@ export const getCurrentPosition = () => {
         reject(error);
       },
       {
-        enableHighAccuracy: false,
-        timeout: 20000,
-        maximumAge: 30000,
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000,
       }
     );
   });
@@ -87,11 +87,10 @@ export const watchPosition = (onPosition, onError, interval = 3000) => {
     if (onError) onError(error);
   };
 
-  // Network-based fix first (fast, works indoors / on desktop)
   watchId = navigator.geolocation.watchPosition(onPositionFn, onErrorFn, {
-    enableHighAccuracy: false,
+    enableHighAccuracy: true,
     timeout: 30000,
-    maximumAge: 10000,
+    maximumAge: 3000,
   });
 
   return () => stopWatching();

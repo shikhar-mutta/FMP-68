@@ -8,12 +8,14 @@ let socket = null;
  * Connect to the tracking WebSocket namespace
  */
 export const connectSocket = () => {
-  if (socket && socket.connected) {
+  // Return existing socket regardless of connection state — avoids spawning
+  // multiple pending connections when called before the first one resolves.
+  if (socket) {
     return socket;
   }
 
   socket = io(`${API_URL}/tracking`, {
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     withCredentials: true,
     autoConnect: true,
   });
@@ -37,10 +39,7 @@ export const connectSocket = () => {
  * Get the current socket instance
  */
 export const getSocket = () => {
-  if (!socket || !socket.connected) {
-    return connectSocket();
-  }
-  return socket;
+  return connectSocket();
 };
 
 /**
@@ -62,7 +61,11 @@ export const startTracking = (pathId, userId) => {
     const timer = setTimeout(() => reject(new Error('start-tracking timed out')), 8000);
     s.emit('start-tracking', { pathId, userId }, (response) => {
       clearTimeout(timer);
-      resolve(response);
+      if (response?.success === false) {
+        reject(new Error(response.message || 'Failed to start tracking'));
+      } else {
+        resolve(response);
+      }
     });
   });
 };
@@ -116,8 +119,13 @@ export const endTracking = (pathId, userId) => {
  */
 export const joinTracking = (pathId, userId) => {
   const s = getSocket();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('Could not connect to tracking server')),
+      8000,
+    );
     s.emit('join-tracking', { pathId, userId }, (response) => {
+      clearTimeout(timer);
       resolve(response);
     });
   });
