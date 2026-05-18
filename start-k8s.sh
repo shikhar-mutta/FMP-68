@@ -54,6 +54,30 @@ info()   { echo -e "${Y}$*${N}"; }
 ok()     { echo -e "${G}$*${N}"; }
 err()    { echo -e "${R}$*${N}"; }
 
+# Docker build with one automatic retry. Guards against the transient
+# OOM-kill that hits `npm install` inside multi-stage builds when the
+# host is memory-pressured (e.g. minikube boot still has kicbase/preload
+# resident, swap is hot). On failure: flush buffers, sleep, retry — the
+# second attempt re-uses Docker's layer cache so the cheap layers fly past
+# and the heavy npm step lands when the kernel has reclaimed memory.
+docker_build_retry() {
+  local tag="$1" ctx="$2"
+  local attempt
+  for attempt in 1 2; do
+    if docker build -t "$tag" "$ctx" 2>&1 | tail -3 | sed 's/^/    /'; then
+      return 0
+    fi
+    if [ "$attempt" -lt 2 ]; then
+      err "    ⚠ docker build $tag failed (attempt $attempt/2) — likely transient OOM"
+      info "    [retry] sync + free pagecache hint + sleeping 15s"
+      sync
+      sleep 15
+    fi
+  done
+  err "    ✘ docker build $tag failed after 2 attempts"
+  return 1
+}
+
 # ── tooling guards ─────────────────────────────────────────────
 require() {
   command -v "$1" >/dev/null 2>&1 || { err "    ✘ '$1' not found in PATH. Install it and re-run."; exit 1; }
@@ -77,7 +101,14 @@ stop_port_forwards() {
   # the fmp namespace — covers manual `kubectl port-forward` runs and
   # keepers from a prior script invocation whose PID file got lost.
   pkill -f "kubectl port-forward -n $NAMESPACE" 2>/dev/null || true
-  for port in 3000 4000 15672; do
+  # Vault port-forward runs as a plain nohup background (not via the
+  # keeper loop), so it has its own PID file outside $PORT_FORWARD_PID_FILE.
+  if [ -f /tmp/fmp-vault-pf.pid ]; then
+    kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+    rm -f /tmp/fmp-vault-pf.pid
+  fi
+  pkill -f "kubectl port-forward -n vault svc/vault" 2>/dev/null || true
+  for port in 3000 4000 15672 8200; do
     fuser -k ${port}/tcp 2>/dev/null || true
   done
 }
@@ -227,14 +258,14 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
   for svc in "${BACKEND_SERVICES[@]}"; do
     img="${IMAGE_REPO}/fmp-${svc}:${IMAGE_TAG}"
     info "[build] $img"
-    docker build -t "$img" "$ROOT_DIR/backend/$svc" 2>&1 | tail -3 | sed 's/^/    /'
+    docker_build_retry "$img" "$ROOT_DIR/backend/$svc"
     info "[load]  → minikube"
     minikube image load "$img" -p "$MINIKUBE_PROFILE" 2>&1 | sed 's/^/    /' || true
   done
 
   img="${IMAGE_REPO}/fmp-frontend:${IMAGE_TAG}"
   info "[build] $img"
-  docker build -t "$img" "$ROOT_DIR/frontend" 2>&1 | tail -3 | sed 's/^/    /'
+  docker_build_retry "$img" "$ROOT_DIR/frontend"
   info "[load]  → minikube"
   minikube image load "$img" -p "$MINIKUBE_PROFILE" 2>&1 | sed 's/^/    /' || true
 else
@@ -355,6 +386,20 @@ if [ "$DO_FORWARD" -eq 1 ]; then
   start_port_forward api-gateway 4000 4000
   start_port_forward rabbitmq   15672 15672
   echo "    (keepers respawn forwards across pod rotations — '--stop' kills them all)"
+
+  # Vault UI runs in its own namespace, not $NAMESPACE, so it uses a
+  # plain nohup background (no keeper). The inline Vault block above
+  # already deployed it — we just need to expose the UI on 8200.
+  info "[vault] start detached port-forward on 127.0.0.1:8200"
+  if [ -f /tmp/fmp-vault-pf.pid ]; then
+    kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+    rm -f /tmp/fmp-vault-pf.pid
+  fi
+  fuser -k 8200/tcp 2>/dev/null || true
+  nohup kubectl port-forward -n vault svc/vault 8200:8200 > /tmp/fmp-vault-pf.log 2>&1 &
+  echo $! > /tmp/fmp-vault-pf.pid
+  disown
+  ok "    ✓ Vault UI: http://127.0.0.1:8200/ui/vault/secrets/secret/kv/fmp%2Fauth/details?version=1"
 fi
 
 # ── 7. Final report ────────────────────────────────────────────
@@ -378,6 +423,7 @@ if [ "$DO_FORWARD" -eq 1 ]; then
   echo "  http://localhost:3000    Frontend           (kubectl port-forward → svc/frontend:80)"
   echo "  http://localhost:4000    Backend gateway    (kubectl port-forward, HTTP + WS)"
   echo "  http://localhost:15672   RabbitMQ UI        (kubectl port-forward, guest / guest)"
+  echo "  http://127.0.0.1:8200/ui Vault UI           (kubectl port-forward, token: fmp-dev-root)"
 fi
 
 echo ""

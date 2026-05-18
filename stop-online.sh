@@ -25,4 +25,12 @@ echo "▶ Stopping backend (online mode)…"
 echo "▶ Killing any running ngrok tunnel…"
 pkill -f "ngrok http" 2>/dev/null || true
 
+echo "▶ Stopping Vault port-forward + namespace…"
+if [ -f /tmp/fmp-vault-pf.pid ]; then
+  kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+  rm -f /tmp/fmp-vault-pf.pid
+fi
+pkill -f "kubectl port-forward -n vault svc/vault" 2>/dev/null || true
+kubectl delete namespace vault --wait=false 2>/dev/null | sed 's/^/  /' || true
+
 echo "✅ All online-mode services stopped."

@@ -60,6 +60,14 @@ if [ "${1:-}" = "--stop" ]; then
   docker image prune -f 2>&1 | tail -2 | sed 's/^/    /' || true
   docker builder prune -f 2>&1 | tail -2 | sed 's/^/    /' || true
 
+  echo -e "${Y}[vault] Stop Vault port-forward + namespace${N}"
+  if [ -f /tmp/fmp-vault-pf.pid ]; then
+    kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+    rm -f /tmp/fmp-vault-pf.pid
+  fi
+  pkill -f "kubectl port-forward -n vault svc/vault" 2>/dev/null || true
+  kubectl delete namespace vault --wait=false 2>/dev/null | sed 's/^/    /' || true
+
   echo ""
   echo -e "${G}✅ Stopped. Remaining fmp-* artifacts:${N}"
   docker ps -a --filter "name=fmp-" --format "    {{.Names}}" | head -10
@@ -96,6 +104,22 @@ banner "Backend stack"
 banner "Frontend stack"
 "$ROOT_DIR/frontend/start.sh"
 
+# ── 2b. Vault (ansible deploy + detached UI port-forward) ─────
+banner "Vault UI"
+echo -e "${Y}[vault] ansible-playbook site.yml --tags vault${N}"
+ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/    /'
+
+echo -e "${Y}[vault] start detached port-forward on 127.0.0.1:8200${N}"
+if [ -f /tmp/fmp-vault-pf.pid ]; then
+  kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+  rm -f /tmp/fmp-vault-pf.pid
+fi
+fuser -k 8200/tcp 2>/dev/null || true
+nohup kubectl port-forward -n vault svc/vault 8200:8200 > /tmp/fmp-vault-pf.log 2>&1 &
+echo $! > /tmp/fmp-vault-pf.pid
+disown
+echo -e "${G}    ✓ Vault UI: http://127.0.0.1:8200/ui/vault/secrets/secret/kv/fmp%2Fauth/details?version=1${N}"
+
 # ── 3. Final report ───────────────────────────────────────────
 banner "Done"
 echo ""
@@ -106,6 +130,7 @@ echo -e "${G}Open in your browser:${N}"
 echo "  http://localhost:3000    Frontend"
 echo "  http://localhost:4000    Backend gateway"
 echo "  http://localhost:15672   RabbitMQ UI  (guest / guest)"
+echo "  http://127.0.0.1:8200/ui Vault UI     (token: fmp-dev-root)"
 echo ""
 echo -e "${G}Stop everything later with:${N}"
 echo "  ./start.sh --stop"

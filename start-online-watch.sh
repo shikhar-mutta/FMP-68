@@ -76,11 +76,26 @@ for i in $(seq 1 240); do
   fi
 done
 
+echo "▶ Deploying Vault via ansible (site.yml --tags vault)…"
+ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/  /'
+
+echo "▶ Starting detached port-forward for Vault UI on 127.0.0.1:8200…"
+if [ -f /tmp/fmp-vault-pf.pid ]; then
+  kill "$(cat /tmp/fmp-vault-pf.pid)" 2>/dev/null || true
+  rm -f /tmp/fmp-vault-pf.pid
+fi
+fuser -k 8200/tcp 2>/dev/null || true
+nohup kubectl port-forward -n vault svc/vault 8200:8200 > /tmp/fmp-vault-pf.log 2>&1 &
+echo $! > /tmp/fmp-vault-pf.pid
+disown
+echo "  ✓ Vault UI: http://127.0.0.1:8200/ui/vault/secrets/secret/kv/fmp%2Fauth/details?version=1"
+
 echo ""
 echo "─────────────────────────────────────────────────────────────"
 echo "✅  Online WATCH stack is up."
 echo "   Local:   http://localhost:3000"
 echo "   Public:  https://${NGROK_DOMAIN}"
+echo "   Vault:   http://127.0.0.1:8200/ui  (token: fmp-dev-root)"
 echo ""
 echo "   ✏  Edit any file in frontend/src/ → auto-reload everywhere"
 echo "   📜  Tail dev-server logs:"
