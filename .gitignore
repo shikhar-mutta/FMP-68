@@ -52,6 +52,7 @@ Thumbs.db
 # Ignored top-level directories
 Movie-Booking-Service-Frontend/
 Movie-Booking-System-Microservices/
+docs/
 
 # LaTeX build artifacts (report/)
 report/*.aux
@@ -67,3 +68,5 @@ report/*.blg
 report/*.nav
 report/*.snm
 report/*.vrb
+
+Demo_Video.mp4
