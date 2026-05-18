@@ -36,8 +36,11 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   async googleCallback(@Req() req: any, @Res() res: Response) {
     const { accessToken } = await this.authService.loginWithGoogle(req.user);
-    const frontendUrl =
-      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    // FRONTEND_URL may be a comma-separated list (multi-origin CORS); the
+    // post-OAuth redirect needs a single URL — use the first entry.
+    const frontendUrl = (
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000'
+    ).split(',').map((o) => o.trim()).filter(Boolean)[0];
     // Land on the SPA's /oauth/callback route — keep this off the /auth/*
     // prefix that nginx + the cluster ingress reserve for backend proxying.
     res.redirect(`${frontendUrl}/oauth/callback?token=${accessToken}`);

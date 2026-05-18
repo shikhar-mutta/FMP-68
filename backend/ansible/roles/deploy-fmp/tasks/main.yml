@@ -56,16 +56,6 @@
   register: svc_apply
   changed_when: "'configured' in svc_apply.stdout or 'created' in svc_apply.stdout"
 
-- name: Apply Ingress
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - apply
-      - -f
-      - "{{ project_root }}/backend/k8s/ingress.yaml"
-  register: ing_apply
-  changed_when: "'configured' in ing_apply.stdout or 'created' in ing_apply.stdout"
-
 - name: Apply ELK stack
   ansible.builtin.command:
     argv:
@@ -96,7 +86,7 @@
     argv:
       - kubectl
       - get
-      - "pods,svc,hpa,ingress"
+      - "pods,svc,hpa"
       - -n
       - "{{ k8s_namespace }}"
   register: snapshot

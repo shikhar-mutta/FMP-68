@@ -4,7 +4,12 @@ metadata:
   name: fmp-config
   namespace: fmp
 data:
-  # Frontend origin — used for CORS + OAuth post-login redirect
+  # Frontend origin — used for CORS + OAuth post-login redirect.
+  # Single localhost value; the port-forward flow from start-k8s.sh
+  # delivers the frontend at :3000 and the gateway at :4000.
+  # Backend services still tolerate comma-separated values for future
+  # multi-origin work (see main.ts split logic), but the simple flow
+  # is localhost-only.
   FRONTEND_URL: "http://localhost:3000"
   # Inter-service URLs (resolved by Kubernetes Service DNS)
   AUTH_SERVICE_URL: "http://auth-service:4001"
