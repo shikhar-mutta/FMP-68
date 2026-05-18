@@ -442,7 +442,7 @@ describe('PrivateRoute', () => {
   it('PrivateRoute loading branch on live tracking route', () => {
     useAuth
       .mockReturnValueOnce({ user: { id: 'user-1' }, loading: false })
-      .mockReturnValueOnce({ user: null, loading: true });
+      .mockReturnValue({ user: null, loading: true });
 
     const { container } = render(
       <MemoryRouter initialEntries={['/path/123/live']}>

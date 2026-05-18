@@ -835,17 +835,22 @@ describe('PathDetailPage', () => {
 
   it('should call unfollowPath and navigate to dashboard on confirm', async () => {
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
-    render(<PathDetailPage />);
+    const { container } = render(<PathDetailPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+    // Two-step confirm dialog now intercepts the click.
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-yes')).toBeInTheDocument();
+    });
+    fireEvent.click(container.querySelector('.pd-unfollow-confirm-yes'));
 
     await waitFor(() => {
       expect(followerService.unfollowPath).toHaveBeenCalledWith('path-1');
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
     expect(window.showToast).toHaveBeenCalledWith('You have unfollowed this path', 'info');
   });
@@ -869,19 +874,23 @@ describe('PathDetailPage', () => {
     followerService.unfollowPath = jest.fn().mockRejectedValue(new Error('Network down'));
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
 
-    render(<PathDetailPage />);
+    const { container } = render(<PathDetailPage />);
     await waitFor(() => {
       expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-yes')).toBeInTheDocument();
+    });
     await act(async () => {
-      fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+      fireEvent.click(container.querySelector('.pd-unfollow-confirm-yes'));
     });
 
     await waitFor(() => {
       expect(window.showToast).toHaveBeenCalledWith('Network down', 'error');
     });
-    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard');
+    expect(mockNavigate).not.toHaveBeenCalledWith('/');
   });
 
   it('should refresh followers on button click', async () => {

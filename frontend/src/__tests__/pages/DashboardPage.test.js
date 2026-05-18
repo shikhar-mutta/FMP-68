@@ -1,7 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import axios from 'axios';
 import DashboardPage from '../../pages/DashboardPage';
+
+const render = (ui, options) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>, options);
 
 const mockUseAuth = jest.fn();
 
@@ -13,7 +16,24 @@ jest.mock('../../context/ToastContext', () => ({
   useToast: () => ({ addToast: jest.fn() }),
 }));
 
-jest.mock('axios');
+jest.mock('axios', () => {
+  const inst = {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() },
+    },
+  };
+  return {
+    __esModule: true,
+    default: { ...inst, create: jest.fn(() => inst) },
+    ...inst,
+    create: jest.fn(() => inst),
+  };
+});
 
 jest.mock('../../components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
 jest.mock('../../components/UserCard', () => ({ user }) => (
@@ -21,7 +41,15 @@ jest.mock('../../components/UserCard', () => ({ user }) => (
 ));
 jest.mock('../../components/PathPublishForm', () => ({ onPathPublished }) => (
   <div data-testid="path-publish-form">
-    <button onClick={() => onPathPublished({ id: 'path-new', name: 'Test Path' })}>
+    <button
+      onClick={() =>
+        onPathPublished({
+          id: 'path-new',
+          name: 'Test Path',
+          publisher: { id: 'user-1' },
+        })
+      }
+    >
       Publish
     </button>
   </div>
@@ -133,14 +161,16 @@ describe('DashboardPage', () => {
   it('should display paths count in header', async () => {
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByText(/2 paths/i)).toBeInTheDocument();
+      // Count rendered inside the "Paths" tab button as "(n)"
+      expect(screen.getByRole('button', { name: /📍 Paths \(2\)/i })).toBeInTheDocument();
     });
   });
 
   it('should display users count in header', async () => {
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByText(/2 other users/i)).toBeInTheDocument();
+      // Header now shows total users (including current). 2 other + current = 3.
+      expect(screen.getByText(/3 users/i)).toBeInTheDocument();
     });
   });
 
@@ -149,7 +179,7 @@ describe('DashboardPage', () => {
     axios.get.mockImplementation((url) => {
       if (url.includes('/users')) {
         return Promise.resolve({
-          data: [{ id: 'user-2', name: 'Jane', isOnline: true }],
+          data: [],
         });
       }
       if (url.includes('/paths') && url.includes('followed')) {
@@ -166,15 +196,16 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/1 path/i)).toBeInTheDocument();
-      expect(screen.getByText(/1 other user/i)).toBeInTheDocument();
+      // Only current user → 1 user (singular)
+      expect(screen.getByText(/1 user/i)).toBeInTheDocument();
     });
   });
 
   it('should display online count in header', async () => {
     render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByText(/1 online/i)).toBeInTheDocument();
+      // 1 online other + current = 2 online
+      expect(screen.getByText(/2 online/i)).toBeInTheDocument();
     });
   });
 
@@ -182,16 +213,17 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /📍 Paths/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /🗂️ My Paths/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /👥 Users/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /📬 Requests/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /📤 My Requests/i })).toBeInTheDocument();
     });
   });
 
   it('should show paths tab by default', async () => {
-    render(<DashboardPage />);
+    const { container } = render(<DashboardPage />);
     await waitFor(() => {
-      expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
+      // "paths" tab is default → renders the paths-grid (not publish form).
+      expect(container.querySelector('.paths-grid')).toBeInTheDocument();
     });
   });
 
@@ -209,7 +241,7 @@ describe('DashboardPage', () => {
   });
 
   it('should switch to received requests tab when clicked', async () => {
-    render(<DashboardPage />);
+    const { container } = render(<DashboardPage />);
     const requestsButton = screen.getByRole('button', { name: /📬 Requests/i });
 
     await waitFor(() => {
@@ -217,7 +249,8 @@ describe('DashboardPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('request-summary')).toBeInTheDocument();
+      // Requests tab renders FollowRequestsPanel inside .tab-content
+      expect(container.querySelector('.tab-content')).toBeInTheDocument();
     });
   });
 
@@ -235,25 +268,30 @@ describe('DashboardPage', () => {
     fireEvent.click(pathsButton);
 
     await waitFor(() => {
+      expect(container.querySelector('.paths-grid')).toBeInTheDocument();
+    });
+  });
+
+  it('should switch to my paths tab when clicked', async () => {
+    render(<DashboardPage />);
+    const myPathsButton = screen.getByRole('button', { name: /🗂️ My Paths/i });
+
+    await waitFor(() => {
+      fireEvent.click(myPathsButton);
+    });
+
+    await waitFor(() => {
+      // My Paths tab renders the PathPublishForm
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
     });
   });
 
-  it('should switch to sent requests tab when clicked', async () => {
+  it('should add new path when published from my-paths tab', async () => {
     render(<DashboardPage />);
-    const myRequestsButton = screen.getByRole('button', { name: /My Requests/i });
 
-    await waitFor(() => {
-      fireEvent.click(myRequestsButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('sent-requests')).toBeInTheDocument();
-    });
-  });
-
-  it('should add new path when published', async () => {
-    render(<DashboardPage />);
+    // Switch to my-paths tab first (publish form lives here)
+    const myPathsButton = screen.getByRole('button', { name: /🗂️ My Paths/i });
+    fireEvent.click(myPathsButton);
 
     await waitFor(() => {
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
@@ -263,7 +301,6 @@ describe('DashboardPage', () => {
     fireEvent.click(publishButton);
 
     await waitFor(() => {
-      // Path card should still render
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();
     });
   });
@@ -477,7 +514,8 @@ describe('DashboardPage', () => {
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch paths:', expect.any(Error));
-      expect(screen.getByText('No paths yet')).toBeInTheDocument();
+      // Empty paths from others → renders updated empty title.
+      expect(screen.getByText('No paths from others yet')).toBeInTheDocument();
     });
 
     consoleSpy.mockRestore();
@@ -511,6 +549,10 @@ describe('DashboardPage', () => {
 
   it('should add new path and mark it as followed when published', async () => {
     render(<DashboardPage />);
+
+    // PathPublishForm is on the my-paths tab — switch first.
+    const myPathsButton = screen.getByRole('button', { name: /🗂️ My Paths/i });
+    fireEvent.click(myPathsButton);
 
     await waitFor(() => {
       expect(screen.getByTestId('path-publish-form')).toBeInTheDocument();

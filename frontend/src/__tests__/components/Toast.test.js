@@ -361,4 +361,67 @@ describe('Toast Component', () => {
   it('should error without provider', () => {
     expect(() => render(<Toast />)).toThrow('useToast must be used within ToastProvider');
   });
+
+  it('renders a clickable toast (arrow + clickable class) when addToast supplies an onClick', () => {
+    const handler = jest.fn();
+    const TestComponent = () => {
+      const { addToast } = useToast();
+      React.useEffect(() => {
+        addToast('Tap me', 'info', 0, handler);
+      }, [addToast]);
+      return <Toast />;
+    };
+
+    const { container } = render(
+      <ToastTester>
+        <TestComponent />
+      </ToastTester>,
+    );
+    const toast = container.querySelector('.toast-clickable');
+    expect(toast).toBeTruthy();
+    expect(container.querySelector('.toast-arrow').textContent).toBe('→');
+  });
+
+  it('invokes onClick and removes the toast when a clickable toast is clicked', async () => {
+    const handler = jest.fn();
+    const TestComponent = () => {
+      const { addToast } = useToast();
+      React.useEffect(() => {
+        addToast('Tap me', 'info', 0, handler);
+      }, [addToast]);
+      return <Toast />;
+    };
+
+    const { container } = render(
+      <ToastTester>
+        <TestComponent />
+      </ToastTester>,
+    );
+
+    fireEvent.click(container.querySelector('.toast-clickable'));
+    expect(handler).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(container.querySelector('.toast-clickable')).toBeFalsy();
+    });
+  });
+
+  it('clicking the close button on a clickable toast does not fire onClick', () => {
+    const handler = jest.fn();
+    const TestComponent = () => {
+      const { addToast } = useToast();
+      React.useEffect(() => {
+        addToast('Tap me', 'info', 0, handler);
+      }, [addToast]);
+      return <Toast />;
+    };
+
+    const { container } = render(
+      <ToastTester>
+        <TestComponent />
+      </ToastTester>,
+    );
+
+    fireEvent.click(container.querySelector('.toast-close'));
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

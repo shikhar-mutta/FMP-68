@@ -42,7 +42,7 @@ describe('socketService', () => {
     const second = connectSocket();
 
     expect(io).toHaveBeenCalledWith('http://api.test/tracking', {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       withCredentials: true,
       autoConnect: true,
     });
@@ -221,5 +221,88 @@ describe('socketService', () => {
     expect(socket.off).toHaveBeenCalledWith('tracking-ended', callback);
     expect(socket.off).toHaveBeenCalledWith('follower-joined', callback);
     expect(socket.off).toHaveBeenCalledWith('follower-left', callback);
+  });
+
+  it('startTracking rejects when the server returns success=false', async () => {
+    const socket = createSocket(true);
+    socket.emit.mockImplementation((event, payload, callback) => {
+      callback({ success: false, message: 'already started' });
+    });
+    const { startTracking } = loadService(socket);
+    await expect(startTracking('p1', 'u1')).rejects.toThrow('already started');
+  });
+
+  it('startTracking falls back to a generic message when none is provided', async () => {
+    const socket = createSocket(true);
+    socket.emit.mockImplementation((event, payload, callback) => {
+      callback({ success: false });
+    });
+    const { startTracking } = loadService(socket);
+    await expect(startTracking('p1', 'u1')).rejects.toThrow(
+      'Failed to start tracking',
+    );
+  });
+
+  it('startTracking times out after 8s when no callback fires', async () => {
+    jest.useFakeTimers();
+    try {
+      const socket = createSocket(true);
+      socket.emit.mockImplementation(() => {});
+      const { startTracking } = loadService(socket);
+      const promise = startTracking('p1', 'u1');
+      jest.advanceTimersByTime(8001);
+      await expect(promise).rejects.toThrow('start-tracking timed out');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('joinTracking rejects with a connect error after the 8s timeout', async () => {
+    jest.useFakeTimers();
+    try {
+      const socket = createSocket(true);
+      socket.emit.mockImplementation(() => {});
+      const { joinTracking } = loadService(socket);
+      const promise = joinTracking('p1', 'u1');
+      jest.advanceTimersByTime(8001);
+      await expect(promise).rejects.toThrow(
+        'Could not connect to tracking server',
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('republishTrack resolves with the server ack response', async () => {
+    const socket = createSocket(true);
+    socket.emit.mockImplementation((event, payload, callback) => {
+      callback({ ok: true });
+    });
+    const { republishTrack } = loadService(socket);
+    await expect(republishTrack('p1', 'u1')).resolves.toEqual({ ok: true });
+  });
+
+  it('republishTrack times out after 8s when no ack arrives', async () => {
+    jest.useFakeTimers();
+    try {
+      const socket = createSocket(true);
+      socket.emit.mockImplementation(() => {});
+      const { republishTrack } = loadService(socket);
+      const promise = republishTrack('p1', 'u1');
+      jest.advanceTimersByTime(8001);
+      await expect(promise).rejects.toThrow('republish-track timed out');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('onTrackingRepublished subscribes and returns an unsubscribe', () => {
+    const socket = createSocket(true);
+    const { onTrackingRepublished } = loadService(socket);
+    const cb = jest.fn();
+    const off = onTrackingRepublished(cb);
+    expect(socket.on).toHaveBeenCalledWith('tracking-republished', cb);
+    off();
+    expect(socket.off).toHaveBeenCalledWith('tracking-republished', cb);
   });
 });

@@ -19,6 +19,8 @@ jest.mock('../../services/followRequestService', () => ({
 
 jest.mock('../../services/api', () => ({
   post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn(),
 }));
 
 jest.mock('../../config/constants', () => ({
@@ -82,6 +84,8 @@ describe('PathCard', () => {
           onFollowChange={props.onFollowChange || jest.fn()}
           currentUserId={props.currentUserId}
           onRequestSent={props.onRequestSent}
+          onPathUpdated={props.onPathUpdated}
+          onPathDeleted={props.onPathDeleted}
         />
       </MemoryRouter>
     );
@@ -173,6 +177,13 @@ describe('PathCard', () => {
       await Promise.resolve();
     });
 
+    // Confirmation dialog shown — click "Yes, Unfollow"
+    fireEvent.click(container.querySelector('.confirm-cancel-btn'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(apiClient.post).toHaveBeenCalledWith('/paths/path-1/unfollow');
     expect(onFollowChange).toHaveBeenCalledWith('path-1', false);
   });
@@ -188,6 +199,12 @@ describe('PathCard', () => {
     });
 
     fireEvent.click(container.querySelector('.follow-button'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(container.querySelector('.confirm-cancel-btn'));
 
     await act(async () => {
       await Promise.resolve();
@@ -220,7 +237,15 @@ describe('PathCard', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('.cancel-confirmation')).toBeFalsy();
+    // Must show unfollow confirmation (not cancel-request confirmation) even when a stale pending request exists.
+    expect(container.querySelector('.cancel-confirmation p').textContent).toMatch(/Unfollow/);
+
+    fireEvent.click(container.querySelector('.confirm-cancel-btn'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(cancelFollowRequest).not.toHaveBeenCalled();
     expect(apiClient.post).toHaveBeenCalledWith('/paths/path-1/unfollow');
     expect(onFollowChange).toHaveBeenCalledWith('path-1', false);
@@ -510,5 +535,189 @@ describe('PathCard', () => {
     unmount();
     expect(clearIntervalSpy).not.toHaveBeenCalled();
     intervalSpy.mockRestore();
+  });
+
+  describe('publisher edit/delete actions', () => {
+    it('opens the edit form when the publisher clicks the edit button', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      const editBtn = container.querySelector('.edit-btn');
+      fireEvent.click(editBtn);
+      expect(container.querySelector('.path-edit-form')).toBeTruthy();
+    });
+
+    it('closes the edit form when the close-form button is clicked', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.click(container.querySelector('.close-button'));
+      expect(container.querySelector('.path-edit-form')).toBeFalsy();
+    });
+
+    it('closes the edit form when the cancel button is clicked', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.click(container.querySelector('.cancel-button'));
+      expect(container.querySelector('.path-edit-form')).toBeFalsy();
+    });
+
+    it('updates title and description fields as the user types', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      const titleInput = container.querySelector('input.form-input');
+      const descTextarea = container.querySelector('textarea.form-textarea');
+      fireEvent.change(titleInput, { target: { value: 'New Title' } });
+      fireEvent.change(descTextarea, { target: { value: 'New desc' } });
+      expect(titleInput.value).toBe('New Title');
+      expect(descTextarea.value).toBe('New desc');
+    });
+
+    it('republishes with updated title/description and fires onPathUpdated', async () => {
+      apiClient.put.mockResolvedValue({ data: { id: 'path-1', title: 'New' } });
+      const onPathUpdated = jest.fn();
+      const { container } = renderCard({
+        currentUserId: 'pub-1',
+        onPathUpdated,
+      });
+
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.change(container.querySelector('input.form-input'), {
+        target: { value: 'New' },
+      });
+      await act(async () => {
+        fireEvent.click(container.querySelector('.submit-button'));
+      });
+
+      expect(apiClient.put).toHaveBeenCalledWith('/paths/path-1', {
+        title: 'New',
+        description: 'Path description',
+      });
+      expect(onPathUpdated).toHaveBeenCalledWith({ id: 'path-1', title: 'New' });
+      expect(window.showToast).toHaveBeenCalledWith(
+        'Path updated successfully',
+        'success',
+      );
+    });
+
+    it('republish rejects blank titles silently', async () => {
+      apiClient.put.mockResolvedValue({});
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.change(container.querySelector('input.form-input'), {
+        target: { value: '   ' },
+      });
+      await act(async () => {
+        fireEvent.submit(container.querySelector('.path-edit-form'));
+      });
+      expect(apiClient.put).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a server error message on republish failure', async () => {
+      apiClient.put.mockRejectedValue({
+        response: { data: { message: 'Title taken' } },
+      });
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.change(container.querySelector('input.form-input'), {
+        target: { value: 'Other' },
+      });
+      await act(async () => {
+        fireEvent.click(container.querySelector('.submit-button'));
+      });
+      expect(window.showToast).toHaveBeenCalledWith('Title taken', 'error');
+    });
+
+    it('republish error falls back to default message when none provided', async () => {
+      apiClient.put.mockRejectedValue({});
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.edit-btn'));
+      fireEvent.change(container.querySelector('input.form-input'), {
+        target: { value: 'Other' },
+      });
+      await act(async () => {
+        fireEvent.click(container.querySelector('.submit-button'));
+      });
+      expect(window.showToast).toHaveBeenCalledWith('Failed to update path', 'error');
+    });
+
+    it('toggles the delete confirmation when the publisher clicks delete', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.delete-btn'));
+      expect(container.querySelector('.delete-confirmation')).toBeTruthy();
+      // Click delete-btn again to toggle off
+      fireEvent.click(container.querySelector('.delete-btn'));
+      expect(container.querySelector('.delete-confirmation')).toBeFalsy();
+    });
+
+    it('deletes a path and fires onPathDeleted', async () => {
+      apiClient.delete.mockResolvedValue({});
+      const onPathDeleted = jest.fn();
+      const { container } = renderCard({
+        currentUserId: 'pub-1',
+        onPathDeleted,
+      });
+      fireEvent.click(container.querySelector('.delete-btn'));
+      await act(async () => {
+        fireEvent.click(container.querySelector('.confirm-cancel-btn'));
+      });
+      expect(apiClient.delete).toHaveBeenCalledWith('/paths/path-1');
+      expect(onPathDeleted).toHaveBeenCalledWith('path-1');
+      expect(window.showToast).toHaveBeenCalledWith('Path deleted', 'warning');
+    });
+
+    it('"Keep It" closes the delete confirmation without calling DELETE', () => {
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.delete-btn'));
+      fireEvent.click(container.querySelector('.confirm-keep-btn'));
+      expect(apiClient.delete).not.toHaveBeenCalled();
+      expect(container.querySelector('.delete-confirmation')).toBeFalsy();
+    });
+
+    it('surfaces a server error message when delete fails', async () => {
+      apiClient.delete.mockRejectedValue({
+        response: { data: { message: 'You cannot delete this path' } },
+      });
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.delete-btn'));
+      await act(async () => {
+        fireEvent.click(container.querySelector('.confirm-cancel-btn'));
+      });
+      expect(window.showToast).toHaveBeenCalledWith(
+        'You cannot delete this path',
+        'error',
+      );
+    });
+
+    it('delete error falls back to default message when none provided', async () => {
+      apiClient.delete.mockRejectedValue({});
+      const { container } = renderCard({ currentUserId: 'pub-1' });
+      fireEvent.click(container.querySelector('.delete-btn'));
+      await act(async () => {
+        fireEvent.click(container.querySelector('.confirm-cancel-btn'));
+      });
+      expect(window.showToast).toHaveBeenCalledWith('Failed to delete path', 'error');
+    });
+  });
+
+  describe('publisher avatar + Keep It on unfollow confirm', () => {
+    it('renders initials avatar fallback when publisher has no picture', () => {
+      const { container } = renderCard({
+        path: { publisher: { id: 'pub-1', name: 'alice' } },
+      });
+      const initials = container.querySelector('.publisher-avatar--initials');
+      expect(initials.textContent).toBe('A');
+    });
+
+    it('"Keep It" closes the unfollow confirmation when the user backs out', async () => {
+      const { container } = renderCard({
+        currentUserId: 'user-1',
+        isFollowing: true,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      fireEvent.click(container.querySelector('.follow-button'));
+      expect(container.querySelector('.cancel-confirmation')).toBeTruthy();
+      fireEvent.click(container.querySelector('.confirm-keep-btn'));
+      expect(container.querySelector('.cancel-confirmation')).toBeFalsy();
+    });
   });
 });

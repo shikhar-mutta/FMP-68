@@ -83,9 +83,9 @@ describe('gpsService', () => {
         expect.any(Function),
         expect.any(Function),
         {
-          enableHighAccuracy: false,
-          timeout: 20000,
-          maximumAge: 30000,
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 5000,
         }
       );
     });
@@ -101,9 +101,9 @@ describe('gpsService', () => {
         expect.any(Function),
         expect.any(Function),
         {
-          enableHighAccuracy: false,
+          enableHighAccuracy: true,
           timeout: 30000,
-          maximumAge: 10000,
+          maximumAge: 3000,
         }
       );
     });

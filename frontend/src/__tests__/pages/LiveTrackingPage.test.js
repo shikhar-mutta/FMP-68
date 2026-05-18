@@ -192,11 +192,13 @@ describe('LiveTrackingPage', () => {
       expect(screen.getByTestId('map-view')).toBeInTheDocument();
     });
 
-    const autoBtn = screen.getByTitle(/auto-center/i);
+    // Recenter button title was changed from "auto-center" to "Center on my location"
+    const autoBtn = screen.getByTitle(/Center on my location/i);
     fireEvent.click(autoBtn);
 
+    // After click, autoFollow is set to true; data-follow stays 'on'.
     await waitFor(() => {
-      expect(screen.getByTestId('map-view').getAttribute('data-follow')).toBe('off');
+      expect(screen.getByTestId('map-view').getAttribute('data-follow')).toBe('on');
     });
   });
 
@@ -293,16 +295,15 @@ describe('LiveTrackingPage', () => {
       coordinate: { lat: 10, lng: 20, timestamp: 4000 },
     });
 
+    // Terminate Session button replaced the legacy "Leave Tracking" label.
     await waitFor(() => {
-      expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
+      expect(screen.getByText(/Terminate Session/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    fireEvent.click(screen.getByText(/Terminate Session/i));
 
     await waitFor(() => {
       expect(leaveTracking).toHaveBeenCalledWith('path-1', 'user-2');
-      expect(apiClient.post).toHaveBeenCalledWith('/paths/path-1/unfollow');
-      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
   });
 
@@ -422,12 +423,16 @@ describe('LiveTrackingPage', () => {
       fireEvent.click(joinBtn);
     });
 
+    // Source surfaces err.message first, falling back to 'Failed to join tracking'.
     await waitFor(() => {
-      expect(window.showToast).toHaveBeenCalledWith('Failed to join tracking', 'error');
+      expect(window.showToast).toHaveBeenCalledWith('Join failed', 'error');
     });
   });
 
   it('handles leave tracking error', async () => {
+    // The legacy "Leave Tracking" button was replaced by "Terminate Session" which
+    // calls leaveTracking() but swallows errors silently (no toast). We assert
+    // that the call is made even when leaveTracking rejects.
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Follower' } });
     apiClient.get.mockResolvedValue({ data: { ...basePath, status: 'recording' } });
     leaveTracking.mockRejectedValue(new Error('Leave failed'));
@@ -437,19 +442,23 @@ describe('LiveTrackingPage', () => {
     const joinBtn = await screen.findByText(/Start Following Path/i);
     fireEvent.click(joinBtn);
 
+    socketHandlers.location({
+      pathId: 'path-1',
+      role: 'follower',
+      userId: 'user-2',
+      coordinate: { lat: 10, lng: 20, timestamp: 4000 },
+    });
+
     await waitFor(() => {
-      expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
+      expect(screen.getByText(/Terminate Session/i)).toBeInTheDocument();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByText(/Leave Tracking/i));
+      fireEvent.click(screen.getByText(/Terminate Session/i));
     });
 
     await waitFor(() => {
-      expect(window.showToast).toHaveBeenCalledWith(
-        expect.stringContaining('Error stopping follow'),
-        'error'
-      );
+      expect(leaveTracking).toHaveBeenCalledWith('path-1', 'user-2');
     });
   });
 
@@ -529,6 +538,8 @@ describe('LiveTrackingPage', () => {
   });
 
   it('handles follower ended state with no coords', async () => {
+    // Follow Recorded Path now starts GPS via watchPosition directly
+    // (no joinTracking call). We verify the success toast.
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Follower' } });
     apiClient.get.mockResolvedValue({ data: { ...basePath, status: 'ended' } });
 
@@ -538,17 +549,20 @@ describe('LiveTrackingPage', () => {
     fireEvent.click(followBtn);
 
     await waitFor(() => {
-      expect(joinTracking).toHaveBeenCalledWith('path-1', 'user-2');
+      expect(window.showToast).toHaveBeenCalledWith(
+        expect.stringContaining('Following recorded path'),
+        'success'
+      );
     });
   });
 
   it('handles follower ended state with coords', async () => {
+    // After Follow Recorded Path, the follower UI exposes Pause Trip and Terminate Session controls.
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Follower' } });
     apiClient.get.mockResolvedValue({ data: { ...basePath, status: 'ended' } });
-    joinTracking.mockResolvedValue({
-      success: true,
-      pathStatus: 'ended',
-      publisherCoordinates: basePath.coordinates,
+    watchPosition.mockImplementation((onSuccess) => {
+      onSuccess({ lat: 10, lng: 20, timestamp: 4000 });
+      return jest.fn();
     });
 
     render(<LiveTrackingPage />);
@@ -557,7 +571,7 @@ describe('LiveTrackingPage', () => {
     fireEvent.click(followBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Stop Following/i)).toBeInTheDocument();
+      expect(screen.getByText(/Terminate Session/i)).toBeInTheDocument();
     });
   });
 
@@ -624,7 +638,8 @@ describe('LiveTrackingPage', () => {
     consoleSpy.mockRestore();
   });
 
-  it('shows login prompt when starting without user id', async () => {
+  it('start publishing path is a no-op when user id is missing', async () => {
+    // Source guard: `if (!user?.id || isStarting) return;` — silent no-op (no toast, no API call).
     const userObj = { id: 'user-1', name: 'John Doe' };
     useAuth.mockReturnValue({ user: userObj });
 
@@ -634,9 +649,9 @@ describe('LiveTrackingPage', () => {
     userObj.id = null;
     fireEvent.click(startBtn);
 
-    await waitFor(() => {
-      expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
-    });
+    // No call made & no toast surfaced.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(startTracking).not.toHaveBeenCalled();
   });
 
   it('shows login prompt when pausing without user id', async () => {
@@ -687,25 +702,39 @@ describe('LiveTrackingPage', () => {
     });
   });
 
-  it('shows login prompt when leaving without user id', async () => {
+  it('terminate session swallows errors silently', async () => {
+    // The "Leave Tracking" button was removed; "Terminate Session" handler
+    // attempts leaveTracking but swallows errors and still surfaces "Trip saved".
     const userObj = { id: 'user-2', name: 'Follower' };
     useAuth.mockReturnValue({ user: userObj });
     apiClient.get.mockResolvedValue({ data: { ...basePath, status: 'recording' } });
+    leaveTracking.mockRejectedValue(new Error('Network'));
 
     render(<LiveTrackingPage />);
 
     const joinBtn = await screen.findByText(/Start Following Path/i);
     fireEvent.click(joinBtn);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Leave Tracking/i)).toBeInTheDocument();
+    socketHandlers.location({
+      pathId: 'path-1',
+      role: 'follower',
+      userId: 'user-2',
+      coordinate: { lat: 10, lng: 20, timestamp: 4000 },
     });
 
-    userObj.id = null;
-    fireEvent.click(screen.getByText(/Leave Tracking/i));
+    await waitFor(() => {
+      expect(screen.getByText(/Terminate Session/i)).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Terminate Session/i));
+    });
 
     await waitFor(() => {
-      expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
+      expect(window.showToast).toHaveBeenCalledWith(
+        expect.stringContaining('Trip saved'),
+        'success'
+      );
     });
   });
 
@@ -1120,15 +1149,14 @@ describe('LiveTrackingPage', () => {
     });
   });
 
-  it('shows login error when starting GPS watch without user', async () => {
+  it('start publishing is silent no-op when user id is missing', async () => {
+    // handleStartTracking now silently returns when user.id is falsy.
     useAuth.mockReturnValue({ user: { id: null } });
-    // Mock a path where user would be the publisher
     const publisherPath = { ...basePath, status: 'idle', publisherId: null };
     apiClient.get.mockResolvedValue({ data: publisherPath });
 
     render(<LiveTrackingPage />);
 
-    // Wait for component to render
     await waitFor(() => {
       expect(screen.getByTestId('map-view')).toBeInTheDocument();
     });
@@ -1136,9 +1164,8 @@ describe('LiveTrackingPage', () => {
     const startBtn = await screen.findByText(/Start Publishing Path/i);
     fireEvent.click(startBtn);
 
-    await waitFor(() => {
-      expect(window.showToast).toHaveBeenCalledWith('Please log in first', 'error');
-    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(startTracking).not.toHaveBeenCalled();
   });
 
   it('handles socket location update with follower role as publisher', async () => {

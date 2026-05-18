@@ -1,5 +1,5 @@
 import { GoogleProfile } from './users.types';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersInternalController } from './users-internal.controller';
 import { UsersRepository } from './users.repository';
@@ -37,6 +37,8 @@ describe('UsersService', () => {
       findFollowerProfilesByIds: jest.fn(),
       updateOnlineStatus: jest.fn(),
       findAll: jest.fn(),
+      findByUsername: jest.fn(),
+      updateUsername: jest.fn(),
     } as unknown as jest.Mocked<UsersRepository>;
     service = new UsersService(repo);
   });
@@ -130,6 +132,42 @@ describe('UsersService', () => {
       expect(repo.findFollowerProfilesByIds).toHaveBeenCalledWith(['u1']);
     });
   });
+
+  describe('updateUsername', () => {
+    it('throws ConflictException when another user already owns the username', async () => {
+      (repo.findByUsername as jest.Mock).mockResolvedValue({
+        ...existingUser,
+        id: 'someone-else',
+      });
+      await expect(
+        service.updateUsername('u1', 'taken_name'),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(repo.updateUsername).not.toHaveBeenCalled();
+    });
+
+    it('allows the same user to re-save their own username (idempotent)', async () => {
+      (repo.findByUsername as jest.Mock).mockResolvedValue({
+        ...existingUser,
+        id: 'u1',
+      });
+      (repo.updateUsername as jest.Mock).mockResolvedValue({
+        ...existingUser,
+        username: 'mine',
+      });
+      await service.updateUsername('u1', 'mine');
+      expect(repo.updateUsername).toHaveBeenCalledWith('u1', 'mine');
+    });
+
+    it('persists a fresh username when no other user holds it', async () => {
+      (repo.findByUsername as jest.Mock).mockResolvedValue(null);
+      (repo.updateUsername as jest.Mock).mockResolvedValue({
+        ...existingUser,
+        username: 'fresh',
+      });
+      await service.updateUsername('u1', 'fresh');
+      expect(repo.updateUsername).toHaveBeenCalledWith('u1', 'fresh');
+    });
+  });
 });
 
 // ── from users.repository.spec.ts ──
@@ -141,6 +179,7 @@ describe('UsersRepository', () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         findMany: jest.fn(),
@@ -231,6 +270,21 @@ describe('UsersRepository', () => {
       orderBy: [{ isOnline: 'desc' }, { name: 'asc' }],
     });
   });
+
+  it('findByUsername delegates to prisma findFirst with the supplied username', () => {
+    repo.findByUsername('alice');
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: { username: 'alice' },
+    });
+  });
+
+  it('updateUsername writes the new username to the user row', () => {
+    repo.updateUsername('u-1', 'alice');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u-1' },
+      data: { username: 'alice' },
+    });
+  });
 });
 
 // ── from users.controller.spec.ts ──
@@ -242,6 +296,7 @@ describe('UsersController', () => {
     svc = {
       findAll: jest.fn(),
       findByIdOrThrow: jest.fn(),
+      updateUsername: jest.fn(),
     } as unknown as jest.Mocked<UsersService>;
     controller = new UsersController(svc);
   });
@@ -258,6 +313,50 @@ describe('UsersController', () => {
     svc.findByIdOrThrow.mockResolvedValue(user as any);
     await expect(controller.getMe('u1')).resolves.toBe(user);
     expect(svc.findByIdOrThrow).toHaveBeenCalledWith('u1');
+  });
+
+  describe('updateUsername', () => {
+    const { BadRequestException } = require('@nestjs/common');
+
+    it('rejects an empty username', async () => {
+      await expect(
+        controller.updateUsername('u1', { username: '' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(svc.updateUsername).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-string username', async () => {
+      await expect(
+        controller.updateUsername('u1', { username: 123 as any }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a username that fails the regex (too short)', async () => {
+      await expect(
+        controller.updateUsername('u1', { username: 'ab' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a username with disallowed characters', async () => {
+      await expect(
+        controller.updateUsername('u1', { username: 'no-dashes' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a username that is too long', async () => {
+      await expect(
+        controller.updateUsername('u1', { username: 'a'.repeat(21) }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('trims, lowercases, and forwards a valid username to the service', async () => {
+      const updated = { id: 'u1', username: 'shikhar_dev' };
+      svc.updateUsername.mockResolvedValue(updated as any);
+      await expect(
+        controller.updateUsername('u1', { username: '  Shikhar_Dev  ' }),
+      ).resolves.toBe(updated);
+      expect(svc.updateUsername).toHaveBeenCalledWith('u1', 'shikhar_dev');
+    });
   });
 });
 
