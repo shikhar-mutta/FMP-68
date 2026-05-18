@@ -20,7 +20,6 @@ spec:
           env:
             - { name: ELASTICSEARCH_HOSTS, value: "http://elasticsearch:9200" }
             - { name: SERVER_HOST,         value: "0.0.0.0" }
-            - { name: SERVER_NAME,         value: "kibana.fmp.local" }
           resources:
             requests: { cpu: "150m", memory: "512Mi" }
             limits:   { cpu: "1",    memory: "1Gi" }
@@ -39,23 +38,4 @@ spec:
   selector: { app: kibana }
   ports:
     - { name: http, port: 5601, targetPort: 5601 }
----
-# Ingress: browse Kibana at http://kibana.fmp.local
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: kibana-ingress
-  namespace: elk
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: kibana.fmp.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: kibana
-                port:
-                  number: 5601
+# Access via: kubectl port-forward -n elk svc/kibana 5601:5601

@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────
 # FMP-68 master playbook — provisions the laptop from scratch:
 #   1. common      → install docker, kubectl, helm if missing
-#   2. minikube    → start cluster, enable ingress + metrics-server
+#   2. minikube    → start cluster, enable metrics-server
 #   3. vault       → deploy Vault to the cluster and seed secrets
 #   4. deploy-fmp  → apply backend/k8s manifests (app + ELK)
 #

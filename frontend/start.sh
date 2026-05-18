@@ -67,5 +67,6 @@ docker compose -f "$COMPOSE_FILE" ps --format "table {{.Name}}\t{{.Status}}" 2>&
 
 echo ""
 echo -e "${G}✅ Frontend up at http://localhost:3000${N}"
-echo -e "${G}   (frontend serves the SPA; the React code calls http://fmp.local/auth/... etc.,${N}"
-echo -e "${G}    which goes through the cluster ingress when K8s is the target).${N}"
+echo -e "${G}   (frontend serves the SPA; the React code calls the api-gateway${N}"
+echo -e "${G}    on http://localhost:4000 — exposed by docker-compose or by${N}"
+echo -e "${G}    kubectl port-forward when K8s is the target).${N}"

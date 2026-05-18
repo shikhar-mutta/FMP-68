@@ -42,7 +42,7 @@ export class AuthController {
       this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000'
     ).split(',').map((o) => o.trim()).filter(Boolean)[0];
     // Land on the SPA's /oauth/callback route — keep this off the /auth/*
-    // prefix that nginx + the cluster ingress reserve for backend proxying.
+    // prefix that the frontend nginx reserves for backend proxying.
     res.redirect(`${frontendUrl}/oauth/callback?token=${accessToken}`);
   }
 

@@ -48,7 +48,7 @@ c "→ Pre-flight: target reachable?"
 http_status=$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$URL")
 echo "    $URL → HTTP $http_status"
 if [ "$http_status" != "200" ]; then
-  r "    ✘ target not reachable — fix port-forward / ingress before running"
+  r "    ✘ target not reachable — fix port-forward before running"
   exit 1
 fi
 echo

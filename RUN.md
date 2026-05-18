@@ -94,11 +94,10 @@ After it finishes:
 |-----|-------|
 | `http://localhost:3000/` | SPA shell |
 
-The React code calls `http://fmp.local/auth/...` etc. — to test the
-full flow with the cluster, add `127.0.0.1 fmp.local` (or
-`<minikube ip> fmp.local`) to `/etc/hosts`. For pure docker-compose
-testing without K8s, the frontend code still works against the
-backend on `localhost:4000` because the bundled URL is configurable.
+The React code calls the api-gateway on `http://localhost:4000` —
+exposed by `docker-compose` directly, or by the `kubectl port-forward`
+that `start-k8s.sh` wires up when running on Kubernetes. No ingress
+or `/etc/hosts` entries needed.
 
 ---
 

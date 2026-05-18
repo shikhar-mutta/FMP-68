@@ -35,10 +35,10 @@ spec:
           resources:
             requests: { cpu: "100m", memory: "192Mi" }
             limits:   { cpu: "500m", memory: "384Mi" }
-          # preStop sleep gives kube-proxy / ingress time to remove this
-          # pod from the Service's endpoint list BEFORE the container
-          # gets SIGTERM. Without this, new requests can still hit a
-          # pod that just started shutting down → connection resets.
+          # preStop sleep gives kube-proxy time to remove this pod from
+          # the Service's endpoint list BEFORE the container gets SIGTERM.
+          # Without this, new requests can still hit a pod that just
+          # started shutting down → connection resets.
           lifecycle:
             preStop:
               exec:

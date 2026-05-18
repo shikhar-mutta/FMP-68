@@ -189,10 +189,12 @@ kubectl apply -f frontend/k8s/
 # 3. Wait for everything to be Ready
 kubectl get pods -A -w
 
-# 4. Access endpoints (after `minikube tunnel` or via /etc/hosts entries)
-# - App:       http://fmp.local
-# - Kibana:    http://kibana.fmp.local       (dashboard auto-imported)
-# - Vault UI:  http://vault.fmp.local
+# 4. Access endpoints (start-k8s.sh wires the app port-forwards;
+#    Kibana / Vault use ad-hoc port-forwards into their namespaces)
+# - App:       http://localhost:3000
+# - Gateway:   http://localhost:4000
+# - Kibana:    kubectl port-forward -n elk   svc/kibana 5601:5601  → http://localhost:5601
+# - Vault UI:  kubectl port-forward -n vault svc/vault  8200:8200  → http://localhost:8200
 ```
 
 ### App Architecture

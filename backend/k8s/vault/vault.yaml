@@ -104,23 +104,4 @@ spec:
   selector: { app: vault }
   ports:
     - { name: http, port: 8200, targetPort: 8200 }
----
-# Optional Ingress so the UI is browsable at vault.fmp.local
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: vault-ingress
-  namespace: vault
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: vault.fmp.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: vault
-                port:
-                  number: 8200
+# Access via: kubectl port-forward -n vault svc/vault 8200:8200

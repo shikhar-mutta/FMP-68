@@ -17,11 +17,6 @@
   changed_when: "'Done!' in mk_start.stdout or 'Done!' in mk_start.stderr"
   when: mk_status.rc != 0 or '"Host":"Stopped"' in (mk_status.stdout | default(''))
 
-- name: Enable ingress addon
-  ansible.builtin.command: minikube addons enable ingress
-  register: ingress_addon
-  changed_when: "'is enabled' not in ingress_addon.stdout"
-
 - name: Enable metrics-server addon (required for HPA)
   ansible.builtin.command: minikube addons enable metrics-server
   register: ms_addon

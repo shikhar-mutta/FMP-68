@@ -107,7 +107,7 @@ if [ "${1:-}" = "--stop" ] || [ "${1:-}" = "--nuke" ]; then
   info "[1/3] Stop any running port-forwards"
   stop_port_forwards
 
-  info "[2/3] Delete namespace '$NAMESPACE' (HPAs, Deployments, Services, Ingress, ConfigMap, Secret)"
+  info "[2/3] Delete namespace '$NAMESPACE' (HPAs, Deployments, Services, ConfigMap, Secret)"
   if kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
     kubectl delete namespace "$NAMESPACE" --wait=true 2>&1 | sed 's/^/    /' || true
   else

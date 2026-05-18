@@ -161,7 +161,7 @@ pipeline {
                         // and self-heals on a fresh Minikube — fixes the "namespaces 'fmp'
                         // not found" failure that bricked builds #34–#46.
                         sh "kubectl apply -f backend/k8s/namespace.yaml"
-                        // Apply frontend k8s manifests first (idempotent — creates Deployment/Service/Ingress/HPA on first run, no-op on subsequent). The orchestrator's "Apply Infra Changes" stage only covers backend/k8s/, so frontend/k8s/ must be applied by this pipeline. Without this, kubectl set image fails with "deployment not found" on a fresh cluster.
+                        // Apply frontend k8s manifests first (idempotent — creates Deployment/Service/HPA on first run, no-op on subsequent). The orchestrator's "Apply Infra Changes" stage only covers backend/k8s/, so frontend/k8s/ must be applied by this pipeline. Without this, kubectl set image fails with "deployment not found" on a fresh cluster.
                         sh "kubectl apply -f frontend/k8s/"
                         sh """
                             kubectl set image deployment/${SERVICE_NAME} \
