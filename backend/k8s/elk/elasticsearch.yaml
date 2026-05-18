@@ -1,3 +1,16 @@
+# PVC keeps indexed logs across pod restarts/rescheduling.
+# Without this, every ES restart wipes the cluster (emptyDir lived in the pod).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-data
+  namespace: elk
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +19,10 @@ metadata:
   labels: { app: elasticsearch }
 spec:
   replicas: 1
+  # Recreate (not RollingUpdate): the PVC is RWO, so a second pod can't mount
+  # it while the first still holds it — RollingUpdate would deadlock the rollout.
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: elasticsearch }
   template:
@@ -44,7 +61,8 @@ spec:
             - { name: data, mountPath: /usr/share/elasticsearch/data }
       volumes:
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: elasticsearch-data
 ---
 apiVersion: v1
 kind: Service

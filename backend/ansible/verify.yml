@@ -1,0 +1,83 @@
+---
+# ─────────────────────────────────────────────────────────────
+# FMP-68 — post-deploy verification playbook
+#
+# Runs as the final stage of every per-service Jenkins pipeline
+# (Checkout → Test → Build → Push → Deploy → THIS).
+# Maps directly onto the lab's "Ansible Post-Configuration" stage
+# and the "example Ansible tasks":
+#   - Retrieve pod status using kubectl get pods
+#   - Verify the deployment is running as expected
+#   - Inspect service endpoints
+#
+# Run manually with:
+#   ansible-playbook -i backend/ansible/inventory.ini backend/ansible/verify.yml
+# ─────────────────────────────────────────────────────────────
+- name: Verify FMP-68 deployment in Kubernetes
+  hosts: fmp_local
+  gather_facts: no
+
+  tasks:
+
+    - name: "Retrieve pod status (kubectl get pods -n {{ k8s_namespace }})"
+      ansible.builtin.command:
+        argv: [kubectl, get, pods, -n, "{{ k8s_namespace }}", -o, wide]
+      register: pod_listing
+      changed_when: false
+
+    - name: "Show pod inventory"
+      ansible.builtin.debug:
+        var: pod_listing.stdout_lines
+
+    - name: "Wait for all pods to reach Ready state"
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - pod
+          - --all
+          - -n
+          - "{{ k8s_namespace }}"
+          - --timeout=120s
+      register: wait_result
+      changed_when: false
+      # `kubectl wait` returns non-zero on timeout — that's the failure signal we want.
+
+    - name: "Retrieve service endpoints (kubectl get svc -n {{ k8s_namespace }})"
+      ansible.builtin.command:
+        argv: [kubectl, get, svc, -n, "{{ k8s_namespace }}"]
+      register: svc_listing
+      changed_when: false
+
+    - name: "Show service endpoints"
+      ansible.builtin.debug:
+        var: svc_listing.stdout_lines
+
+    - name: "Check every Deployment has at least one available replica"
+      ansible.builtin.shell: |
+        set -eu
+        kubectl get deploy -n {{ k8s_namespace }} -o json \
+          | python3 -c '
+        import json, sys
+        d = json.load(sys.stdin)
+        bad = [
+          x["metadata"]["name"]
+          for x in d["items"]
+          if (x.get("status", {}).get("availableReplicas") or 0) < 1
+        ]
+        if bad:
+          print("Deployments with 0 available replicas: " + ", ".join(bad))
+          sys.exit(1)
+        print("All %d deployments have >=1 available replica." % len(d["items"]))
+        '
+      register: deploy_check
+      changed_when: false
+
+    - name: "Deployment availability summary"
+      ansible.builtin.debug:
+        msg: "{{ deploy_check.stdout }}"
+
+    - name: "Verification complete"
+      ansible.builtin.debug:
+        msg: "FMP-68 verified — all pods Ready, all deployments available in namespace '{{ k8s_namespace }}'."

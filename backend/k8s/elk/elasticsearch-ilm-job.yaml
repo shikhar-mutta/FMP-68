@@ -1,0 +1,126 @@
+# ─────────────────────────────────────────────────────────────
+# Elasticsearch ILM bootstrap
+#
+# Installs:
+#   1. ILM policy 'fmp-logs-policy'
+#        hot   → rollover at 7 days OR 1 GB primary shard
+#        delete → 30 days after rollover
+#   2. Index template 'fmp-logs-template' bound to pattern 'fmp-logs-*'
+#        with index.lifecycle.{name, rollover_alias} pre-set so every
+#        index created via the alias inherits the policy.
+#   3. Initial backing index 'fmp-logs-000001' aliased as the write
+#        target 'fmp-logs' (idempotent — skipped if it already exists).
+#
+# Without this, Logstash would write 'fmp-logs-2026.05.18',
+# 'fmp-logs-2026.05.19', … forever and ES would eventually fill the disk.
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-ilm-config
+  namespace: elk
+data:
+  policy.json: |
+    {
+      "policy": {
+        "phases": {
+          "hot": {
+            "actions": {
+              "rollover": {
+                "max_age": "7d",
+                "max_primary_shard_size": "1gb"
+              }
+            }
+          },
+          "delete": {
+            "min_age": "30d",
+            "actions": { "delete": {} }
+          }
+        }
+      }
+    }
+  template.json: |
+    {
+      "index_patterns": ["fmp-logs-*"],
+      "template": {
+        "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "index.lifecycle.name": "fmp-logs-policy",
+          "index.lifecycle.rollover_alias": "fmp-logs"
+        }
+      },
+      "priority": 100
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-ilm-bootstrap
+  namespace: elk
+  labels:
+    app.kubernetes.io/part-of: fmp-68
+    app.kubernetes.io/component: elasticsearch-init
+spec:
+  # Re-run safely after each `kubectl apply` (delete + recreate)
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: elasticsearch-ilm }
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: ilm-bootstrap
+          image: curlimages/curl:8.7.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              ES="http://elasticsearch:9200"
+
+              echo "[ilm-bootstrap] Waiting for Elasticsearch to be ready..."
+              for i in $(seq 1 60); do
+                if curl -fsS "$ES/_cluster/health?wait_for_status=yellow&timeout=5s" >/dev/null 2>&1; then
+                  echo "[ilm-bootstrap] Elasticsearch ready (try $i)."
+                  break
+                fi
+                echo "[ilm-bootstrap] not ready yet (try $i/60)... sleeping 5s"
+                sleep 5
+              done
+
+              echo "[ilm-bootstrap] PUT ILM policy 'fmp-logs-policy'..."
+              curl -fsS -X PUT "$ES/_ilm/policy/fmp-logs-policy" \
+                -H "Content-Type: application/json" \
+                --data-binary @/config/policy.json
+              echo ""
+
+              echo "[ilm-bootstrap] PUT index template 'fmp-logs-template'..."
+              curl -fsS -X PUT "$ES/_index_template/fmp-logs-template" \
+                -H "Content-Type: application/json" \
+                --data-binary @/config/template.json
+              echo ""
+
+              # Bootstrap the first index with the write alias if it doesn't exist.
+              # Logstash's ilm_enabled also bootstraps, but doing it here means
+              # ILM is configured even before Logstash starts pushing data.
+              if curl -fsS "$ES/fmp-logs-000001" >/dev/null 2>&1; then
+                echo "[ilm-bootstrap] fmp-logs-000001 already exists — skipping."
+              else
+                echo "[ilm-bootstrap] PUT initial index 'fmp-logs-000001' with write alias 'fmp-logs'..."
+                curl -fsS -X PUT "$ES/fmp-logs-000001" \
+                  -H "Content-Type: application/json" \
+                  --data-binary '{"aliases":{"fmp-logs":{"is_write_index":true}}}'
+                echo ""
+              fi
+
+              echo "[ilm-bootstrap] ✅ ILM policy + template + initial index ready."
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: elasticsearch-ilm-config
+            items:
+              - { key: policy.json,   path: policy.json }
+              - { key: template.json, path: template.json }

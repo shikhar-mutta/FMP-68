@@ -156,6 +156,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Ansible Verify') {
+            when { expression { currentBuild.currentResult == 'SUCCESS' || currentBuild.currentResult == null } }
+            steps {
+                script {
+                    try {
+                        sh '''
+                            ansible-playbook \
+                                -i backend/ansible/inventory.ini \
+                                backend/ansible/verify.yml
+                        '''
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Ansible Verify\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
     }
 
     post {

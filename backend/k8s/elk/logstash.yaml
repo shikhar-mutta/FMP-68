@@ -31,8 +31,15 @@ data:
     }
     output {
       elasticsearch {
-        hosts  => ["http://elasticsearch:9200"]
-        index  => "fmp-logs-%{+YYYY.MM.dd}"
+        hosts              => ["http://elasticsearch:9200"]
+        # ILM mode: write to the rollover alias 'fmp-logs', backed by
+        # fmp-logs-000001, fmp-logs-000002, ... ES rolls them per the
+        # 'fmp-logs-policy' (7d / 1GB hot → delete at 30d). The Kibana
+        # index pattern 'fmp-logs-*' still matches every backing index.
+        ilm_enabled        => true
+        ilm_rollover_alias => "fmp-logs"
+        ilm_pattern        => "000001"
+        ilm_policy         => "fmp-logs-policy"
       }
     }
 ---
