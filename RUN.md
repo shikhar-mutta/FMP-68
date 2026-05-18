@@ -8,11 +8,14 @@ Three ways to bring the stack up. All of them do a **clean rebuild**
 | `./start.sh` | Backend + frontend together (local dev) |
 | `./backend/start.sh` | Backend only (6 microservices + RabbitMQ + Redis) |
 | `./frontend/start.sh` | Frontend only (nginx serving the React SPA) — backend must already be up |
+| `./start-k8s.sh` | **Kubernetes mode** — full stack on Minikube with HPAs, Vault, ELK |
 | `./start-online.sh` | **Online mode** — same stack reachable from the public internet via ngrok (production-style nginx build) |
 | `./start-online-watch.sh` | **Online + watch mode** — same as above but the frontend runs the CRA dev server, so code edits hot-reload to every remote viewer |
 
 `./start.sh --stop` tears the local-dev stack down.
+`./start-k8s.sh --stop` tears the Kubernetes stack down (keeps Minikube up); `--nuke` also stops Minikube.
 `./stop-online.sh` tears the online stack down (handles both prod and watch).
+`./nuke.sh --yes --delete-minikube --prune-docker` nukes **everything** (compose stacks, k8s namespaces, Minikube VM, project Docker images/volumes/networks, and prunes the Docker system).
 
 ---
 
@@ -111,9 +114,77 @@ Removes all `fmp-*` containers, images, volumes built by these
 compose files, plus the `fmp-net` network. Doesn't touch Jenkins
 or any Kubernetes resources you may also have running.
 
+### Full nuke (compose + Kubernetes + Minikube + Docker)
+
+```bash
+./nuke.sh --yes --delete-minikube --prune-docker
+```
+
+The atomic-cleanup option. Use this when you want to start completely
+from scratch (e.g. between demos, after a broken build, or to free
+disk). It wipes:
+
+- **Kubernetes** — namespaces `fmp`, `vault`, `elk` (+ filebeat
+  ClusterRole/Binding)
+- **Minikube** — `minikube delete` removes the VM/cluster entirely
+  (`--delete-minikube`)
+- **Port-forwards** — `kubectl` keepers + `/tmp/fmp-*` PID + log files
+- **docker-compose** — backend + frontend stacks (regular + online
+  variants)
+- **Docker** — project containers (`fmp-*`), images (`fmp-*`,
+  `shikhar68/fmp-*`), volumes, the `fmp-net` network
+- **Docker system** — `docker system prune -af --volumes` over every
+  dangling/unused resource (`--prune-docker`)
+- **Build artifacts** — `node_modules`, `dist`, `.next`, `coverage` in
+  `backend/*` and `frontend/`
+
+Other flags (see `./nuke.sh --help`):
+
+| Flag | Effect |
+|------|--------|
+| `--yes` / `-y` | Skip the interactive confirmation prompt |
+| `--delete-minikube` | Also `minikube delete` (wipes the VM/cluster) |
+| `--keep-minikube` | Leave Minikube running (default: stop it) |
+| `--keep-artifacts` | Keep `node_modules`/`dist`/`.next`/`coverage` |
+| `--prune-docker` | Also `docker system prune -af --volumes` |
+
 ---
 
-## Option D — Online mode (expose the laptop publicly via ngrok)
+## Option D — Kubernetes mode (Minikube + HPA + Vault + ELK)
+
+```bash
+./start-k8s.sh                # build, load, apply, wait, report
+./start-k8s.sh --skip-build   # skip docker build + minikube load
+./start-k8s.sh --no-forward   # don't start kubectl port-forwards
+./start-k8s.sh --stop         # tear stack down (keep minikube up)
+./start-k8s.sh --nuke         # tear stack + stop minikube
+```
+
+Brings the whole stack (6 NestJS microservices + frontend + RabbitMQ +
+Redis) up on a local Minikube cluster with HorizontalPodAutoscalers
+attached to every Deployment. MongoDB still runs on the host (rs0
+replica set) — reached from pods via the `mongo-external`
+ExternalName service that points at `host.minikube.internal`.
+
+After it finishes (port-forwards enabled by default):
+
+| URL | Service |
+|-----|---------|
+| `http://localhost:3000` | Frontend (port-forward → svc/frontend:80) |
+| `http://localhost:4000` | Backend gateway HTTP + WS |
+| `http://localhost:15672` | RabbitMQ management UI (guest / guest) |
+| `http://localhost:5601` | Kibana (index `fmp-logs-*` + dashboard) |
+| `http://localhost:8200` | Vault UI (token: `fmp-dev-root`) |
+
+Pre-reqs:
+- Docker daemon up
+- `minikube` and `kubectl` installed
+- `mongod` running locally with `bindIp 0.0.0.0` (or include the
+  Minikube bridge IP) and the `rs0` replica set initialised
+
+---
+
+## Option E — Online mode (expose the laptop publicly via ngrok)
 
 Run the same stack on your laptop but make it reachable from any
 device on the public internet at a stable HTTPS URL. Free, requires
@@ -321,9 +392,11 @@ above the `--no-cache` flag still helps for base images).
 ```
 FMP-68/
 ├── start.sh                          ← root orchestrator (option A)
-├── start-online.sh                   ← option D: online prod-style + ngrok
-├── start-online-watch.sh             ← option D: online watch (HMR) + ngrok
+├── start-k8s.sh                      ← option D: Minikube + HPA + Vault + ELK
+├── start-online.sh                   ← option E: online prod-style + ngrok
+├── start-online-watch.sh             ← option E: online watch (HMR) + ngrok
 ├── stop-online.sh                    ← teardown for both online flavours
+├── nuke.sh                           ← total cleanup (compose + k8s + Minikube + Docker)
 ├── run_test.sh                       ← root test runner (backend + frontend coverage)
 ├── RUN.md                            ← you are here
 ├── backend/
