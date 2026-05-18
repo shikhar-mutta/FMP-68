@@ -107,11 +107,16 @@ if [ "${1:-}" = "--stop" ] || [ "${1:-}" = "--nuke" ]; then
   info "[1/3] Stop any running port-forwards"
   stop_port_forwards
 
-  info "[2/3] Delete namespace '$NAMESPACE' (HPAs, Deployments, Services, ConfigMap, Secret)"
+  info "[2/3] Delete namespaces '$NAMESPACE' + 'vault' (HPAs, Deployments, Services, ConfigMap, Secret, Vault)"
   if kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
     kubectl delete namespace "$NAMESPACE" --wait=true 2>&1 | sed 's/^/    /' || true
   else
-    echo "    (namespace already gone)"
+    echo "    ($NAMESPACE namespace already gone)"
+  fi
+  if kubectl get ns vault >/dev/null 2>&1; then
+    kubectl delete namespace vault --wait=true 2>&1 | sed 's/^/    /' || true
+  else
+    echo "    (vault namespace already gone)"
   fi
 
   if [ "${1:-}" = "--nuke" ]; then
@@ -241,10 +246,78 @@ banner "Apply Kubernetes manifests (namespace=$NAMESPACE)"
 
 # Namespace was already ensured above; re-apply is a no-op but kept
 # implicit so configmap/secret/etc. can reference 'namespace: fmp' safely.
-info "[apply] config + secret + mongo-external"
+info "[apply] config + mongo-external (fmp-secret comes from Vault — see next banner)"
 kubectl apply -f "$ROOT_DIR/backend/k8s/configmap.yaml"        2>&1 | sed 's/^/    /'
-kubectl apply -f "$ROOT_DIR/backend/k8s/secret.yaml"           2>&1 | sed 's/^/    /'
 kubectl apply -f "$ROOT_DIR/backend/k8s/mongo-external.yaml"   2>&1 | sed 's/^/    /'
+
+# ── Vault: deploy, wait for postStart seed, then bridge → fmp-secret ──
+# Mirrors what backend/ansible/roles/deploy-fmp does in the Ansible path.
+# After this block, fmp-secret in namespace '$NAMESPACE' holds JWT_SECRET,
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATABASE_URL, RABBITMQ_URL — all
+# sourced from Vault (not from any committed plaintext file).
+banner "Vault → fmp-secret bridge"
+
+info "[vault] apply manifests (namespace + Deployment + Service + seed ConfigMap)"
+kubectl apply -f "$ROOT_DIR/backend/k8s/vault/" 2>&1 | sed 's/^/    /'
+
+info "[vault] wait for pod Ready (up to 120s)"
+if ! kubectl wait --for=condition=ready pod -l app=vault -n vault --timeout=120s 2>&1 | sed 's/^/    /'; then
+  err "    ✘ Vault pod did not become Ready — see 'kubectl logs -n vault deploy/vault'"
+  exit 1
+fi
+
+info "[vault] wait for postStart seed.sh to populate secret/fmp/auth (up to 60s)"
+seeded=0
+for i in $(seq 1 30); do
+  if kubectl exec -n vault deploy/vault -- \
+       sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' >/dev/null 2>&1; then
+    ok "    ✓ secret/fmp/auth present after ${i} attempts (~$((i*2))s)"
+    seeded=1
+    break
+  fi
+  echo "    … waiting for Vault seed ($i/30)"
+  sleep 2
+done
+if [ "$seeded" -eq 0 ]; then
+  err "    ✘ Vault never seeded secret/fmp/auth — check 'kubectl logs -n vault deploy/vault'"
+  exit 1
+fi
+
+info "[vault] fetch all 3 KV entries and render fmp-secret"
+JSON_AUTH=$(kubectl exec -n vault deploy/vault -- sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth')
+JSON_DB=$(kubectl exec -n vault deploy/vault -- sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/db')
+JSON_RMQ=$(kubectl exec -n vault deploy/vault -- sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/rabbitmq')
+
+# Parse with python3 (always present on Linux/macOS). JSON values are passed
+# via env vars to avoid heredoc-quoting issues with strings that contain
+# special chars (e.g. '&' in the Mongo URI's replicaSet query).
+# read'ing on whitespace is safe — none of the 5 fields contain spaces.
+read -r JWT GID GSEC DB_URL RMQ_URL < <(
+  JSON_AUTH="$JSON_AUTH" JSON_DB="$JSON_DB" JSON_RMQ="$JSON_RMQ" python3 - <<'PY'
+import json, os
+a = json.loads(os.environ["JSON_AUTH"])["data"]["data"]
+d = json.loads(os.environ["JSON_DB"])["data"]["data"]
+r = json.loads(os.environ["JSON_RMQ"])["data"]["data"]
+print(a["jwt_secret"], a["google_client_id"], a["google_client_secret"],
+      d["mongodb_uri"], r["url"])
+PY
+)
+if [ -z "${JWT:-}" ] || [ -z "${DB_URL:-}" ]; then
+  err "    ✘ Failed to parse Vault response — JWT='$JWT' DB_URL='$DB_URL'"
+  exit 1
+fi
+
+kubectl create secret generic fmp-secret \
+  --namespace "$NAMESPACE" \
+  --from-literal=JWT_SECRET="$JWT" \
+  --from-literal=GOOGLE_CLIENT_ID="$GID" \
+  --from-literal=GOOGLE_CLIENT_SECRET="$GSEC" \
+  --from-literal=DATABASE_URL="$DB_URL" \
+  --from-literal=RABBITMQ_URL="$RMQ_URL" \
+  --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
+ok "    ✓ fmp-secret rebuilt from Vault (5 keys: JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATABASE_URL, RABBITMQ_URL)"
+
+banner "Apply Kubernetes manifests (namespace=$NAMESPACE, continued)"
 
 info "[apply] infra (rabbitmq, redis)"
 kubectl apply -f "$ROOT_DIR/backend/k8s/rabbitmq.yaml"         2>&1 | sed 's/^/    /'

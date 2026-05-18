@@ -24,6 +24,6 @@ data:
   # Redis (in-cluster) — tracking-service trail:* coord cache (LPUSH/LTRIM/EXPIRE)
   REDIS_URL: "redis://redis:6379"
   # OAuth public values
-  GOOGLE_CLIENT_ID: "430506095007-u8g4b06sed14stgkrlk11oqvfqrmshk4.apps.googleusercontent.com"
+  GOOGLE_CLIENT_ID: "__INJECT_AT_DEPLOY__"
   GOOGLE_CALLBACK_URL: "http://localhost:4000/auth/google/callback"
   JWT_EXPIRES_IN: "7d"

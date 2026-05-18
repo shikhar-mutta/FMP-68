@@ -70,6 +70,13 @@ spec:
           env:
             - { name: VAULT_DEV_ROOT_TOKEN_ID, value: "fmp-dev-root" }
             - { name: VAULT_ADDR,              value: "http://127.0.0.1:8200" }
+            # Values seed.sh writes into secret/fmp/auth at boot. These are the
+            # canonical source for JWT_SECRET / GOOGLE_CLIENT_{ID,SECRET} —
+            # both deploy paths (Ansible site.yml + start-k8s.sh) fetch them
+            # from here and rebuild the fmp-secret in the 'fmp' namespace.
+            - { name: FMP_JWT_SECRET,            value: "__INJECT_AT_DEPLOY__" }
+            - { name: FMP_GOOGLE_CLIENT_ID,      value: "__INJECT_AT_DEPLOY__" }
+            - { name: FMP_GOOGLE_CLIENT_SECRET,  value: "__INJECT_AT_DEPLOY__" }
           securityContext:
             capabilities:
               add: ["IPC_LOCK"]
