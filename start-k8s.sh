@@ -28,6 +28,8 @@
 #   http://localhost:3000    Frontend  (port-forward → svc/frontend:80)
 #   http://localhost:4000    Backend gateway HTTP + WS
 #   http://localhost:15672   RabbitMQ management UI  (guest / guest)
+#   http://localhost:5601    Kibana   (Discover index 'fmp-logs-*' + dashboard)
+#   http://localhost:8200    Vault UI (token: fmp-dev-root)
 # ─────────────────────────────────────────────────────────────
 set -e
 set -u
@@ -108,7 +110,14 @@ stop_port_forwards() {
     rm -f /tmp/fmp-vault-pf.pid
   fi
   pkill -f "kubectl port-forward -n vault svc/vault" 2>/dev/null || true
-  for port in 3000 4000 15672 8200; do
+  # Kibana port-forward also lives outside $NAMESPACE (it's in 'elk') and
+  # uses the same plain-nohup pattern as Vault, so it has its own PID file.
+  if [ -f /tmp/fmp-kibana-pf.pid ]; then
+    kill "$(cat /tmp/fmp-kibana-pf.pid)" 2>/dev/null || true
+    rm -f /tmp/fmp-kibana-pf.pid
+  fi
+  pkill -f "kubectl port-forward -n elk svc/kibana" 2>/dev/null || true
+  for port in 3000 4000 15672 8200 5601; do
     fuser -k ${port}/tcp 2>/dev/null || true
   done
 }
@@ -138,7 +147,7 @@ if [ "${1:-}" = "--stop" ] || [ "${1:-}" = "--nuke" ]; then
   info "[1/3] Stop any running port-forwards"
   stop_port_forwards
 
-  info "[2/3] Delete namespaces '$NAMESPACE' + 'vault' (HPAs, Deployments, Services, ConfigMap, Secret, Vault)"
+  info "[2/3] Delete namespaces '$NAMESPACE' + 'vault' + 'elk' (HPAs, Deployments, Services, ConfigMap, Secret, Vault, ELK)"
   if kubectl get ns "$NAMESPACE" >/dev/null 2>&1; then
     kubectl delete namespace "$NAMESPACE" --wait=true 2>&1 | sed 's/^/    /' || true
   else
@@ -149,6 +158,15 @@ if [ "${1:-}" = "--stop" ] || [ "${1:-}" = "--nuke" ]; then
   else
     echo "    (vault namespace already gone)"
   fi
+  if kubectl get ns elk >/dev/null 2>&1; then
+    kubectl delete namespace elk --wait=true 2>&1 | sed 's/^/    /' || true
+  else
+    echo "    (elk namespace already gone)"
+  fi
+  # Filebeat's ClusterRole + ClusterRoleBinding live outside any namespace,
+  # so deleting the elk namespace doesn't reap them. Clean up explicitly.
+  kubectl delete clusterrolebinding filebeat --ignore-not-found=true 2>&1 | sed 's/^/    /' || true
+  kubectl delete clusterrole        filebeat --ignore-not-found=true 2>&1 | sed 's/^/    /' || true
 
   if [ "${1:-}" = "--nuke" ]; then
     info "[3/3] Stop minikube profile '$MINIKUBE_PROFILE'"
@@ -364,6 +382,27 @@ kubectl apply -f "$ROOT_DIR/frontend/k8s/deployment.yaml"      2>&1 | sed 's/^/ 
 kubectl apply -f "$ROOT_DIR/frontend/k8s/service.yaml"         2>&1 | sed 's/^/    /'
 kubectl apply -f "$ROOT_DIR/frontend/k8s/hpa.yaml"             2>&1 | sed 's/^/    /'
 
+# ── 4b. Apply ELK stack (Filebeat → Logstash → Elasticsearch → Kibana) ──
+# Lives in its own 'elk' namespace. Apply the namespace first so the
+# parallel kubectl apply -f <dir> doesn't race on NotFound (the
+# filebeat ClusterRole/Binding apply succeeds without the namespace,
+# but every other manifest fails — same race we hit on the first
+# manual apply). Apply twice if needed: the first pass guarantees the
+# namespace, the second pass is idempotent.
+banner "Apply ELK stack (namespace=elk)"
+info "[apply] elk namespace"
+kubectl apply -f "$ROOT_DIR/backend/k8s/elk/namespace.yaml" 2>&1 | sed 's/^/    /'
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if kubectl get namespace elk >/dev/null 2>&1; then
+    echo "    ✓ namespace 'elk' is reachable via kubectl"
+    break
+  fi
+  echo "    … waiting for elk namespace to become reachable ($i/10)"
+  sleep 1
+done
+info "[apply] elk manifests (ES + Logstash + Kibana + Filebeat DS + ILM bootstrap + dashboard import)"
+kubectl apply -f "$ROOT_DIR/backend/k8s/elk/" 2>&1 | sed 's/^/    /'
+
 # ── 5. Wait for rollouts ───────────────────────────────────────
 banner "Wait for rollouts"
 DEPLOYMENTS=(rabbitmq redis "${BACKEND_SERVICES[@]}" frontend)
@@ -374,6 +413,22 @@ for d in "${DEPLOYMENTS[@]}"; do
     kubectl describe -n "$NAMESPACE" "deployment/$d" 2>&1 | tail -20 | sed 's/^/      /' || true
   fi
 done
+
+# ELK gets a separate wait loop with a longer per-pod timeout:
+# Elasticsearch cold-starts in ~3-5 minutes on minikube (JVM heap +
+# cluster bootstrap + ILM policy install), and Kibana waits on ES.
+# Failures here are non-fatal — the app stack works without logs.
+info "[wait] ELK rollouts (longer timeout — ES cold-start can take ~5 min)"
+for d in elasticsearch logstash kibana; do
+  info "[wait] elk/deployment/$d"
+  if ! kubectl rollout status -n elk "deployment/$d" --timeout=360s 2>&1 | sed 's/^/    /'; then
+    err "    ⚠ elk/deployment/$d not ready in 360s — Kibana logs may be unavailable; check 'kubectl describe -n elk deploy/$d'"
+  fi
+done
+info "[wait] elk/daemonset/filebeat"
+if ! kubectl rollout status -n elk daemonset/filebeat --timeout=120s 2>&1 | sed 's/^/    /'; then
+  err "    ⚠ filebeat DaemonSet not ready in 120s — container logs won't ship to Logstash"
+fi
 
 # ── 6. Port-forwards (optional, default on) ────────────────────
 if [ "$DO_FORWARD" -eq 1 ]; then
@@ -400,6 +455,25 @@ if [ "$DO_FORWARD" -eq 1 ]; then
   echo $! > /tmp/fmp-vault-pf.pid
   disown
   ok "    ✓ Vault UI: http://127.0.0.1:8200/ui/vault/secrets/secret/kv/fmp%2Fauth/details?version=1"
+
+  # Kibana lives in the 'elk' namespace, so it follows the same plain-nohup
+  # pattern as Vault (the keeper loop hard-codes $NAMESPACE). Only forward
+  # it if Kibana's Deployment actually came up — silent failures are
+  # confusing otherwise.
+  info "[kibana] start detached port-forward on 127.0.0.1:5601"
+  if [ -f /tmp/fmp-kibana-pf.pid ]; then
+    kill "$(cat /tmp/fmp-kibana-pf.pid)" 2>/dev/null || true
+    rm -f /tmp/fmp-kibana-pf.pid
+  fi
+  fuser -k 5601/tcp 2>/dev/null || true
+  if kubectl get -n elk deploy/kibana >/dev/null 2>&1; then
+    nohup kubectl port-forward -n elk svc/kibana 5601:5601 > /tmp/fmp-kibana-pf.log 2>&1 &
+    echo $! > /tmp/fmp-kibana-pf.pid
+    disown
+    ok "    ✓ Kibana UI: http://localhost:5601  (Discover index 'fmp-logs-*' or dashboard 'FMP-68 — Application Logs')"
+  else
+    err "    ⚠ deploy/kibana missing in 'elk' namespace — skipping Kibana port-forward"
+  fi
 fi
 
 # ── 7. Final report ────────────────────────────────────────────
@@ -423,6 +497,7 @@ if [ "$DO_FORWARD" -eq 1 ]; then
   echo "  http://localhost:3000    Frontend           (kubectl port-forward → svc/frontend:80)"
   echo "  http://localhost:4000    Backend gateway    (kubectl port-forward, HTTP + WS)"
   echo "  http://localhost:15672   RabbitMQ UI        (kubectl port-forward, guest / guest)"
+  echo "  http://localhost:5601    Kibana             (kubectl port-forward → svc/kibana:5601, namespace 'elk')"
   echo "  http://127.0.0.1:8200/ui Vault UI           (kubectl port-forward, token: fmp-dev-root)"
 fi
 
