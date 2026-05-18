@@ -1,5 +1,6 @@
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 describe('NotificationsService', () => {
   let prisma: any;
@@ -46,6 +47,7 @@ describe('NotificationsService', () => {
 
 describe('NotificationsController', () => {
   let svc: jest.Mocked<NotificationsService>;
+  let rabbitmq: jest.Mocked<RabbitmqService>;
   let controller: NotificationsController;
 
   beforeEach(() => {
@@ -53,7 +55,10 @@ describe('NotificationsController', () => {
       findForUser: jest.fn(),
       dismiss: jest.fn(),
     } as unknown as jest.Mocked<NotificationsService>;
-    controller = new NotificationsController(svc);
+    rabbitmq = {
+      publish: jest.fn(),
+    } as unknown as jest.Mocked<RabbitmqService>;
+    controller = new NotificationsController(svc, rabbitmq);
   });
 
   it('getMyNotifications forwards the current user id', () => {
@@ -64,5 +69,18 @@ describe('NotificationsController', () => {
   it('dismiss forwards both the notification id and the current user id', () => {
     controller.dismiss('n1', 'u1');
     expect(svc.dismiss).toHaveBeenCalledWith('n1', 'u1');
+  });
+
+  it('publishTest publishes a test.spike message and returns the payload', () => {
+    const result = controller.publishTest({ extra: 'field' });
+    expect(rabbitmq.publish).toHaveBeenCalledTimes(1);
+    const [routingKey, payload] = rabbitmq.publish.mock.calls[0];
+    expect(routingKey).toBe('test.spike');
+    expect(payload).toMatchObject({
+      type: 'test.spike',
+      origin: 'paths-service:_publish-test',
+      extra: 'field',
+    });
+    expect(result.published).toBe(true);
   });
 });

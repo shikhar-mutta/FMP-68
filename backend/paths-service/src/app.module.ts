@@ -6,12 +6,14 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PathsModule } from './paths/paths.module';
 import { FollowRequestsModule } from './follow-requests/follow-requests.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     HealthModule,
+    RabbitmqModule,
     PathsModule,
     FollowRequestsModule,
     NotificationsModule,

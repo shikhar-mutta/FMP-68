@@ -8,6 +8,7 @@ describe('FollowRequestsService', () => {
   let repo: any;
   let usersClient: any;
   let notificationsService: any;
+  let rabbitmq: any;
   let service: FollowRequestsService;
 
   const follower = { id: 'u-follower', followedPathIds: [] };
@@ -32,7 +33,8 @@ describe('FollowRequestsService', () => {
     };
     usersClient = { findById: jest.fn(), findManyByIds: jest.fn() };
     notificationsService = { create: jest.fn().mockResolvedValue(undefined) };
-    service = new FollowRequestsService(repo, usersClient, notificationsService);
+    rabbitmq = { publish: jest.fn() };
+    service = new FollowRequestsService(repo, usersClient, notificationsService, rabbitmq);
   });
 
   describe('createFollowRequest', () => {

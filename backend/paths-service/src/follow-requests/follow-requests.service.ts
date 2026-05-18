@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { UsersClientService } from '../users-client/users-client.service';
@@ -12,13 +13,17 @@ import {
 } from '../paths/path.mapper';
 import { PathsRepository } from '../paths/paths.repository';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class FollowRequestsService {
+  private readonly logger = new Logger(FollowRequestsService.name);
+
   constructor(
     private readonly pathsRepository: PathsRepository,
     private readonly usersClient: UsersClientService,
     private readonly notificationsService: NotificationsService,
+    private readonly rabbitmq: RabbitmqService,
   ) {}
 
   async createFollowRequest(
@@ -50,6 +55,23 @@ export class FollowRequestsService {
       ...followRequests,
       followerId,
     ]);
+
+    // Fire-and-forget publish — we deliberately don't await the result.
+    // Notifications are a "best-effort" side-channel: if RabbitMQ is
+    // briefly down, the follow request itself still succeeds, and the
+    // RabbitmqService's reconnect loop catches up. Errors are logged
+    // for visibility but never bubble up to the HTTP response.
+    try {
+      this.rabbitmq.publish('follow-request.created', {
+        type: 'follow-request.created',
+        pathId,
+        publisherId,
+        followerId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      this.logger.warn(`publish(follow-request.created) failed: ${err?.message ?? err}`);
+    }
 
     return {
       pathId,
