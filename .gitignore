@@ -70,3 +70,8 @@ report/*.snm
 report/*.vrb
 
 Demo_Video.mp4
+
+# Local-deploy Vault seed — contains real JWT_SECRET / GOOGLE_CLIENT_{ID,SECRET}
+# baked in at line 77-79 for `./start-k8s.sh` to read at boot. Keep on disk
+# but never commit; rotate the Google OAuth secret if it ever lands in git.
+backend/k8s/vault/vault.yaml
