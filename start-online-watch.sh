@@ -24,6 +24,14 @@ echo "▶ Pre-flight: ngrok installed & authed?"
 command -v ngrok >/dev/null || { echo "✖ ngrok not installed."; exit 1; }
 ngrok config check >/dev/null 2>&1 || { echo "✖ ngrok not authed. Run: ngrok config add-authtoken <token>"; exit 1; }
 
+echo "▶ Pre-flight: freeing host ports 3000/4000/15672 from any k8s port-forwards…"
+# start-k8s.sh launches `kubectl port-forward …` inside supervised subshells;
+# both the supervisor bash AND the kubectl child must die, otherwise the
+# supervisor respawns kubectl and docker can't bind these host ports.
+pkill -f "start-k8s.sh"         2>/dev/null || true
+pkill -f "kubectl port-forward" 2>/dev/null || true
+sleep 1
+
 echo "▶ Stopping any running online containers (prod or watch)…"
 ( cd frontend && docker compose --env-file .env.online -f docker-compose.online-watch.yml down --volumes ) || true
 ( cd frontend && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml down --volumes ) || true
