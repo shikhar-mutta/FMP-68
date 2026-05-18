@@ -17,12 +17,44 @@ cd "$(dirname "$0")"
 
 NGROK_DOMAIN="patriarchic-georgianne-acetimetric.ngrok-free.dev"
 
+# Minikube knobs — kept aligned with start-k8s.sh so flipping between the
+# two launchers reuses the same profile/disk/state.
+MINIKUBE_PROFILE="${MINIKUBE_PROFILE:-minikube}"
+MINIKUBE_DRIVER="${MINIKUBE_DRIVER:-docker}"
+MINIKUBE_CPUS="${MINIKUBE_CPUS:-4}"
+MINIKUBE_MEM="${MINIKUBE_MEM:-6144}"
+
 echo "▶ Pre-flight: Docker running?"
 docker info >/dev/null 2>&1 || { echo "✖ Docker daemon is not running."; exit 1; }
 
 echo "▶ Pre-flight: ngrok installed & authed?"
 command -v ngrok >/dev/null || { echo "✖ ngrok not installed."; exit 1; }
 ngrok config check >/dev/null 2>&1 || { echo "✖ ngrok not authed. Run: ngrok config add-authtoken <token>"; exit 1; }
+
+# ── Minikube pre-flight ────────────────────────────────────────────
+# Vault deploys via `ansible-playbook ... --tags vault`, which under the
+# hood runs `kubectl apply -f backend/k8s/vault/`. If minikube isn't up,
+# kubectl falls back to its built-in http://localhost:8080 default and
+# the Ansible task dies with `connection refused`. Boot the cluster
+# here so the downstream kubectl/ansible calls land on a real API server.
+echo "▶ Pre-flight: minikube + kubectl installed?"
+command -v minikube >/dev/null || { echo "✖ minikube not installed (needed for Vault)."; exit 1; }
+command -v kubectl  >/dev/null || { echo "✖ kubectl not installed (needed for Vault)."; exit 1; }
+
+echo "▶ Pre-flight: minikube cluster status?"
+status=$(minikube status -p "$MINIKUBE_PROFILE" -f '{{.Host}}' 2>/dev/null || echo "Stopped")
+if [ "$status" != "Running" ]; then
+  echo "  ▶ Starting minikube profile '$MINIKUBE_PROFILE' (driver=$MINIKUBE_DRIVER, cpus=$MINIKUBE_CPUS, mem=${MINIKUBE_MEM}MB)…"
+  minikube start \
+    -p "$MINIKUBE_PROFILE" \
+    --driver="$MINIKUBE_DRIVER" \
+    --cpus="$MINIKUBE_CPUS" \
+    --memory="$MINIKUBE_MEM" 2>&1 | sed 's/^/    /'
+else
+  echo "  ✓ minikube already Running (profile=$MINIKUBE_PROFILE)"
+fi
+kubectl config use-context "$MINIKUBE_PROFILE" >/dev/null 2>&1 || true
+echo "  ✓ kubectl context: $(kubectl config current-context 2>/dev/null || echo 'unset')"
 
 echo "▶ Pre-flight: freeing host ports 3000/4000/15672 from any k8s port-forwards…"
 # start-k8s.sh launches `kubectl port-forward …` inside supervised subshells;
