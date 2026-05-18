@@ -65,12 +65,55 @@ pkill -f "kubectl port-forward" 2>/dev/null || true
 sleep 1
 
 echo "▶ Stopping any running online containers (prod or watch)…"
-( cd frontend && docker compose --env-file .env.online -f docker-compose.online-watch.yml down --volumes ) || true
-( cd frontend && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml down --volumes ) || true
-( cd backend  && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml down --volumes ) || true
+# backend/docker-compose.yml uses ${X:?} fail-fast guards on JWT_SECRET /
+# GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET; `docker compose down` parses
+# the file just like up does, so it would refuse to stop unless the env
+# is set. Stub them just for the down — no real creds needed to STOP a
+# container. The actual `up` below runs after Vault has been read and
+# overwrites these stubs with real values.
+_compose_down() (
+  JWT_SECRET="${JWT_SECRET:-stub-for-down}" \
+  GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-stub-for-down}" \
+  GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-stub-for-down}" \
+  docker compose "$@" down --volumes
+)
+( cd frontend && _compose_down --env-file .env.online -f docker-compose.online-watch.yml ) || true
+( cd frontend && _compose_down --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml ) || true
+( cd backend  && _compose_down --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml ) || true
 
 echo "▶ Removing any stale 'fmp-net' (backend compose will recreate with proper labels)…"
 docker network rm fmp-net >/dev/null 2>&1 || true
+
+# ── Vault FIRST, then export its secrets into the shell ──────────────
+# backend/docker-compose.yml uses ${JWT_SECRET:-__INJECT_AT_DEPLOY__} and
+# ${GOOGLE_CLIENT_ID:-__INJECT_AT_DEPLOY__} / ${GOOGLE_CLIENT_SECRET:-__INJECT_AT_DEPLOY__}.
+# If we bring up compose before Vault has been deployed and read, those
+# placeholder fallbacks win — auth-service then starts Passport with
+# clientID="__INJECT_AT_DEPLOY__" and Google rejects every sign-in with
+# `401 invalid_client`. Match what start-k8s.sh does on the cluster path:
+# deploy Vault first, fetch the 3 secrets from secret/fmp/auth, export
+# them, then compose up sees real values instead of the placeholders.
+echo "▶ Deploying Vault FIRST (compose needs real JWT/GOOGLE secrets at boot)…"
+ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/  /'
+
+echo "▶ Fetching JWT + GOOGLE secrets from Vault → shell env…"
+# Fail-hard if the read fails: a half-set env would re-introduce the
+# exact "sign-in not working" bug we're fixing here.
+JSON_AUTH=$(kubectl exec -n vault deploy/vault -- sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth') \
+  || { echo "✖ Failed to read secret/fmp/auth from Vault."; exit 1; }
+read -r JWT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET < <(
+  JSON_AUTH="$JSON_AUTH" python3 - <<'PY'
+import json, os
+a = json.loads(os.environ["JSON_AUTH"])["data"]["data"]
+print(a["jwt_secret"], a["google_client_id"], a["google_client_secret"])
+PY
+)
+if [ -z "${JWT_SECRET:-}" ] || [ -z "${GOOGLE_CLIENT_ID:-}" ] || [ -z "${GOOGLE_CLIENT_SECRET:-}" ]; then
+  echo "✖ Vault returned empty value for at least one of jwt_secret/google_client_id/google_client_secret."
+  exit 1
+fi
+export JWT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET
+echo "  ✓ JWT_SECRET (${#JWT_SECRET}b), GOOGLE_CLIENT_ID (${GOOGLE_CLIENT_ID:0:20}…), GOOGLE_CLIENT_SECRET (${#GOOGLE_CLIENT_SECRET}b)"
 
 echo "▶ Starting backend (online mode)…"
 ( cd backend && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml up -d --build )
@@ -107,9 +150,6 @@ for i in $(seq 1 240); do
     exit 1
   fi
 done
-
-echo "▶ Deploying Vault via ansible (site.yml --tags vault)…"
-ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/  /'
 
 echo "▶ Starting detached port-forward for Vault UI on 127.0.0.1:8200…"
 if [ -f /tmp/fmp-vault-pf.pid ]; then

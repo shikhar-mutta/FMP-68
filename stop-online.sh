@@ -13,14 +13,25 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# backend/docker-compose.yml uses ${X:?} fail-fast guards on the secret
+# env vars; `docker compose down` parses the file just like `up` does,
+# so it would refuse to stop unless the env is set. Stub them just for
+# the down — no real creds needed to STOP a container.
+_compose_down() (
+  JWT_SECRET="${JWT_SECRET:-stub-for-down}" \
+  GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-stub-for-down}" \
+  GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-stub-for-down}" \
+  docker compose "$@" down --volumes
+)
+
 echo "▶ Stopping frontend (online watch mode)…"
-( cd frontend && docker compose --env-file .env.online -f docker-compose.online-watch.yml down --volumes ) || true
+( cd frontend && _compose_down --env-file .env.online -f docker-compose.online-watch.yml ) || true
 
 echo "▶ Stopping frontend (online prod mode)…"
-( cd frontend && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml down --volumes ) || true
+( cd frontend && _compose_down --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml ) || true
 
 echo "▶ Stopping backend (online mode)…"
-( cd backend && docker compose --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml down --volumes ) || true
+( cd backend && _compose_down --env-file .env.online -f docker-compose.yml -f docker-compose.online.yml ) || true
 
 echo "▶ Killing any running ngrok tunnel…"
 pkill -f "ngrok http" 2>/dev/null || true
