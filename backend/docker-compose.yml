@@ -3,6 +3,13 @@
 # 6 NestJS microservices + RabbitMQ + Redis + ELK
 # MongoDB is NOT containerized — runs on the host (rs0 replica set)
 # Services reach the host via host.docker.internal:host-gateway
+#
+# Secrets (JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) are
+# required — populate them by copying backend/.env.example → backend/.env
+# (auto-loaded by compose from this directory). The same values live in
+# backend/k8s/vault/vault.yaml for the k8s deploy path. Compose will
+# refuse to start if any required var is unset, instead of silently
+# injecting a placeholder.
 # ─────────────────────────────────────────────────────────────────────
 
 services:
@@ -20,7 +27,7 @@ services:
       SERVICE_NAME: api-gateway
       PORT: 4000
       FRONTEND_URL: http://localhost:3000
-      JWT_SECRET: ${JWT_SECRET:-__INJECT_AT_DEPLOY__}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — set it in backend/.env (copy from .env.example) or via Vault}
       AUTH_SERVICE_URL: http://auth-service:4001
       USERS_SERVICE_URL: http://users-service:4002
       PATHS_SERVICE_URL: http://paths-service:4003
@@ -53,10 +60,10 @@ services:
       PORT: 4001
       FRONTEND_URL: http://localhost:3000
       USERS_SERVICE_URL: http://users-service:4002
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-__INJECT_AT_DEPLOY__}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-__INJECT_AT_DEPLOY__}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required — set it in backend/.env (copy from .env.example) or via Vault}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required — set it in backend/.env (copy from .env.example) or via Vault}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:4000/auth/google/callback}
-      JWT_SECRET: ${JWT_SECRET:-__INJECT_AT_DEPLOY__}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — set it in backend/.env (copy from .env.example) or via Vault}
       JWT_EXPIRES_IN: 7d
     depends_on:
       users-service:
