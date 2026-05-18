@@ -140,6 +140,57 @@ start_port_forward() {
   echo "    ✓ port-forward svc/$svc ${local_port} → ${target_port}  (keeper pid $!)"
 }
 
+# ── smart rollout wait ─────────────────────────────────────────
+# Plain `kubectl rollout status --timeout=Xs` cries wolf the moment the
+# fixed timer expires, even if the pod is healthy and just slow to warm
+# up (ES on a cold start, NestJS during Prisma client generation, etc.)
+# — that's how we ended up with the "⚠ elk/deployment/elasticsearch not
+# ready in 360s" false alarm when ES was Ready at 8m45s anyway.
+#
+# This helper polls in $tick chunks instead. On each tick it asks two
+# questions: (a) is the rollout Ready? exit 0. (b) is any pod in a
+# known-bad waiting state (CrashLoopBackOff / ImagePullBackOff /
+# ErrImagePull / CreateContainerConfigError / InvalidImageName)? fail
+# fast — no point sitting on a 10-min timer when the kube scheduler
+# already told us the rollout can't succeed. Otherwise print a one-line
+# progress heartbeat (ready replicas, restarts, elapsed) and keep
+# waiting up to $hard_timeout. Only then emit ⚠ with a real `describe`
+# dump for diagnostics.
+wait_for_deployment() {
+  local ns="$1" name="$2" hard_timeout="$3" tick="${4:-15}"
+  local start=$SECONDS elapsed=0
+  while [ "$elapsed" -lt "$hard_timeout" ]; do
+    if kubectl rollout status -n "$ns" "deployment/$name" --timeout=${tick}s >/dev/null 2>&1; then
+      ok "    ✓ deployment/$name Ready after $((SECONDS - start))s"
+      return 0
+    fi
+    elapsed=$((SECONDS - start))
+    # Fail-fast: any pod stuck in a non-recoverable waiting reason.
+    local bad
+    bad=$(kubectl get pods -n "$ns" -l "app=$name" \
+            -o jsonpath='{range .items[*]}{.status.containerStatuses[*].state.waiting.reason}{" "}{end}' \
+            2>/dev/null)
+    case "$bad" in
+      *CrashLoopBackOff*|*ImagePullBackOff*|*ErrImagePull*|*CreateContainerConfigError*|*InvalidImageName*)
+        err "    ✘ deployment/$name pod stuck (${bad% }) — bailing out at ${elapsed}s, won't recover on its own"
+        kubectl describe -n "$ns" "deployment/$name" 2>&1 | tail -25 | sed 's/^/      /' || true
+        return 1
+        ;;
+    esac
+    # Heartbeat — gives the user a live signal that we're not hung.
+    local desired ready restarts
+    desired=$(kubectl get -n "$ns" "deployment/$name" -o jsonpath='{.spec.replicas}' 2>/dev/null)
+    ready=$(  kubectl get -n "$ns" "deployment/$name" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    restarts=$(kubectl get pods -n "$ns" -l "app=$name" \
+                 -o jsonpath='{range .items[*]}{.status.containerStatuses[*].restartCount}{" "}{end}' \
+                 2>/dev/null | tr -s ' ' | sed 's/^ *//;s/ *$//')
+    echo "    … deployment/$name still rolling out (ready=${ready:-0}/${desired:-?}, restarts=[${restarts:-0}], elapsed ${elapsed}s / cap ${hard_timeout}s)"
+  done
+  err "    ⚠ deployment/$name not Ready after ${hard_timeout}s — dumping describe:"
+  kubectl describe -n "$ns" "deployment/$name" 2>&1 | tail -25 | sed 's/^/      /' || true
+  return 1
+}
+
 # ── teardown modes ─────────────────────────────────────────────
 if [ "${1:-}" = "--stop" ] || [ "${1:-}" = "--nuke" ]; then
   banner "FMP-68 — Kubernetes teardown"
@@ -404,30 +455,34 @@ info "[apply] elk manifests (ES + Logstash + Kibana + Filebeat DS + ILM bootstra
 kubectl apply -f "$ROOT_DIR/backend/k8s/elk/" 2>&1 | sed 's/^/    /'
 
 # ── 5. Wait for rollouts ───────────────────────────────────────
+# Uses wait_for_deployment (see top of file): tick-based polling, fails
+# fast on CrashLoopBackOff / ImagePullBackOff, prints a heartbeat each
+# tick, and only emits ⚠ when the hard cap is genuinely exceeded.
 banner "Wait for rollouts"
 DEPLOYMENTS=(rabbitmq redis "${BACKEND_SERVICES[@]}" frontend)
 for d in "${DEPLOYMENTS[@]}"; do
-  info "[wait] deployment/$d"
-  if ! kubectl rollout status -n "$NAMESPACE" "deployment/$d" --timeout=180s 2>&1 | sed 's/^/    /'; then
-    err "    ⚠ deployment/$d did not become ready in 180s — see 'kubectl describe' below"
-    kubectl describe -n "$NAMESPACE" "deployment/$d" 2>&1 | tail -20 | sed 's/^/      /' || true
-  fi
+  info "[wait] $NAMESPACE/deployment/$d  (cap 240s)"
+  wait_for_deployment "$NAMESPACE" "$d" 240 15 || true
 done
 
-# ELK gets a separate wait loop with a longer per-pod timeout:
-# Elasticsearch cold-starts in ~3-5 minutes on minikube (JVM heap +
-# cluster bootstrap + ILM policy install), and Kibana waits on ES.
+# ELK gets longer per-pod caps. Elasticsearch dominates the cold-start
+# (JVM heap + single-node cluster bootstrap + ILM policy install +
+# first-time data dir layout); on a truly cold rebuild (fresh kicbase
+# image, no docker cache) observed ES Ready times can reach ~9 min.
+# Cap ES at 900s for headroom; the others are quick once ES is Ready.
 # Failures here are non-fatal — the app stack works without logs.
-info "[wait] ELK rollouts (longer timeout — ES cold-start can take ~5 min)"
+info "[wait] ELK rollouts — ES cold-start can take ~5–9 min on a fresh cluster"
+declare -A ELK_TIMEOUTS=( [elasticsearch]=900 [logstash]=240 [kibana]=240 )
 for d in elasticsearch logstash kibana; do
-  info "[wait] elk/deployment/$d"
-  if ! kubectl rollout status -n elk "deployment/$d" --timeout=360s 2>&1 | sed 's/^/    /'; then
-    err "    ⚠ elk/deployment/$d not ready in 360s — Kibana logs may be unavailable; check 'kubectl describe -n elk deploy/$d'"
-  fi
+  timeout="${ELK_TIMEOUTS[$d]}"
+  info "[wait] elk/deployment/$d  (cap ${timeout}s)"
+  wait_for_deployment elk "$d" "$timeout" 20 || true
 done
-info "[wait] elk/daemonset/filebeat"
-if ! kubectl rollout status -n elk daemonset/filebeat --timeout=120s 2>&1 | sed 's/^/    /'; then
-  err "    ⚠ filebeat DaemonSet not ready in 120s — container logs won't ship to Logstash"
+info "[wait] elk/daemonset/filebeat  (cap 180s)"
+# DaemonSets don't fit wait_for_deployment (different selector + Ready
+# semantics), but they roll out in seconds — keep the plain check.
+if ! kubectl rollout status -n elk daemonset/filebeat --timeout=180s 2>&1 | sed 's/^/    /'; then
+  err "    ⚠ filebeat DaemonSet not ready in 180s — container logs won't ship to Logstash"
 fi
 
 # ── 6. Port-forwards (optional, default on) ────────────────────
