@@ -10,6 +10,11 @@
 # backend/k8s/vault/vault.yaml for the k8s deploy path. Compose will
 # refuse to start if any required var is unset, instead of silently
 # injecting a placeholder.
+#
+# DATABASE_URL is intentionally hardcoded to host.docker.internal here
+# (not inherited from .env) — .env carries `mongodb://localhost:27017/...`
+# which is correct for local non-docker dev but resolves to the container
+# itself inside docker. Don't change this back to ${DATABASE_URL:-...}.
 # ─────────────────────────────────────────────────────────────────────
 
 services:
@@ -84,7 +89,7 @@ services:
     environment:
       SERVICE_NAME: users-service
       PORT: 4002
-      DATABASE_URL: ${DATABASE_URL:-mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true}
+      DATABASE_URL: mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -103,12 +108,15 @@ services:
     environment:
       SERVICE_NAME: paths-service
       PORT: 4003
-      DATABASE_URL: ${DATABASE_URL:-mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true}
+      DATABASE_URL: mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true
       USERS_SERVICE_URL: http://users-service:4002
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       users-service:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - fmp-net
@@ -127,9 +135,13 @@ services:
       SERVICE_NAME: tracking-service
       PORT: 4004
       FRONTEND_URL: http://localhost:3000
-      DATABASE_URL: ${DATABASE_URL:-mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true}
+      DATABASE_URL: mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true
+      REDIS_URL: redis://redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - fmp-net
 
