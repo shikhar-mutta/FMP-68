@@ -1,0 +1,80 @@
+// ─────────────────────────────────────────────────────────────
+// fmp-infra — cluster-manifest CI pipeline
+// Jenkins job name: fmp-infra
+// Replaces the "Apply Infra Changes" stage of the old orchestrator.
+// Triggered by: Generic Webhook Trigger plugin — GitHub push under backend/k8s/
+// ─────────────────────────────────────────────────────────────
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds(abortPrevious: true)
+    }
+
+    // Generic Webhook Trigger — fires ONLY when a push to main touches
+    // a file under backend/k8s/.
+    triggers {
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ref',     value: '$.ref'],
+                [key: 'changed', value: '$.commits[*].modified[*],$.commits[*].added[*],$.commits[*].removed[*]']
+            ],
+            causeString:               'Push touched backend/k8s/',
+            token:                     'fmp-infra-token',
+            printContributedVariables: true,
+            printPostContent:          false,
+            regexpFilterText:          '$ref|$changed',
+            regexpFilterExpression:    '^refs/heads/main.*backend/k8s/.*$'
+        )
+    }
+
+    environment {
+        K8S_NAMESPACE = 'fmp'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                script {
+                    try {
+                        checkout scm
+                        sh 'git log -1 --pretty=full'
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Checkout\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Apply K8s Manifests') {
+            steps {
+                script {
+                    try {
+                        // No -n flag: manifests under backend/k8s/elk and backend/k8s/vault
+                        // declare their own namespaces. Each YAML is self-describing.
+                        sh 'kubectl apply -f backend/k8s/ --recursive'
+                        sh "kubectl get pods,svc,hpa -n ${K8S_NAMESPACE}"
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Apply K8s\nReason: kubectl apply failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ fmp-infra build #${env.BUILD_NUMBER} applied backend/k8s/ to namespace ${K8S_NAMESPACE}"
+        }
+        failure {
+            echo "✘ fmp-infra build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
+        }
+    }
+}

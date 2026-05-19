@@ -2,7 +2,7 @@
 // fmp-frontend — standalone CI/CD pipeline
 // Jenkins job name: fmp-frontend
 // Triggered by:
-//   - SCM polling every 2 min (no public webhook tunnel needed)
+//   - Generic Webhook Trigger plugin — GitHub push under frontend/
 // ─────────────────────────────────────────────────────────────
 
 pipeline {
@@ -16,7 +16,23 @@ pipeline {
         disableConcurrentBuilds(abortPrevious: true)
     }
 
-    triggers { githubPush(); pollSCM('H/5 * * * *') }
+    // Generic Webhook Trigger — fires this job ONLY when a push to main
+    // touches a file under frontend/. No orchestrator job needed; GitHub
+    // posts once, every fmp-* job filters independently.
+    triggers {
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ref',     value: '$.ref'],
+                [key: 'changed', value: '$.commits[*].modified[*],$.commits[*].added[*],$.commits[*].removed[*]']
+            ],
+            causeString:               'Push touched frontend/',
+            token:                     'fmp-frontend-token',
+            printContributedVariables: true,
+            printPostContent:          false,
+            regexpFilterText:          '$ref|$changed',
+            regexpFilterExpression:    '^refs/heads/main.*frontend/.*$'
+        )
+    }
 
     parameters {
         string(
@@ -43,31 +59,6 @@ pipeline {
                         checkout scm
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Checkout\nReason: ' + e.getMessage()
-                        throw e
-                    }
-                }
-            }
-        }
-
-        stage('Check for Changes') {
-            steps {
-                script {
-                    try {
-                        sh "git fetch origin main || true"
-                        def changed = sh(
-                            script: "git diff --name-only HEAD~1 HEAD | grep '^frontend/' || true",
-                            returnStdout: true
-                        ).trim()
-                        if (changed == "") {
-                            echo "No changes in frontend/ — skipping build."
-                            currentBuild.result = 'NOT_BUILT'
-                            error("Skipping build for ${SERVICE_NAME}")
-                        }
-                        echo "Changed files in frontend/:\n${changed}"
-                    } catch (hudson.AbortException ae) {
-                        throw ae
-                    } catch (Exception e) {
-                        currentBuild.description = 'Failed Stage: Check for Changes\nReason: ' + e.getMessage()
                         throw e
                     }
                 }

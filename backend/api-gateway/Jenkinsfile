@@ -23,6 +23,24 @@ pipeline {
         )
     }
 
+    // Generic Webhook Trigger — fires this job ONLY when a push to main
+    // touches a file under backend/api-gateway/. No orchestrator job
+    // needed; GitHub posts once, every fmp-* job filters independently.
+    triggers {
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ref',     value: '$.ref'],
+                [key: 'changed', value: '$.commits[*].modified[*],$.commits[*].added[*],$.commits[*].removed[*]']
+            ],
+            causeString:               'Push touched backend/api-gateway/',
+            token:                     'fmp-api-gateway-token',
+            printContributedVariables: true,
+            printPostContent:          false,
+            regexpFilterText:          '$ref|$changed',
+            regexpFilterExpression:    '^refs/heads/main.*backend/api-gateway/.*$'
+        )
+    }
+
     environment {
         SERVICE_NAME    = 'api-gateway'
         SERVICE_PORT    = '4000'
@@ -41,31 +59,6 @@ pipeline {
                         checkout scm
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Checkout\nReason: ' + e.getMessage()
-                        throw e
-                    }
-                }
-            }
-        }
-
-        stage('Check for Changes') {
-            steps {
-                script {
-                    try {
-                        sh "git fetch origin main || true"
-                        def changed = sh(
-                            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/${SERVICE_NAME}/' || true",
-                            returnStdout: true
-                        ).trim()
-                        if (changed == "") {
-                            echo "No changes in backend/${SERVICE_NAME}/ — skipping build."
-                            currentBuild.result = 'NOT_BUILT'
-                            error("Skipping build for ${SERVICE_NAME}")
-                        }
-                        echo "Changed files in backend/${SERVICE_NAME}:\n${changed}"
-                    } catch (hudson.AbortException ae) {
-                        throw ae
-                    } catch (Exception e) {
-                        currentBuild.description = 'Failed Stage: Check for Changes\nReason: ' + e.getMessage()
                         throw e
                     }
                 }
