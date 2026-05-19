@@ -178,16 +178,22 @@ pipeline {
                         // manifests. kubectl apply is idempotent (no-op on existing clusters)
                         // and self-heals on a fresh Minikube — fixes the "namespaces 'fmp'
                         // not found" failure that bricked builds #34–#46.
-                        sh "kubectl apply -f backend/k8s/namespace.yaml"
-                        // Apply frontend k8s manifests first (idempotent — creates Deployment/Service/HPA on first run, no-op on subsequent). The orchestrator's "Apply Infra Changes" stage only covers backend/k8s/, so frontend/k8s/ must be applied by this pipeline. Without this, kubectl set image fails with "deployment not found" on a fresh cluster.
-                        sh "kubectl apply -f frontend/k8s/"
-                        sh """
-                            kubectl set image deployment/${SERVICE_NAME} \
-                                ${SERVICE_NAME}=${IMAGE_REMOTE} \
-                                -n ${K8S_NAMESPACE}
-                            kubectl rollout status deployment/${SERVICE_NAME} \
-                                -n ${K8S_NAMESPACE} --timeout=180s
-                        """
+                        // lock serialises concurrent service deployments so only one job
+                        // touches Minikube at a time — avoids rollout contention and the
+                        // 180 s timeout that fires when parallel image-loads saturate the node.
+                        lock('minikube-deploy') {
+                            sh "kubectl apply -f backend/k8s/namespace.yaml"
+                            // Apply frontend k8s manifests first (idempotent — creates Deployment/Service/HPA on first run, no-op on subsequent). The orchestrator's "Apply Infra Changes" stage only covers backend/k8s/, so frontend/k8s/ must be applied by this pipeline. Without this, kubectl set image fails with "deployment not found" on a fresh cluster.
+                            sh "kubectl apply -f frontend/k8s/"
+                            sh "minikube image load ${IMAGE_REMOTE} --overwrite"
+                            sh """
+                                kubectl set image deployment/${SERVICE_NAME} \
+                                    ${SERVICE_NAME}=${IMAGE_REMOTE} \
+                                    -n ${K8S_NAMESPACE}
+                                kubectl rollout status deployment/${SERVICE_NAME} \
+                                    -n ${K8S_NAMESPACE} --timeout=180s
+                            """
+                        }
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Deploy to Minikube\nReason: kubectl/minikube command failed.'
                         throw e
