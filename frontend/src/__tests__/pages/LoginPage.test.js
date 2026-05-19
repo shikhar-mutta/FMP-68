@@ -29,13 +29,13 @@ describe('LoginPage', () => {
     expect(container.querySelector('.login-card')).toBeInTheDocument();
   });
 
-  it('should display FMP-69 logo', () => {
+  it('should display FMP-68 logo', () => {
     const mockSignIn = jest.fn();
     useAuth.mockReturnValue({ signInWithGoogle: mockSignIn });
 
     render(<LoginPage />);
 
-    const logo = screen.getByText('FMP-69');
+    const logo = screen.getByText('FMP-68');
     expect(logo).toBeInTheDocument();
     expect(logo).toHaveClass('login-logo');
   });
@@ -188,7 +188,7 @@ describe('LoginPage', () => {
 
     render(<LoginPage />);
 
-    expect(screen.getByText('FMP-69')).toBeInTheDocument();
+    expect(screen.getByText('FMP-68')).toBeInTheDocument();
     expect(screen.getByText(/Sign in to access your dashboard/i)).toBeInTheDocument();
     expect(screen.getByText('or continue with')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sign in with Google/i })).toBeInTheDocument();

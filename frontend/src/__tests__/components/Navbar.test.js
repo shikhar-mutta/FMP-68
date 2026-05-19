@@ -50,7 +50,7 @@ describe('Navbar Component', () => {
   it('should render navbar shell', () => {
     const { container } = render(<Navbar />);
     expect(container.querySelector('nav')).toBeTruthy();
-    expect(container.querySelector('.navbar-brand')?.textContent).toBe('FMP-69');
+    expect(container.querySelector('.navbar-brand')?.textContent).toBe('FMP-68');
   });
 
   it('should render user controls when user exists', () => {
