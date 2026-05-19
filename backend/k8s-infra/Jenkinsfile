@@ -173,6 +173,12 @@ pipeline {
                         sh '''
                             kubectl apply -f backend/k8s/namespace.yaml
                             kubectl apply -f backend/k8s/elk/namespace.yaml
+                            # kubectl apply can't change a Service's spec.type
+                            # (ExternalName → ClusterIP+EndpointSlice). Legacy
+                            # clusters that still have the ExternalName form
+                            # need the old Service removed first; new manifest
+                            # then applies clean.
+                            kubectl delete svc mongo-external -n fmp --ignore-not-found
                         '''
                         // Pass 2 — everything (services, deployments, jobs, HPAs).
                         sh 'kubectl apply -f backend/k8s/ --recursive'

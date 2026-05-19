@@ -1,16 +1,46 @@
-# Headless ExternalName service that maps mongo-external (cluster DNS)
-# → host.minikube.internal (the host's IP from the Minikube node's perspective).
-# MongoDB lives on the laptop with the existing rs0 replica set and is NOT
-# containerised. The host must have mongod bound on the minikube bridge IP
-# (or 0.0.0.0) for this to work — see README.
+# mongo-external — gives pods a cluster-DNS name (mongo-external.fmp.svc) for
+# the MongoDB that runs on the laptop host (not containerised).
+#
+# Why not ExternalName → host.minikube.internal?
+# CoreDNS in minikube doesn't resolve host.minikube.internal for pods — only
+# the minikube container's /etc/hosts knows that name. So an ExternalName
+# Service that points at it fails with NXDOMAIN inside pods, which surfaces
+# in NestJS services as: "failed to lookup address information: Name has no
+# usable address" at Prisma onModuleInit.
+#
+# Instead: a regular Service with a manual EndpointSlice pointing at
+# 192.168.49.1 (the minikube docker-driver gateway IP — the host IP from
+# the cluster's perspective). Pods resolve mongo-external → ClusterIP →
+# routed to 192.168.49.1:27017 (host's mongod).
+#
+# Host requirement: mongod must bind on 0.0.0.0 (or the bridge IP), running
+# the rs0 replica set. See README.
 apiVersion: v1
 kind: Service
 metadata:
   name: mongo-external
   namespace: fmp
 spec:
-  type: ExternalName
-  externalName: host.minikube.internal
   ports:
-    - port: 27017
+    - name: mongo
+      port: 27017
       protocol: TCP
+      targetPort: 27017
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mongo-external
+  namespace: fmp
+  labels:
+    kubernetes.io/service-name: mongo-external
+addressType: IPv4
+ports:
+  - name: mongo
+    port: 27017
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "192.168.49.1"   # minikube docker-driver gateway = host IP
+    conditions:
+      ready: true
