@@ -54,6 +54,29 @@ pipeline {
             }
         }
 
+        stage('Ensure Cluster') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            if ! minikube status --format='{{.Host}}' 2>/dev/null | grep -q Running; then
+                                echo "Minikube not running — starting…"
+                                minikube start --driver=docker
+                                minikube update-context
+                            else
+                                echo "Minikube already running."
+                            fi
+                            kubectl get namespace fmp >/dev/null 2>&1 || \
+                                kubectl apply -f backend/k8s/namespace.yaml
+                        '''
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Ensure Cluster\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
+
         stage('Apply K8s Manifests') {
             steps {
                 script {

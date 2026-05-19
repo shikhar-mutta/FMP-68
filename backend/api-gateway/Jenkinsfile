@@ -74,6 +74,7 @@ pipeline {
                         dir("backend/${SERVICE_NAME}") {
                             sh 'node --version && npm --version'
                             sh 'npm install --no-audit --no-fund'
+                            sh 'npx prisma generate || true'
                             sh 'npm test -- --coverage'
                         }
                     } catch (Exception e) {
@@ -120,6 +121,29 @@ pipeline {
                         }
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Docker Push\nReason: Docker Hub push failed.'
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Ensure Cluster') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            if ! minikube status --format='{{.Host}}' 2>/dev/null | grep -q Running; then
+                                echo "Minikube not running — starting…"
+                                minikube start --driver=docker
+                                minikube update-context
+                            else
+                                echo "Minikube already running."
+                            fi
+                            kubectl get namespace fmp >/dev/null 2>&1 || \
+                                kubectl apply -f backend/k8s/namespace.yaml
+                        '''
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Ensure Cluster\nReason: ' + e.getMessage()
                         throw e
                     }
                 }
@@ -179,17 +203,17 @@ pipeline {
             echo "✘ ${SERVICE_NAME} build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
         }
         always {
-            sh """
-                # Remove this build's tagged images (local + remote-tagged)
-                docker rmi -f ${IMAGE_LOCAL} ${IMAGE_REMOTE} 2>/dev/null || true
-                # Remove any other fmp-${SERVICE_NAME} images that earlier builds left behind
-                ids=\$(docker images fmp-${SERVICE_NAME} -q; docker images ${DOCKER_REPO}/fmp-${SERVICE_NAME} -q)
-                [ -n "\$ids" ] && docker rmi -f \$ids 2>/dev/null || true
-                # NOTE: global `docker image prune` / `docker builder prune` deliberately omitted here.
-                # Parallel sibling builds share the daemon's cache; pruning here destroys layers/snapshots
-                # other in-flight builds depend on (containerd CreateDiff / "No such image" errors).
-                # The orchestrator's post.always runs the global prune once after all children finish.
-            """
+            script {
+                if (env.IMAGE_LOCAL && env.IMAGE_REMOTE) {
+                    sh """
+                        docker rmi -f ${env.IMAGE_LOCAL} ${env.IMAGE_REMOTE} 2>/dev/null || true
+                        ids=\$(docker images fmp-${env.SERVICE_NAME} -q; docker images ${env.DOCKER_REPO}/fmp-${env.SERVICE_NAME} -q)
+                        [ -n "\$ids" ] && docker rmi -f \$ids 2>/dev/null || true
+                    """
+                } else {
+                    echo 'Skipping image cleanup — build aborted before environment was set.'
+                }
+            }
         }
     }
 }
