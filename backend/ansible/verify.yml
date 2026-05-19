@@ -30,20 +30,15 @@
         var: pod_listing.stdout_lines
 
     - name: "Wait for {{ service_name | default('all') }} deployment(s) to finish rolling out"
-      ansible.builtin.shell: |
-        set -eu
-        # Use `kubectl rollout status` instead of `kubectl wait --for=condition=Ready pod`.
-        # Rolling updates terminate old pods while new ones start; `kubectl wait -l app=X`
-        # matches both old (terminating) and new pods — when the old pod disappears mid-wait
-        # kubectl returns NotFound and the task fails spuriously.  `rollout status` tracks
-        # only the deployment controller's view of the rollout and is immune to this race.
-        if [ -n "{{ service_name | default('') }}" ]; then
-          kubectl rollout status deployment/{{ service_name }} -n {{ k8s_namespace }} --timeout=180s
-        else
-          for deploy in $(kubectl get deploy -n {{ k8s_namespace }} -o name); do
-            kubectl rollout status "$deploy" -n {{ k8s_namespace }} --timeout=180s
-          done
-        fi
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - rollout
+          - status
+          - "{{ ('deployment/' + service_name) if service_name is defined else 'deployment' }}"
+          - "-n"
+          - "{{ k8s_namespace }}"
+          - "--timeout=180s"
       register: wait_result
       changed_when: false
 
