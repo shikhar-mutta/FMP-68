@@ -28,14 +28,16 @@ pipeline {
     triggers {
         GenericTrigger(
             genericVariables: [
-                [key: 'ref',     value: '$.ref'],
-                [key: 'changed', value: '$.commits[*].modified[*],$.commits[*].added[*],$.commits[*].removed[*]']
+                [key: 'ref',      value: '$.ref'],
+                [key: 'modified', value: '$.commits[*].modified[*]'],
+                [key: 'added',    value: '$.commits[*].added[*]'],
+                [key: 'removed',  value: '$.commits[*].removed[*]']
             ],
             causeString:               'Push touched backend/users-service/',
             token:                     'fmp-users-service-token',
             printContributedVariables: true,
             printPostContent:          false,
-            regexpFilterText:          '$ref|$changed',
+            regexpFilterText:          '$ref|$modified|$added|$removed',
             regexpFilterExpression:    '^refs/heads/main.*backend/users-service/.*$'
         )
     }
