@@ -29,17 +29,18 @@
       ansible.builtin.debug:
         var: pod_listing.stdout_lines
 
-    - name: "Wait for all pods to reach Ready state"
+    - name: "Wait for {{ service_name | default('all') }} pods to reach Ready state"
       ansible.builtin.command:
-        argv:
-          - kubectl
-          - wait
-          - --for=condition=Ready
-          - pod
-          - --all
-          - -n
-          - "{{ k8s_namespace }}"
-          - --timeout=120s
+        # Per-service builds pass `-e service_name=<svc>` so the wait scopes
+        # to that service's pods only (filtered by `app=<svc>` label). The
+        # cluster-wide --all form is still available for fmp-infra-style
+        # full-cluster verification (no service_name passed).
+        argv: >-
+          {{
+            ['kubectl', 'wait', '--for=condition=Ready', 'pod']
+            + (['-l', 'app=' + service_name] if service_name is defined else ['--all'])
+            + ['-n', k8s_namespace, '--timeout=120s']
+          }}
       register: wait_result
       changed_when: false
       # `kubectl wait` returns non-zero on timeout — that's the failure signal we want.
@@ -54,10 +55,12 @@
       ansible.builtin.debug:
         var: svc_listing.stdout_lines
 
-    - name: "Check every Deployment has at least one available replica"
+    - name: "Check Deployment(s) have at least one available replica"
       ansible.builtin.shell: |
         set -eu
-        kubectl get deploy -n {{ k8s_namespace }} -o json \
+        # When service_name is supplied (per-service builds), check only that
+        # deployment. Otherwise check every deployment in the namespace.
+        kubectl get deploy {{ ('-l app=' + service_name) if service_name is defined else '' }} -n {{ k8s_namespace }} -o json \
           | python3 -c '
         import json, sys
         d = json.load(sys.stdin)

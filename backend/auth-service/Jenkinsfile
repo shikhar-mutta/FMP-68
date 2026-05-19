@@ -185,11 +185,12 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh '''
+                        sh """
                             ansible-playbook \
                                 -i backend/ansible/inventory.ini \
+                                -e service_name=${SERVICE_NAME} \
                                 backend/ansible/verify.yml
-                        '''
+                        """
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Ansible Verify\nReason: ' + e.getMessage()
                         throw e
