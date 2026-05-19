@@ -12,6 +12,10 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '20'))
         // Abort in-progress run on new commit — see backend/Jenkinsfile for rationale.
         disableConcurrentBuilds(abortPrevious: true)
+        // Serialise across all fmp-* service jobs: only one full build runs at a
+        // time so Docker build, image load, and kubectl rollout never race for the
+        // single Minikube node or Docker daemon.
+        lock(resource: 'fmp-sequential-build')
     }
 
     parameters {
@@ -161,21 +165,16 @@ pipeline {
                         // manifests. Idempotent: no-op on existing clusters, self-heals
                         // on fresh Minikube. Independently safe even if the orchestrator's
                         // "Apply Infra Changes" stage didn't run (e.g. no backend/k8s/ diff).
-                        // lock serialises concurrent service deployments so only one job
-                        // touches Minikube at a time — avoids rollout contention and the
-                        // 180 s timeout that fires when parallel image-loads saturate the node.
-                        lock('minikube-deploy') {
-                            sh "kubectl apply -f backend/k8s/namespace.yaml"
-                            sh "kubectl apply -f backend/k8s/${SERVICE_NAME}/"
-                            sh "minikube image load ${IMAGE_REMOTE} --overwrite"
-                            sh """
-                                kubectl set image deployment/${SERVICE_NAME} \
-                                    ${SERVICE_NAME}=${IMAGE_REMOTE} \
-                                    -n ${K8S_NAMESPACE}
-                                kubectl rollout status deployment/${SERVICE_NAME} \
-                                    -n ${K8S_NAMESPACE} --timeout=180s
-                            """
-                        }
+                        sh "kubectl apply -f backend/k8s/namespace.yaml"
+                        sh "kubectl apply -f backend/k8s/${SERVICE_NAME}/"
+                        sh "minikube image load ${IMAGE_REMOTE} --overwrite"
+                        sh """
+                            kubectl set image deployment/${SERVICE_NAME} \
+                                ${SERVICE_NAME}=${IMAGE_REMOTE} \
+                                -n ${K8S_NAMESPACE}
+                            kubectl rollout status deployment/${SERVICE_NAME} \
+                                -n ${K8S_NAMESPACE} --timeout=180s
+                        """
                     } catch (Exception e) {
                         currentBuild.description = 'Failed Stage: Deploy to Minikube\nReason: kubectl/minikube command failed.'
                         throw e
