@@ -350,8 +350,18 @@ info "[apply] config + mongo-external (fmp-secret comes from Vault — see next 
 kubectl apply -f "$ROOT_DIR/backend/k8s/configmap.yaml"        2>&1 | sed 's/^/    /'
 kubectl apply -f "$ROOT_DIR/backend/k8s/mongo-external.yaml"   2>&1 | sed 's/^/    /'
 
-# ── Vault: deploy, wait for postStart seed, then bridge → fmp-secret ──
-# Mirrors what backend/ansible/roles/deploy-fmp does in the Ansible path.
+# ── Vault: deploy, inject real creds, wait for re-seed, then bridge → fmp-secret ──
+# Mirrors the pattern in backend/k8s-infra/Jenkinsfile (Bootstrap Vault stage)
+# and start-online-watch.sh (lines 99-127):
+#
+#   1. Apply vault.yaml  → postStart seed.sh runs with CHANGE_ME_* placeholders
+#   2. kubectl set env   → inject real creds from backend/auth-service/.env into
+#                          the Vault Deployment; triggers a new rollout so the new
+#                          pod's postStart seed.sh runs with the real values.
+#   3. Rollout + poll    → wait for the new pod to be Ready and secret/fmp/auth
+#                          to be re-populated with the real credentials.
+#   4. Fetch KV          → read all 3 paths from Vault and write fmp-secret.
+#
 # After this block, fmp-secret in namespace '$NAMESPACE' holds JWT_SECRET,
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, DATABASE_URL, RABBITMQ_URL — all
 # sourced from Vault (not from any committed plaintext file).
@@ -366,20 +376,54 @@ if ! kubectl wait --for=condition=ready pod -l app=vault -n vault --timeout=120s
   exit 1
 fi
 
-info "[vault] wait for postStart seed.sh to populate secret/fmp/auth (up to 60s)"
+# ── Step 2: inject real credentials (same as Jenkinsfile + online-watch) ──────
+# Read from backend/auth-service/.env (same source as start-online-watch.sh).
+# `kubectl set env` patches the Deployment env block, which triggers a new
+# ReplicaSet rollout — the new pod's postStart seed.sh sees the real env vars
+# and writes real values into secret/fmp/auth instead of CHANGE_ME_* defaults.
+info "[vault] reading credentials from backend/auth-service/.env"
+_AUTH_ENV="$ROOT_DIR/backend/auth-service/.env"
+if [ ! -f "$_AUTH_ENV" ]; then
+  err "    ✘ ${_AUTH_ENV} not found — cannot inject real credentials into Vault."
+  err "      Create backend/auth-service/.env with GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / JWT_SECRET."
+  exit 1
+fi
+_FMP_JWT_SECRET=$(grep '^JWT_SECRET='           "$_AUTH_ENV" | cut -d= -f2-)
+_FMP_GOOGLE_CLIENT_ID=$(grep '^GOOGLE_CLIENT_ID='    "$_AUTH_ENV" | cut -d= -f2-)
+_FMP_GOOGLE_CLIENT_SECRET=$(grep '^GOOGLE_CLIENT_SECRET=' "$_AUTH_ENV" | cut -d= -f2-)
+if [ -z "${_FMP_JWT_SECRET:-}" ] || [ -z "${_FMP_GOOGLE_CLIENT_ID:-}" ] || [ -z "${_FMP_GOOGLE_CLIENT_SECRET:-}" ]; then
+  err "    ✘ Could not read JWT_SECRET / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET from ${_AUTH_ENV}."
+  exit 1
+fi
+ok "    ✓ credentials loaded (GOOGLE_CLIENT_ID=${_FMP_GOOGLE_CLIENT_ID:0:30}…)"
+
+info "[vault] injecting real credentials via kubectl set env → triggers re-rollout"
+kubectl set env deployment/vault -n vault \
+  FMP_JWT_SECRET="$_FMP_JWT_SECRET" \
+  FMP_GOOGLE_CLIENT_ID="$_FMP_GOOGLE_CLIENT_ID" \
+  FMP_GOOGLE_CLIENT_SECRET="$_FMP_GOOGLE_CLIENT_SECRET" 2>&1 | sed 's/^/    /'
+
+info "[vault] waiting for Vault rollout (new pod runs seed.sh with real creds, up to 120s)"
+if ! kubectl rollout status deployment/vault -n vault --timeout=120s 2>&1 | sed 's/^/    /'; then
+  err "    ✘ Vault rollout did not complete — see 'kubectl logs -n vault deploy/vault'"
+  exit 1
+fi
+
+# ── Step 3: poll until secret/fmp/auth is re-populated ────────────────────────
+info "[vault] polling for secret/fmp/auth to be re-seeded with real credentials (up to 30s)"
 seeded=0
-for i in $(seq 1 30); do
+for i in $(seq 1 15); do
   if kubectl exec -n vault deploy/vault -- \
        sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' >/dev/null 2>&1; then
-    ok "    ✓ secret/fmp/auth present after ${i} attempts (~$((i*2))s)"
+    ok "    ✓ secret/fmp/auth re-seeded after ${i} attempts (~$((i*2))s)"
     seeded=1
     break
   fi
-  echo "    … waiting for Vault seed ($i/30)"
+  echo "    … waiting for Vault re-seed ($i/15)"
   sleep 2
 done
 if [ "$seeded" -eq 0 ]; then
-  err "    ✘ Vault never seeded secret/fmp/auth — check 'kubectl logs -n vault deploy/vault'"
+  err "    ✘ Vault never re-seeded secret/fmp/auth — check 'kubectl logs -n vault deploy/vault'"
   exit 1
 fi
 
