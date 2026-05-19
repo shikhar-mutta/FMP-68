@@ -96,6 +96,36 @@ docker network rm fmp-net >/dev/null 2>&1 || true
 echo "▶ Deploying Vault FIRST (compose needs real JWT/GOOGLE secrets at boot)…"
 ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/  /'
 
+# Mirror what the Jenkins fmp-infra pipeline does: inject real credentials via
+# `kubectl set env` so the new pod's postStart seed.sh writes real values into
+# Vault. Without this step, seed.sh falls back to CHANGE_ME_* placeholders and
+# every Google sign-in fails with 401 invalid_client.
+echo "▶ Injecting real credentials into Vault pod…"
+_AUTH_ENV="backend/auth-service/.env"
+if [ ! -f "$_AUTH_ENV" ]; then
+  echo "✖ ${_AUTH_ENV} not found — cannot inject real credentials into Vault."
+  exit 1
+fi
+_FMP_JWT_SECRET=$(grep '^JWT_SECRET=' "$_AUTH_ENV" | cut -d= -f2-)
+_FMP_GOOGLE_CLIENT_ID=$(grep '^GOOGLE_CLIENT_ID=' "$_AUTH_ENV" | cut -d= -f2-)
+_FMP_GOOGLE_CLIENT_SECRET=$(grep '^GOOGLE_CLIENT_SECRET=' "$_AUTH_ENV" | cut -d= -f2-)
+if [ -z "${_FMP_JWT_SECRET:-}" ] || [ -z "${_FMP_GOOGLE_CLIENT_ID:-}" ] || [ -z "${_FMP_GOOGLE_CLIENT_SECRET:-}" ]; then
+  echo "✖ Could not read JWT_SECRET / GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET from ${_AUTH_ENV}."
+  exit 1
+fi
+kubectl set env deployment/vault -n vault \
+  FMP_JWT_SECRET="$_FMP_JWT_SECRET" \
+  FMP_GOOGLE_CLIENT_ID="$_FMP_GOOGLE_CLIENT_ID" \
+  FMP_GOOGLE_CLIENT_SECRET="$_FMP_GOOGLE_CLIENT_SECRET"
+kubectl rollout status deployment/vault -n vault --timeout=120s
+# Poll for seed.sh to repopulate secret/fmp/auth in the new pod.
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  kubectl exec -n vault deploy/vault -- \
+    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' \
+    >/dev/null 2>&1 && break || sleep 2
+done
+echo "  ✓ Vault re-seeded with real credentials."
+
 echo "▶ Fetching JWT + GOOGLE secrets from Vault → shell env…"
 # Fail-hard if the read fails: a half-set env would re-introduce the
 # exact "sign-in not working" bug we're fixing here.
