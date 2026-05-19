@@ -1,0 +1,114 @@
+# ─────────────────────────────────────────────────────────────
+# HashiCorp Vault — dev mode, in-cluster secrets store
+#
+# Dev mode runs entirely in-memory with auto-unseal and a fixed
+# root token ('fmp-dev-root'). NOT for production, but good enough
+# to demonstrate the workflow:
+#
+#   1. Vault stores JWT_SECRET, GOOGLE_CLIENT_SECRET, MONGODB_PASSWORD
+#      at kv-v2 path  secret/fmp/<key>
+#   2. Services fetch them at boot via the Vault HTTP API
+#      (or via the Vault Agent Injector for production).
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+  labels:
+    app.kubernetes.io/part-of: fmp-68
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-seed
+  namespace: vault
+data:
+  # Run on Vault boot: write the secrets we want under secret/fmp/*
+  seed.sh: |
+    #!/bin/sh
+    set -eu
+    export VAULT_ADDR=http://127.0.0.1:8200
+    export VAULT_TOKEN=fmp-dev-root
+    # Wait for Vault to be ready
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      vault status >/dev/null 2>&1 && break || sleep 2
+    done
+    # kv-v2 mount is enabled by default at 'secret/' in dev mode.
+    # Real credentials are read from env vars at boot time — supply
+    # them via the Vault Deployment's env: section before applying
+    # (or kubectl set env / Helm values in production).
+    vault kv put secret/fmp/auth \
+      jwt_secret="${FMP_JWT_SECRET:-CHANGE_ME_JWT_SECRET}" \
+      google_client_id="${FMP_GOOGLE_CLIENT_ID:-CHANGE_ME_GOOGLE_CLIENT_ID}" \
+      google_client_secret="${FMP_GOOGLE_CLIENT_SECRET:-CHANGE_ME_GOOGLE_CLIENT_SECRET}"
+    vault kv put secret/fmp/db \
+      mongodb_uri="mongodb://mongo-external:27017/fmp68?replicaSet=rs0&directConnection=true"
+    vault kv put secret/fmp/rabbitmq \
+      url="amqp://guest:guest@rabbitmq.fmp.svc.cluster.local:5672"
+    echo "✅ Seeded secret/fmp/{auth,db,rabbitmq}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: vault
+  labels: { app: vault }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: vault }
+  template:
+    metadata:
+      labels: { app: vault }
+    spec:
+      containers:
+        - name: vault
+          image: hashicorp/vault:1.16
+          args: ["server", "-dev", "-dev-root-token-id=fmp-dev-root", "-dev-listen-address=0.0.0.0:8200"]
+          ports:
+            - { name: http, containerPort: 8200 }
+          env:
+            - { name: VAULT_DEV_ROOT_TOKEN_ID, value: "fmp-dev-root" }
+            - { name: VAULT_ADDR,              value: "http://127.0.0.1:8200" }
+            # FMP_JWT_SECRET / FMP_GOOGLE_CLIENT_ID / FMP_GOOGLE_CLIENT_SECRET
+            # are injected at deploy time via `kubectl set env`. The Jenkins
+            # fmp-infra pipeline (Bootstrap Vault stage) reads them from
+            # Jenkins text credentials and patches this deployment before
+            # postStart seed.sh runs. If you apply this manifest manually
+            # without that patch, seed.sh falls back to the CHANGE_ME_*
+            # defaults in the configmap.
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          resources:
+            requests: { cpu: "50m",  memory: "128Mi" }
+            limits:   { cpu: "300m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /v1/sys/health, port: 8200 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          # Sidecar-style seeding via lifecycle postStart hook
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - sh
+                  - /vault/seed/seed.sh
+          volumeMounts:
+            - { name: seed, mountPath: /vault/seed }
+      volumes:
+        - name: seed
+          configMap:
+            name: vault-seed
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  selector: { app: vault }
+  ports:
+    - { name: http, port: 8200, targetPort: 8200 }
+# Access via: kubectl port-forward -n vault svc/vault 8200:8200

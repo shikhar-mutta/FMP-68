@@ -77,34 +77,79 @@ pipeline {
             }
         }
 
-        stage('Ensure Secrets') {
+        stage('Bootstrap Vault + fmp-secret') {
             steps {
                 script {
                     try {
-                        // backend/k8s/vault/vault.yaml is gitignored (contains the
-                        // raw OAuth client secret + JWT secret inline). Instead of
-                        // running the Vault → fmp-secret bridge from start-k8s.sh
-                        // inside CI, we create the secret directly from Jenkins
-                        // text credentials. Same shape (5 keys), same downstream
-                        // consumers (every fmp-* deployment's envFrom: fmp-secret).
-                        // Idempotent — `kubectl apply` of a dry-run secret YAML.
+                        // Vault → fmp-secret bridge (same pattern as start-k8s.sh).
+                        // Step 1: apply vault.yaml (creates vault namespace, seed
+                        //         configmap, deployment, service — without real
+                        //         secret env values).
+                        // Step 2: kubectl set env to inject FMP_JWT_SECRET /
+                        //         FMP_GOOGLE_CLIENT_{ID,SECRET} from Jenkins text
+                        //         credentials. This triggers a new rollout; the
+                        //         new pod's postStart seed.sh sees the real env.
+                        // Step 3: wait for vault to be Ready and seed.sh to land
+                        //         secret/fmp/auth in Vault.
+                        // Step 4: fetch the 3 KV paths from Vault and write
+                        //         fmp-secret in the fmp namespace.
+                        sh 'kubectl apply -f backend/k8s/vault/vault.yaml'
+
                         withCredentials([
-                            string(credentialsId: 'fmp-jwt-secret',          variable: 'JWT_SECRET'),
-                            string(credentialsId: 'fmp-google-client-id',    variable: 'GOOGLE_CLIENT_ID'),
-                            string(credentialsId: 'fmp-google-client-secret',variable: 'GOOGLE_CLIENT_SECRET')
+                            string(credentialsId: 'fmp-jwt-secret',           variable: 'JWT_SECRET'),
+                            string(credentialsId: 'fmp-google-client-id',     variable: 'GOOGLE_CLIENT_ID'),
+                            string(credentialsId: 'fmp-google-client-secret', variable: 'GOOGLE_CLIENT_SECRET')
                         ]) {
                             sh '''
+                                # Inject real secret env vars and wait for new ReplicaSet.
+                                kubectl set env deployment/vault -n vault \
+                                    FMP_JWT_SECRET="$JWT_SECRET" \
+                                    FMP_GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+                                    FMP_GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET"
+                                kubectl rollout status deployment/vault -n vault --timeout=120s
+
+                                # Wait for postStart seed.sh to populate secret/fmp/auth.
+                                # The lifecycle hook runs after the container starts, so
+                                # poll with a small budget.
+                                for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+                                    if kubectl exec -n vault deploy/vault -- \
+                                        sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' \
+                                        >/dev/null 2>&1; then
+                                        echo "Vault seeded after ${i}s."
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+
+                                # Fetch all 3 KV entries and rebuild fmp-secret.
+                                JWT_FROM_VAULT=$(kubectl exec -n vault deploy/vault -- \
+                                    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' \
+                                    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['data']['jwt_secret'])")
+                                GCI_FROM_VAULT=$(kubectl exec -n vault deploy/vault -- \
+                                    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' \
+                                    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['data']['google_client_id'])")
+                                GCS_FROM_VAULT=$(kubectl exec -n vault deploy/vault -- \
+                                    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/auth' \
+                                    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['data']['google_client_secret'])")
+                                DB_FROM_VAULT=$(kubectl exec -n vault deploy/vault -- \
+                                    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/db' \
+                                    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['data']['mongodb_uri'])")
+                                RMQ_FROM_VAULT=$(kubectl exec -n vault deploy/vault -- \
+                                    sh -c 'VAULT_TOKEN=fmp-dev-root vault kv get -format=json secret/fmp/rabbitmq' \
+                                    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['data']['url'])")
+
                                 kubectl create secret generic fmp-secret -n fmp \
-                                    --from-literal=JWT_SECRET="$JWT_SECRET" \
-                                    --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-                                    --from-literal=GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-                                    --from-literal=DATABASE_URL="mongodb://mongo-external:27017/fmp68?replicaSet=rs0&directConnection=true" \
-                                    --from-literal=RABBITMQ_URL="amqp://guest:guest@rabbitmq.fmp.svc.cluster.local:5672" \
+                                    --from-literal=JWT_SECRET="$JWT_FROM_VAULT" \
+                                    --from-literal=GOOGLE_CLIENT_ID="$GCI_FROM_VAULT" \
+                                    --from-literal=GOOGLE_CLIENT_SECRET="$GCS_FROM_VAULT" \
+                                    --from-literal=DATABASE_URL="$DB_FROM_VAULT" \
+                                    --from-literal=RABBITMQ_URL="$RMQ_FROM_VAULT" \
                                     --dry-run=client -o yaml | kubectl apply -f -
+                                echo "✅ fmp-secret rebuilt from Vault (5 keys)."
                             '''
                         }
                     } catch (Exception e) {
-                        currentBuild.description = 'Failed Stage: Ensure Secrets\nReason: ' + e.getMessage()
+                        currentBuild.description = 'Failed Stage: Bootstrap Vault + fmp-secret\nReason: ' + e.getMessage()
                         throw e
                     }
                 }
