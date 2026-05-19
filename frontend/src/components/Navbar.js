@@ -132,7 +132,7 @@ export default function Navbar({ onMenuOpen } = {}) {
       ) : (
         <div className="navbar-hamburger" aria-hidden="true" style={{ visibility : 'hidden', pointerEvents: 'none' }} />
       )}
-      <div className="navbar-brand">FMP-68</div>
+      <div className="navbar-brand">FMP-69</div>
 
       {user && (
         <div className="navbar-user">

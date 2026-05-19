@@ -73,7 +73,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <AppIcon />
-        <h1 className="login-logo">FMP-68</h1>
+        <h1 className="login-logo">FMP-69</h1>
         <p className="login-subtitle">
           Sign in to access your dashboard and see<br />
           who's online in real-time.
