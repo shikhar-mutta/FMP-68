@@ -387,9 +387,83 @@ describe('FollowRequestsPanel', () => {
     ];
     followRequestService.getPendingFollowRequests.mockResolvedValue(mockRequests);
     render(<FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
-    
+
     await waitFor(() => {
       expect(screen.getByText('User 2')).toBeInTheDocument();
     });
+  });
+
+  it('should handle approve error without showToast', async () => {
+    const mockRequests = [
+      {
+        pathId: 'path-1',
+        followerId: 'user-2',
+        pathTitle: 'Trail 1',
+        follower: { name: 'User 2', email: 'user2@example.com' },
+      },
+    ];
+    followRequestService.getPendingFollowRequests.mockResolvedValue(mockRequests);
+    followRequestService.approveFollowRequest.mockRejectedValue(new Error('Approval failed'));
+
+    render(<FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('✓ Approve')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error: Approval failed/)).toBeInTheDocument();
+    });
+  });
+
+  it('should handle reject error without showToast', async () => {
+    const mockRequests = [
+      {
+        pathId: 'path-1',
+        followerId: 'user-2',
+        pathTitle: 'Trail 1',
+        follower: { name: 'User 2', email: 'user2@example.com' },
+      },
+    ];
+    followRequestService.getPendingFollowRequests.mockResolvedValue(mockRequests);
+    followRequestService.rejectFollowRequest.mockRejectedValue(new Error('Reject failed'));
+
+    render(<FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('✕ Reject')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✕ Reject'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error: Reject failed/)).toBeInTheDocument();
+    });
+  });
+
+  it('should skip clearInterval when pollingRef was not set (null return from setInterval)', async () => {
+    // When setInterval returns a falsy value (0 or null), the cleanup should not call clearInterval
+    // We test by verifying the component still unmounts cleanly
+    const intervalSpy = jest.spyOn(global, 'setInterval').mockReturnValue(0); // 0 is falsy
+    followRequestService.getPendingFollowRequests.mockResolvedValue([]);
+
+    const { unmount } = render(
+      <FollowRequestsPanel currentUserId="user-1" onRefresh={jest.fn()} />
+    );
+
+    await waitFor(() =>
+      expect(followRequestService.getPendingFollowRequests).toHaveBeenCalled()
+    );
+
+    // Unmount should not throw even when pollingRef.current is falsy
+    expect(() => unmount()).not.toThrow();
+
+    intervalSpy.mockRestore();
   });
 });

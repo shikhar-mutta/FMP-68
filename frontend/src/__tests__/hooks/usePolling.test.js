@@ -192,4 +192,47 @@ describe('usePolling', () => {
 
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
+
+  it('uses default parameters when called with only fetchFunction', () => {
+    const fetchFn = jest.fn();
+
+    // Call with only fetchFunction — uses defaults: interval=3000, enabled=true, dependencies=[]
+    renderHook(() => usePolling(fetchFn));
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears existing interval when toggled from enabled to disabled with an active interval', () => {
+    const fetchFn = jest.fn();
+
+    const { rerender } = renderHook(
+      ({ enabled }) => usePolling(fetchFn, 1000, enabled, []),
+      { initialProps: { enabled: true } }
+    );
+
+    // interval is running — fetchFn called once on mount
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+
+    // Advance partway through interval
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    // Disable polling — should clearInterval the existing one
+    rerender({ enabled: false });
+
+    // The cleanup in useEffect runs: if (intervalRef.current) clearInterval(...)
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    // Should still be 1 — no more calls after disable
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
 });

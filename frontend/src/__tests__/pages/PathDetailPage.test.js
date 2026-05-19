@@ -855,10 +855,220 @@ describe('PathDetailPage', () => {
     expect(window.showToast).toHaveBeenCalledWith('You have unfollowed this path', 'info');
   });
 
+  it('should show unknown status badge when path has unrecognized status', async () => {
+    const unknownStatusPath = { ...mockPath, status: 'unknown_status_xyz' };
+    apiClient.get = jest.fn().mockResolvedValue({ data: unknownStatusPath });
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      // Falls back to STATUS_LABELS.idle
+      expect(screen.getByText(/⚪ Not Started/)).toBeInTheDocument();
+    });
+  });
+
+  it('should show "Unknown" when publisher has no name', async () => {
+    const pathNoPublisherName = {
+      ...mockPath,
+      publisher: { name: null },
+    };
+    apiClient.get = jest.fn().mockResolvedValue({ data: pathNoPublisherName });
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Unknown')).toBeInTheDocument();
+    });
+  });
+
+  it('should show "?" for follower request avatar fallback when follower has no name', async () => {
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([
+      {
+        followerId: 'user-3',
+        follower: { name: null, email: 'anon@example.com', picture: null },
+      },
+    ]);
+
+    const { container } = render(<PathDetailPage />);
+    await waitFor(() => {
+      const fallback = container.querySelector('.pd-avatar-fallback');
+      expect(fallback).toBeInTheDocument();
+      expect(fallback.textContent).toBe('?');
+    });
+  });
+
+  it('handleApprove calls showToast on success when window.showToast is defined', async () => {
+    window.showToast = jest.fn();
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([
+      {
+        followerId: 'user-3',
+        follower: { name: 'Jane', email: 'jane@example.com' },
+      },
+    ]);
+    followRequestService.approveFollowRequest = jest.fn().mockResolvedValue({});
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('✓ Approve')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('✓ Follow request approved!', 'success');
+    });
+  });
+
+  it('handleApprove calls showToast on error when window.showToast is defined', async () => {
+    window.showToast = jest.fn();
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([
+      {
+        followerId: 'user-3',
+        follower: { name: 'Jane', email: 'jane@example.com' },
+      },
+    ]);
+    followRequestService.approveFollowRequest = jest.fn().mockRejectedValue(new Error('fail'));
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('✓ Approve')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✓ Approve'));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('Failed to approve request', 'error');
+    });
+  });
+
+  it('handleReject calls showToast on success when window.showToast is defined', async () => {
+    window.showToast = jest.fn();
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([
+      {
+        followerId: 'user-3',
+        follower: { name: 'Jane', email: 'jane@example.com' },
+      },
+    ]);
+    followRequestService.rejectFollowRequest = jest.fn().mockResolvedValue({});
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('✗ Reject')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('✕ Follow request rejected', 'warning');
+    });
+  });
+
+  it('handleReject calls showToast on error when window.showToast is defined', async () => {
+    window.showToast = jest.fn();
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([
+      {
+        followerId: 'user-3',
+        follower: { name: 'Jane', email: 'jane@example.com' },
+      },
+    ]);
+    followRequestService.rejectFollowRequest = jest.fn().mockRejectedValue(new Error('fail'));
+
+    render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('✗ Reject')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('✗ Reject'));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('Failed to reject request', 'error');
+    });
+  });
+
+  it('should handle skipLoading=true and still set error when fetch fails', async () => {
+    // First load succeeds, then refresh (skipLoading=true) fails
+    apiClient.get = jest.fn()
+      .mockResolvedValueOnce({ data: mockPath })
+      .mockRejectedValueOnce(new Error('Refresh failed'));
+    followRequestService.getFollowRequestsForPath = jest.fn().mockResolvedValue([]);
+
+    const { container } = render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.pd-refresh-btn')).toBeInTheDocument();
+    });
+
+    // The console.error for the second call
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    // Click refresh (calls fetchPathAndRequests(true) — skipLoading=true)
+    await act(async () => {
+      fireEvent.click(container.querySelector('.pd-refresh-btn'));
+    });
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('should prevent double-unfollow when unfollowing is already in progress', async () => {
+    // Simulate slow unfollow
+    followerService.unfollowPath = jest.fn(() => new Promise(() => {}));
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+
+    const { container } = render(<PathDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-yes')).toBeInTheDocument();
+    });
+
+    // Click Yes twice quickly — second click should be no-op (unfollowing guard)
+    fireEvent.click(container.querySelector('.pd-unfollow-confirm-yes'));
+    fireEvent.click(container.querySelector('.pd-unfollow-confirm-yes'));
+
+    // unfollowPath called only once (second click is blocked by `if (unfollowing) return`)
+    expect(followerService.unfollowPath).toHaveBeenCalledTimes(1);
+  });
+
+  it('handleUnfollow shows error toast without message when error has no message', async () => {
+    window.showToast = jest.fn();
+    followerService.unfollowPath = jest.fn().mockRejectedValue(new Error(''));
+    useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
+
+    const { container } = render(<PathDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/✕ Unfollow Path/));
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-yes')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(container.querySelector('.pd-unfollow-confirm-yes'));
+    });
+
+    await waitFor(() => {
+      expect(window.showToast).toHaveBeenCalledWith('Failed to unfollow path', 'error');
+    });
+  });
+
   it('should NOT unfollow when user cancels the confirm dialog', async () => {
     window.confirm = jest.fn(() => false);
     useAuth.mockReturnValue({ user: { id: 'user-2', name: 'Jane' } });
-    render(<PathDetailPage />);
+    const { container } = render(<PathDetailPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/✕ Unfollow Path/)).toBeInTheDocument();
@@ -866,8 +1076,16 @@ describe('PathDetailPage', () => {
 
     fireEvent.click(screen.getByText(/✕ Unfollow Path/));
 
+    // The confirm dialog should be shown; clicking Cancel hides it
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-no')).toBeInTheDocument();
+    });
+    fireEvent.click(container.querySelector('.pd-unfollow-confirm-no'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.pd-unfollow-confirm-no')).not.toBeInTheDocument();
+    });
     expect(followerService.unfollowPath).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard');
   });
 
   it('should show error toast when unfollow fails', async () => {

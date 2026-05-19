@@ -10,6 +10,7 @@ jest.mock('ioredis', () => {
     lrange: jest.fn(),
     quit: jest.fn(),
     disconnect: jest.fn(),
+    del: jest.fn().mockResolvedValue(1),
   }));
   return { __esModule: true, default: RedisMock };
 });
@@ -102,6 +103,29 @@ describe('TrailCacheService', () => {
         throw new Error('redis-down');
       });
       await expect(svc.appendCoord('p1', coord)).resolves.toBeUndefined();
+    });
+
+    it('swallows errors when exec() rejects', async () => {
+      const exec = jest.fn().mockRejectedValue(new Error('exec-failed'));
+      const expire = jest.fn().mockReturnValue({ exec });
+      const ltrim = jest.fn().mockReturnValue({ expire });
+      const lpush = jest.fn().mockReturnValue({ ltrim });
+      client.pipeline.mockReturnValue({ lpush });
+      await expect(svc.appendCoord('p1', coord)).resolves.toBeUndefined();
+      expect(exec).toHaveBeenCalled();
+    });
+  });
+
+  describe('clearTrail', () => {
+    it('calls client.del to remove the cached trail', () => {
+      svc.clearTrail('p1');
+      expect(client.del).toHaveBeenCalledWith('trail:p1');
+    });
+
+    it('swallows errors from del so a cache outage is silent', async () => {
+      client.del.mockReturnValue(Promise.reject(new Error('del-failed')));
+      expect(() => svc.clearTrail('p1')).not.toThrow();
+      await Promise.resolve();
     });
   });
 

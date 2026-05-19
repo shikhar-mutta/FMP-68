@@ -185,6 +185,49 @@ describe('gpsService', () => {
       expect(onError).toHaveBeenCalledWith(error);
     });
 
+    it('suppresses repeated TIMEOUT errors (code 3) after first one', () => {
+      const onError = jest.fn();
+      let errorCallback;
+
+      geolocationMock.watchPosition.mockImplementation((success, error) => {
+        errorCallback = error;
+        return 4;
+      });
+
+      jest.spyOn(console, 'error').mockImplementation();
+
+      watchPosition(jest.fn(), onError);
+
+      const timeoutError = { code: 3, message: 'Timeout' };
+      errorCallback(timeoutError); // first TIMEOUT — should call onError
+      expect(onError).toHaveBeenCalledTimes(1);
+
+      errorCallback(timeoutError); // second TIMEOUT — should be suppressed
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports non-TIMEOUT errors regardless of previous TIMEOUT', () => {
+      const onError = jest.fn();
+      let errorCallback;
+
+      geolocationMock.watchPosition.mockImplementation((success, error) => {
+        errorCallback = error;
+        return 5;
+      });
+
+      jest.spyOn(console, 'error').mockImplementation();
+
+      watchPosition(jest.fn(), onError);
+
+      const timeoutError = { code: 3, message: 'Timeout' };
+      errorCallback(timeoutError); // marks timeoutNotified = true
+      expect(onError).toHaveBeenCalledTimes(1);
+
+      const permError = { code: 1, message: 'Permission denied' };
+      errorCallback(permError); // non-TIMEOUT should still fire
+      expect(onError).toHaveBeenCalledTimes(2);
+    });
+
     it('returns function that stops watching', () => {
       geolocationMock.watchPosition.mockReturnValue(99);
 

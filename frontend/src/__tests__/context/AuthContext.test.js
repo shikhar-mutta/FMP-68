@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import axios from 'axios';
 import { AuthProvider, useAuth } from '../../context/AuthContext';
 
@@ -308,5 +308,133 @@ describe('AuthContext', () => {
     render(<TestComponent />);
 
     expect(screen.getByText(/useAuth must be used inside/i)).toBeInTheDocument();
+  });
+
+  it('should refresh user data when refreshUser is called with a valid token', async () => {
+    localStorage.setItem('fmp68_token', 'test-token');
+    const updatedUser = { id: 'user-1', name: 'John Updated' };
+    axios.get.mockResolvedValue({ data: updatedUser });
+
+    const TestComponent = () => {
+      const { user, refreshUser } = useAuth();
+      return (
+        <div>
+          <div data-testid="user-name">{user?.name || 'none'}</div>
+          <button onClick={refreshUser}>Refresh</button>
+        </div>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-name').textContent).toBe('John Updated');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Refresh/i }));
+
+    await waitFor(() => {
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/me'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  it('should not call API in refreshUser when token is missing', async () => {
+    localStorage.removeItem('fmp68_token');
+    axios.get.mockResolvedValue({ data: {} });
+
+    const TestComponent = () => {
+      const { refreshUser } = useAuth();
+      return <button onClick={refreshUser}>Refresh</button>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Refresh/i }));
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(axios.get).not.toHaveBeenCalled();
+  });
+
+  it('should update user state after refreshUser resolves', async () => {
+    localStorage.setItem('fmp68_token', 'test-token');
+    axios.get
+      .mockResolvedValueOnce({ data: { id: 'user-1', name: 'Original' } })
+      .mockResolvedValueOnce({ data: { id: 'user-1', name: 'Refreshed' } });
+
+    const TestComponent = () => {
+      const { user, refreshUser } = useAuth();
+      return (
+        <div>
+          <span data-testid="name">{user?.name}</span>
+          <button onClick={refreshUser}>Refresh</button>
+        </div>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('name').textContent).toBe('Original');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Refresh/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('name').textContent).toBe('Refreshed');
+    });
+  });
+
+  it('should handle signOut error silently and still clear token', async () => {
+    localStorage.setItem('fmp68_token', 'test-token');
+    axios.get.mockResolvedValue({ data: { id: 'user-1', name: 'John' } });
+    axios.post.mockRejectedValue(new Error('Network error'));
+
+    const TestComponent = () => {
+      const { signOut } = useAuth();
+      return <button onClick={signOut}>Sign Out</button>;
+    };
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button'));
+    });
+
+    expect(localStorage.getItem('fmp68_token')).toBeNull();
+  });
+
+  it('should use REACT_APP_API_URL env var when set (covers truthy branch of API constant)', () => {
+    const originalEnv = process.env.REACT_APP_API_URL;
+    process.env.REACT_APP_API_URL = 'http://custom-auth:8080';
+
+    // jest.isolateModules re-executes the module so line-4's truthy branch is hit
+    jest.isolateModules(() => {
+      const mod = require('../../context/AuthContext');
+      // Minimal smoke-check: module loaded with custom API url
+      expect(mod.AuthProvider).toBeDefined();
+      expect(mod.useAuth).toBeDefined();
+    });
+
+    process.env.REACT_APP_API_URL = originalEnv;
   });
 });

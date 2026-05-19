@@ -204,4 +204,83 @@ describe('ToastContext', () => {
       expect(getByTestId('toast-error')).toBeInTheDocument();
     });
   });
+
+  it('should use default duration (3000ms) when no duration is provided', async () => {
+    jest.useFakeTimers();
+
+    const TestComponent = () => {
+      const { toasts, addToast } = useToast();
+
+      React.useEffect(() => {
+        // Call with only message — uses defaults: type='info', duration=3000, onClick=null
+        addToast('Default duration toast');
+      }, [addToast]);
+
+      return <div data-testid="toast-count">{toasts.length}</div>;
+    };
+
+    const { getByTestId } = render(
+      <ToastProvider>
+        <TestComponent />
+      </ToastProvider>
+    );
+
+    expect(getByTestId('toast-count').textContent).toBe('1');
+
+    // Before 3 seconds — toast still present
+    await act(async () => {
+      jest.advanceTimersByTime(2999);
+    });
+    expect(getByTestId('toast-count').textContent).toBe('1');
+
+    // After 3 seconds — toast should be removed
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('toast-count').textContent).toBe('0');
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('should support onClick callback on toast', async () => {
+    const onClick = jest.fn();
+
+    const TestComponent = () => {
+      const { toasts, addToast } = useToast();
+
+      React.useEffect(() => {
+        addToast('Clickable toast', 'info', 0, onClick);
+      }, [addToast]);
+
+      return (
+        <div>
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              data-testid="toast-item"
+              onClick={toast.onClick}
+            >
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      );
+    };
+
+    const { getByTestId } = render(
+      <ToastProvider>
+        <TestComponent />
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('toast-item')).toBeInTheDocument();
+    });
+
+    fireEvent.click(getByTestId('toast-item'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
 });

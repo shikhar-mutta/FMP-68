@@ -35,7 +35,11 @@ jest.mock('axios', () => {
   };
 });
 
-jest.mock('../../components/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
+jest.mock('../../components/Navbar', () => ({ onMenuOpen }) => (
+  <div data-testid="navbar">
+    <button data-testid="open-menu" onClick={onMenuOpen}>Menu</button>
+  </div>
+));
 jest.mock('../../components/UserCard', () => ({ user }) => (
   <div data-testid="user-card">{user.name || 'User'}</div>
 ));
@@ -54,13 +58,15 @@ jest.mock('../../components/PathPublishForm', () => ({ onPathPublished }) => (
     </button>
   </div>
 ));
-jest.mock('../../components/PathCard', () => ({ path, isFollowing, onFollowChange, onRequestSent }) => (
+jest.mock('../../components/PathCard', () => ({ path, isFollowing, onFollowChange, onRequestSent, onPathUpdated, onPathDeleted }) => (
   <div data-testid="path-card">
     <span>{path.name}</span>
     <span data-testid="follow-state">{isFollowing ? 'following' : 'not-following'}</span>
     <button onClick={() => onFollowChange(path.id, true)}>Follow</button>
     <button onClick={() => onFollowChange(path.id, false)}>Unfollow</button>
     <button onClick={() => onRequestSent(path.id)}>Request</button>
+    <button onClick={() => onPathUpdated && onPathUpdated({ ...path, name: 'Updated Path' })}>Update Path</button>
+    <button onClick={() => onPathDeleted && onPathDeleted(path.id)}>Delete Path</button>
   </div>
 ));
 jest.mock('../../components/RequestSummaryModalPanel', () => () => (
@@ -644,5 +650,132 @@ describe('DashboardPage', () => {
 
     expect(removeSpy).toHaveBeenCalled();
     removeSpy.mockRestore();
+  });
+
+  it('should open sidebar when Navbar menu button is clicked', async () => {
+    const { container } = render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('open-menu')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs.open')).toBeInTheDocument();
+    });
+  });
+
+  it('should close sidebar when backdrop is clicked', async () => {
+    const { container } = render(<DashboardPage />);
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs-overlay')).toBeInTheDocument();
+    });
+
+    fireEvent.click(container.querySelector('.dashboard-tabs-overlay'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs-overlay')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should close sidebar when close button is clicked', async () => {
+    const { container } = render(<DashboardPage />);
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs.open')).toBeInTheDocument();
+    });
+
+    fireEvent.click(container.querySelector('.dashboard-tabs-close'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs.open')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should call signOut and close sidebar when ds-signout button is clicked', async () => {
+    const { container } = render(<DashboardPage />);
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.ds-signout')).toBeInTheDocument();
+    });
+
+    fireEvent.click(container.querySelector('.ds-signout'));
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalled();
+    });
+
+    expect(container.querySelector('.dashboard-tabs.open')).not.toBeInTheDocument();
+  });
+
+  it('should render user picture in sidebar when user has a picture', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1', name: 'John Doe', picture: 'https://example.com/pic.jpg' },
+      signOut: mockSignOut,
+    });
+
+    const { container } = render(<DashboardPage />);
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      const img = container.querySelector('.ds-profile-avatar');
+      expect(img).toBeInTheDocument();
+      expect(img.getAttribute('src')).toBe('https://example.com/pic.jpg');
+    });
+  });
+
+  it('should update path in list when handlePathUpdated is called', async () => {
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Path 1')).toBeInTheDocument();
+    });
+
+    const updateButtons = screen.getAllByText('Update Path');
+    fireEvent.click(updateButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Updated Path')).toBeInTheDocument();
+    });
+  });
+
+  it('should remove path from list when handlePathDeleted is called', async () => {
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Path 1')).toBeInTheDocument();
+    });
+
+    const deleteButtons = screen.getAllByText('Delete Path');
+    fireEvent.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Path 1')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should close sidebar when a tab is selected', async () => {
+    const { container } = render(<DashboardPage />);
+
+    fireEvent.click(screen.getByTestId('open-menu'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs.open')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /\ud83d\udc65 Users/i }));
+
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard-tabs.open')).not.toBeInTheDocument();
+    });
   });
 });

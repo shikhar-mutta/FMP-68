@@ -305,4 +305,34 @@ describe('socketService', () => {
     off();
     expect(socket.off).toHaveBeenCalledWith('tracking-republished', cb);
   });
+
+  it('disconnectSocket does nothing when socket is already null', () => {
+    // Don't connect — socket starts as null
+    const socket = createSocket(true);
+    const { disconnectSocket } = loadService(socket);
+    // Call without connecting first so internal socket var is still null
+    // We need a fresh module where connectSocket was never called
+    jest.resetModules();
+    const { io } = require('socket.io-client');
+    io.mockReturnValue(socket);
+    const freshService = require('../../services/socketService');
+    // At this point socket is null internally; disconnectSocket should be a no-op
+    expect(() => freshService.disconnectSocket()).not.toThrow();
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('uses REACT_APP_API_URL fallback when env var is not set', () => {
+    jest.resetModules();
+    delete process.env.REACT_APP_API_URL;
+    const socket = createSocket(true);
+    const { io } = require('socket.io-client');
+    io.mockReturnValue(socket);
+    const { connectSocket } = require('../../services/socketService');
+    connectSocket();
+    expect(io).toHaveBeenCalledWith(
+      expect.stringContaining('localhost:4000'),
+      expect.any(Object),
+    );
+    process.env.REACT_APP_API_URL = 'http://api.test';
+  });
 });

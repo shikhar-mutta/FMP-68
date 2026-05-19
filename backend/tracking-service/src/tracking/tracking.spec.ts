@@ -184,6 +184,20 @@ describe('TrackingService', () => {
       });
     });
   });
+
+  describe('republishTrack', () => {
+    it('resets the path to idle and closes all active sessions', async () => {
+      await service.republishTrack('p1');
+      expect(prisma.path.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { status: 'idle', isLive: false, coordinates: [] },
+      });
+      const closeCall = prisma.trackingSession.updateMany.mock.calls[0][0];
+      expect(closeCall.where).toEqual({ pathId: 'p1', isActive: true });
+      expect(closeCall.data.isActive).toBe(false);
+      expect(closeCall.data.endedAt).toBeInstanceOf(Date);
+    });
+  });
 });
 
 // ── from tracking.gateway.spec.ts ──
@@ -216,6 +230,7 @@ describe('TrackingGateway', () => {
       pauseTracking: jest.fn().mockResolvedValue(undefined),
       resumeTracking: jest.fn().mockResolvedValue(undefined),
       endTracking: jest.fn().mockResolvedValue(undefined),
+      republishTrack: jest.fn().mockResolvedValue(undefined),
       joinTracking: jest.fn().mockResolvedValue({
         coordinates: [{ lat: 1, lng: 2 }],
         status: 'recording',
@@ -228,6 +243,7 @@ describe('TrackingGateway', () => {
     const trailCache: any = {
       appendCoord: jest.fn().mockResolvedValue(undefined),
       getRecentTrail: jest.fn().mockResolvedValue([]),
+      clearTrail: jest.fn(),
     };
     gateway = new TrackingGateway(trackingService, trailCache);
     server = makeServer();
@@ -425,6 +441,19 @@ describe('TrackingGateway', () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it('handleLeaveTracking removes the room from userRooms when client was previously tracked', async () => {
+      const client = makeClient();
+      // First join so the room is recorded in userRooms
+      await gateway.handleJoinTracking(client, { pathId: 'p3', userId: 'u2' });
+      // Now leave — removeRoom is called with rooms that exist for this client
+      const result = await gateway.handleLeaveTracking(client, {
+        pathId: 'p3',
+        userId: 'u2',
+      });
+      expect(client.leave).toHaveBeenCalledWith('path-p3');
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('handleGetTrackingData', () => {
@@ -442,6 +471,28 @@ describe('TrackingGateway', () => {
       const result = await gateway.handleGetTrackingData(makeClient(), {
         pathId: 'p1',
       });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('handleRepublishTrack', () => {
+    const data = { pathId: 'p1', userId: 'u1' };
+
+    it('republishes the track, clears the cache, joins the room, and broadcasts', async () => {
+      const client = makeClient();
+      const trailCache = (gateway as any).trailCache;
+      const result = await gateway.handleRepublishTrack(client, data);
+
+      expect(trackingService.republishTrack).toHaveBeenCalledWith('p1');
+      expect(trailCache.clearTrail).toHaveBeenCalledWith('p1');
+      expect(client.join).toHaveBeenCalledWith('path-p1');
+      expect(server.to).toHaveBeenCalledWith('path-p1');
+      expect(result.success).toBe(true);
+    });
+
+    it('returns failure when the service throws', async () => {
+      trackingService.republishTrack.mockRejectedValue(new Error('db-down'));
+      const result = await gateway.handleRepublishTrack(makeClient(), data);
       expect(result.success).toBe(false);
     });
   });

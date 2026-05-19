@@ -533,35 +533,6 @@ export default function LiveTrackingPage() {
     }
   }, [pathId, user?.id, startGpsWatch]);
 
-  // ── Follower: Leave ──────────────────────────────────────
-  const handleLeaveTracking = useCallback(async () => {
-    if (!user?.id) {
-      if (window.showToast) window.showToast('Please log in first', 'error');
-      return;
-    }
-    try {
-      // Leave the tracking session via WebSocket
-      await leaveTracking(pathId, user?.id);
-      
-      // Unfollow the path via API
-      await apiClient.post(`/paths/${pathId}/unfollow`);
-      
-      stopWatching();
-      setCurrentSpeed(0);
-      setFollowerActive(false);
-      setFollowerPaused(false);
-      setFollowerPausePoints([]);
-      clearInterval(timerRef.current);
-      if (window.showToast) window.showToast('✓ Session terminated', 'success');
-      
-      // Navigate back to dashboard
-      navigate('/');
-    } catch (err) {
-      console.error('Error leaving tracking:', err);
-      if (window.showToast) window.showToast('Error stopping follow: ' + err.message, 'error');
-    }
-  }, [pathId, user?.id, navigate]);
-
   // ── Follower: Pause own trip ────────────────────────────
   const handlePauseFollower = useCallback(() => {
     stopWatching();

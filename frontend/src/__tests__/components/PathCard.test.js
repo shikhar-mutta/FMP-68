@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import PathCard from '../../components/PathCard';
 
@@ -719,5 +719,223 @@ describe('PathCard', () => {
       fireEvent.click(container.querySelector('.confirm-keep-btn'));
       expect(container.querySelector('.cancel-confirmation')).toBeFalsy();
     });
+  });
+
+  it('invokes the toast navigate callback when approved request notification is clicked', async () => {
+    // The polling toast has a 4th arg: () => navigate(`/path/${path.id}`)
+    // We need to capture and invoke it to cover that arrow function.
+    const onFollowChange = jest.fn();
+    getSentFollowRequests
+      .mockResolvedValueOnce([{ pathId: 'path-1', status: 'pending' }])
+      .mockResolvedValueOnce([{ pathId: 'path-1', status: 'approved' }]);
+
+    renderCard({ currentUserId: 'user-1', onFollowChange });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(window.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('was approved'),
+      'success',
+      8000,
+      expect.any(Function),
+    );
+
+    // Invoke the navigate callback (4th arg) to cover that line
+    const navigateCb = window.showToast.mock.calls.find(
+      (c) => c[2] === 8000
+    )?.[3];
+    expect(navigateCb).toBeDefined();
+    navigateCb();
+    expect(mockNavigate).toHaveBeenCalledWith('/path/path-1');
+  });
+
+  it('renders publisher username when publisher has username', () => {
+    const { container } = renderCard({
+      currentUserId: 'user-1',
+      path: {
+        publisher: { id: 'pub-1', name: 'Alice', username: 'alice99' },
+      },
+    });
+    const usernameEl = container.querySelector('.publisher-username');
+    expect(usernameEl).toBeTruthy();
+    expect(usernameEl.textContent).toBe('@alice99');
+  });
+
+  it('renders path with followerIds count when followers array is empty', () => {
+    const { container } = renderCard({
+      path: {
+        followerIds: ['f1', 'f2'],
+        followers: [],
+      },
+    });
+    expect(container.querySelector('.path-followers')?.textContent).toContain('2');
+  });
+
+  it('path with no description uses empty string as default for editDescription', () => {
+    const { container } = renderCard({
+      currentUserId: 'pub-1',
+      path: { description: null },
+    });
+    // Open the edit form — editDescription should be ''
+    fireEvent.click(container.querySelector('.edit-btn'));
+    const textarea = container.querySelector('textarea.form-textarea');
+    expect(textarea.value).toBe('');
+  });
+
+  it('publisher avatar image shown when publisher has picture', () => {
+    const { container } = renderCard({
+      path: {
+        publisher: { id: 'pub-2', name: 'Alice', picture: 'https://example.com/alice.jpg' },
+      },
+    });
+    const avatar = container.querySelector('.publisher-avatar:not(.publisher-avatar--initials)');
+    expect(avatar).toBeTruthy();
+  });
+
+  it('approved polling toast not shown when window.showToast is undefined', async () => {
+    delete window.showToast;
+    const onFollowChange = jest.fn();
+    getSentFollowRequests
+      .mockResolvedValueOnce([{ pathId: 'path-1', status: 'pending' }])
+      .mockResolvedValueOnce([{ pathId: 'path-1', status: 'approved' }]);
+
+    renderCard({ currentUserId: 'user-1', onFollowChange });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(onFollowChange).toHaveBeenCalledWith('path-1', true);
+    expect(window.showToast).toBeUndefined();
+  });
+
+  it('republish does not call onPathUpdated when not provided', async () => {
+    apiClient.put.mockResolvedValue({ data: { id: 'path-1', title: 'New' } });
+    const { container } = renderCard({
+      currentUserId: 'pub-1',
+      // no onPathUpdated
+    });
+    fireEvent.click(container.querySelector('.edit-btn'));
+    fireEvent.change(container.querySelector('input.form-input'), {
+      target: { value: 'New' },
+    });
+    await act(async () => {
+      fireEvent.click(container.querySelector('.submit-button'));
+    });
+    // no error — just verify put was called
+    expect(apiClient.put).toHaveBeenCalledWith('/paths/path-1', {
+      title: 'New',
+      description: 'Path description',
+    });
+  });
+
+  it('close button resets description to path.description when path.description is null', () => {
+    const { container } = renderCard({
+      currentUserId: 'pub-1',
+      path: { description: null },
+    });
+    fireEvent.click(container.querySelector('.edit-btn'));
+    const textarea = container.querySelector('textarea.form-textarea');
+    // Change to something
+    fireEvent.change(textarea, { target: { value: 'new desc' } });
+    expect(textarea.value).toBe('new desc');
+    // Click close — should reset to ''
+    fireEvent.click(container.querySelector('.close-button'));
+    // Edit form closed
+    expect(container.querySelector('.path-edit-form')).toBeFalsy();
+  });
+
+  it('disables follow button while unfollow is in progress (loading=true branch)', async () => {
+    // Never resolves — keeps loading=true throughout
+    apiClient.post.mockImplementation(() => new Promise(() => {}));
+    const onFollowChange = jest.fn();
+    const { container } = renderCard({
+      currentUserId: 'user-1',
+      isFollowing: true,
+      onFollowChange,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open the unfollow confirmation dialog
+    fireEvent.click(container.querySelector('.follow-button'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Click "Yes, Unfollow" — triggers handleFollowToggle (loading→true) and
+    // dismisses the confirm dialog (showUnfollowConfirm→false) atomically.
+    // Both state updates are batched so the confirm button is gone by the time
+    // loading becomes true; the follow button is now back and must be disabled.
+    const confirmBtn = container.querySelector('.confirm-cancel-btn');
+    await act(async () => {
+      fireEvent.click(confirmBtn);
+    });
+
+    // Confirm dialog is gone, follow button is back but disabled while loading
+    await waitFor(() => {
+      const followBtn = container.querySelector('.follow-button');
+      expect(followBtn).toBeTruthy();
+      expect(followBtn.disabled).toBe(true);
+    });
+  });
+
+  it('clicking publisher-actions div stops propagation (does not navigate)', () => {
+    const { container } = renderCard({ currentUserId: 'pub-1' });
+    const publisherActions = container.querySelector('.publisher-actions');
+    // Click the publisher-actions div itself (not a button inside it)
+    fireEvent.click(publisherActions);
+    // Card click should NOT navigate (stopPropagation)
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('clicking delete-confirmation div stops propagation', async () => {
+    const { container } = renderCard({ currentUserId: 'pub-1' });
+    // Open delete confirm
+    fireEvent.click(container.querySelector('.delete-btn'));
+    expect(container.querySelector('.delete-confirmation')).toBeTruthy();
+    // Click the delete-confirmation div itself
+    fireEvent.click(container.querySelector('.delete-confirmation'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('clicking cancel-confirmation div stops propagation (unfollow confirm)', async () => {
+    const { container } = renderCard({
+      currentUserId: 'user-1',
+      isFollowing: true,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Show unfollow confirm
+    fireEvent.click(container.querySelector('.follow-button'));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const cancelConfirm = container.querySelector('.cancel-confirmation');
+    expect(cancelConfirm).toBeTruthy();
+
+    // Click the cancel-confirmation div itself (not a button inside)
+    fireEvent.click(cancelConfirm);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

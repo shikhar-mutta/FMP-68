@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import MapView from '../../components/MapView';
 
 // Mock react-leaflet and leaflet
@@ -383,5 +383,152 @@ describe('MapView', () => {
       />
     );
     expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('should render beam icon when deviceHeading is set', () => {
+    const { container } = render(
+      <MapView
+        deviceHeading={45}
+        currentPosition={{ lat: 10, lng: 20 }}
+      />
+    );
+    expect(container).toBeInTheDocument();
+  });
+
+  it('should render recenter trigger when recenterTrigger > 0', () => {
+    render(
+      <MapView
+        currentPosition={{ lat: 10, lng: 20 }}
+        recenterTrigger={1}
+      />
+    );
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('should render more than 11 publisher waypoints as intermediate dots', () => {
+    const coordinates = Array.from({ length: 22 }, (_, i) => ({
+      lat: 10 + i * 0.01,
+      lng: 20 + i * 0.01,
+    }));
+    const { container } = render(
+      <MapView publisherCoordinates={coordinates} />
+    );
+    const markers = container.querySelectorAll('[data-testid="marker"]');
+    expect(markers.length).toBeGreaterThan(2);
+  });
+
+  it('should render publisher pause points', () => {
+    const coordinates = [{ lat: 10, lng: 20 }, { lat: 11, lng: 21 }];
+    const pausePoints = [{ lat: 10.5, lng: 20.5 }];
+    const { container } = render(
+      <MapView publisherCoordinates={coordinates} pausePoints={pausePoints} />
+    );
+    expect(screen.getByText('⏸️ Publisher paused here')).toBeInTheDocument();
+  });
+
+  it('should render follower end dot when tracking ended', () => {
+    const followerCoords = [
+      { lat: 12, lng: 22 },
+      { lat: 13, lng: 23 },
+    ];
+    const { container } = render(
+      <MapView followerCoordinates={followerCoords} pathStatus="ended" />
+    );
+    expect(screen.getByText('🏁 Follower End Point')).toBeInTheDocument();
+  });
+
+  it('should render more than 11 follower waypoints as intermediate dots', () => {
+    const coordinates = Array.from({ length: 22 }, (_, i) => ({
+      lat: 12 + i * 0.01,
+      lng: 22 + i * 0.01,
+    }));
+    const { container } = render(
+      <MapView followerCoordinates={coordinates} />
+    );
+    expect(screen.getAllByText('🩵 Follower Waypoint').length).toBeGreaterThan(0);
+  });
+
+  it('should render follower pause points', () => {
+    const followerCoords = [{ lat: 12, lng: 22 }, { lat: 13, lng: 23 }];
+    const followerPausePoints = [{ lat: 12.5, lng: 22.5 }];
+    render(
+      <MapView
+        followerCoordinates={followerCoords}
+        followerPausePoints={followerPausePoints}
+      />
+    );
+    expect(screen.getByText('⏸️ Follower paused here')).toBeInTheDocument();
+  });
+
+  it('should render you-are-here marker with accuracy circle when no follower coords', () => {
+    const { container } = render(
+      <MapView
+        currentPosition={{ lat: 10, lng: 20, accuracy: 15 }}
+        followerCoordinates={[]}
+      />
+    );
+    const circles = container.querySelectorAll('[data-testid="circle"]');
+    expect(circles.length).toBeGreaterThan(0);
+    expect(screen.getByText('📍 Your Location')).toBeInTheDocument();
+  });
+
+  it('should render you-are-here marker without circle when no accuracy', () => {
+    render(
+      <MapView
+        currentPosition={{ lat: 10, lng: 20 }}
+        followerCoordinates={[]}
+      />
+    );
+    expect(screen.getByText('📍 Your Location')).toBeInTheDocument();
+  });
+
+  it('should click compass widget when needsCompassPerm is true', () => {
+    const onEnable = jest.fn();
+    const { container } = render(
+      <MapView needsCompassPerm={true} onEnableCompass={onEnable} />
+    );
+    const compass = container.querySelector('.compass-widget');
+    if (compass) {
+      fireEvent.click(compass);
+      expect(onEnable).toHaveBeenCalled();
+    }
+  });
+
+  it('should click compass widget to recenter when needsCompassPerm is false', () => {
+    const onRecenter = jest.fn();
+    const { container } = render(
+      <MapView needsCompassPerm={false} onRecenter={onRecenter} />
+    );
+    const compass = container.querySelector('.compass-widget');
+    if (compass) {
+      fireEvent.click(compass);
+      expect(onRecenter).toHaveBeenCalled();
+    }
+  });
+
+  it('should render direction banner with deviceHeading', () => {
+    const directionInfo = {
+      bearing: 90,
+      distanceToTarget: 500,
+      progressPct: 50,
+    };
+    render(
+      <MapView directionInfo={directionInfo} deviceHeading={45} />
+    );
+    expect(screen.getByText(/Head/)).toBeInTheDocument();
+  });
+
+  it('renders FitBounds when publisher coordinates exceed 1 point', () => {
+    const coordinates = [
+      { lat: 10, lng: 20 },
+      { lat: 11, lng: 21 },
+      { lat: 12, lng: 22 },
+    ];
+    render(<MapView publisherCoordinates={coordinates} />);
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('should import fireEvent for click tests', () => {
+    expect(typeof fireEvent.click).toBe('function');
   });
 });

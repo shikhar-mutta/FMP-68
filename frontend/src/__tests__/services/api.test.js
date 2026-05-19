@@ -49,6 +49,32 @@ describe('apiClient service', () => {
       const { API_BASE_URL } = require('../../services/api');
       expect(API_BASE_URL).toBe('http://localhost:4000');
     });
+
+    it('should use REACT_APP_API_URL env var when set', () => {
+      const originalEnv = process.env.REACT_APP_API_URL;
+      process.env.REACT_APP_API_URL = 'http://custom-api:5000';
+
+      jest.resetModules();
+
+      const requestInterceptors2 = { use: jest.fn() };
+      const responseInterceptors2 = { use: jest.fn() };
+      const mockInstance2 = {
+        interceptors: {
+          request: requestInterceptors2,
+          response: responseInterceptors2,
+        },
+      };
+      // Re-mock axios for the fresh require
+      jest.mock('axios');
+      const freshAxios = require('axios');
+      freshAxios.create = jest.fn().mockReturnValue(mockInstance2);
+
+      const { API_BASE_URL } = require('../../services/api');
+      expect(API_BASE_URL).toBe('http://custom-api:5000');
+
+      process.env.REACT_APP_API_URL = originalEnv;
+      jest.resetModules();
+    });
   });
 
   describe('Request interceptor', () => {
@@ -190,6 +216,30 @@ describe('apiClient service', () => {
 
       expect(localStorage.getItem('fmp68_token')).toBeNull();
       expect(window.location.href).toBe('/login');
+      await expect(promise).rejects.toBe(error);
+    });
+
+    it('should save redirect path in sessionStorage when 401 and not already on login page', async () => {
+      delete window.location;
+      window.location = { pathname: '/dashboard', search: '', href: '' };
+      localStorage.setItem('fmp68_token', 'some-token');
+      const error = { response: { status: 401 } };
+
+      const promise = responseRejected(error);
+
+      expect(sessionStorage.getItem('fmp68_redirect_after_login')).toBe('/dashboard');
+      await expect(promise).rejects.toBe(error);
+    });
+
+    it('should NOT save redirect path in sessionStorage when current path is /login', async () => {
+      delete window.location;
+      window.location = { pathname: '/login', search: '', href: '' };
+      sessionStorage.removeItem('fmp68_redirect_after_login');
+      const error = { response: { status: 401 } };
+
+      const promise = responseRejected(error);
+
+      expect(sessionStorage.getItem('fmp68_redirect_after_login')).toBeNull();
       await expect(promise).rejects.toBe(error);
     });
   });

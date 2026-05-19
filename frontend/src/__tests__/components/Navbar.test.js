@@ -50,7 +50,7 @@ describe('Navbar Component', () => {
   it('should render navbar shell', () => {
     const { container } = render(<Navbar />);
     expect(container.querySelector('nav')).toBeTruthy();
-    expect(container.querySelector('.navbar-brand')?.textContent).toBe('FMP-68');
+    expect(container.querySelector('.navbar-brand')?.textContent).toBe('FMP-69');
   });
 
   it('should render user controls when user exists', () => {
@@ -369,5 +369,157 @@ describe('Navbar Component', () => {
       await waitFor(() => expect(container.querySelector('nav')).toBeTruthy());
       expect(container.querySelector('.navbar-bell-badge')).toBeFalsy();
     });
+
+    it('shows username in avatar dropdown when user has username', async () => {
+      mockUseAuth.mockReturnValue({
+        user: { id: 'u1', name: 'Alice', username: 'alice99' },
+        signOut: jest.fn(),
+      });
+      const { container } = render(<Navbar />);
+      fireEvent.click(container.querySelector('.navbar-avatar-btn'));
+      const usernameEl = container.querySelector('.avatar-dropdown-username');
+      expect(usernameEl).toBeTruthy();
+      expect(usernameEl.textContent).toBe('@alice99');
+    });
+  });
+
+  it('does not fetch requests when user is null (fetchRequests early return)', async () => {
+    mockUseAuth.mockReturnValue({ user: null, signOut: jest.fn() });
+    followRequestService.getPendingFollowRequests.mockResolvedValue([]);
+    const { container } = render(<Navbar />);
+    await waitFor(() => expect(container.querySelector('nav')).toBeTruthy());
+    // No bell visible since user is null
+    expect(container.querySelector('.navbar-bell')).toBeFalsy();
+    // getPendingFollowRequests should NOT have been called
+    expect(followRequestService.getPendingFollowRequests).not.toHaveBeenCalled();
+  });
+
+  it('handles non-array response from getPendingFollowRequests gracefully', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    // Return a non-array response — covers the ternary false branch: Array.isArray(data) ? data : []
+    followRequestService.getPendingFollowRequests.mockResolvedValue(null);
+    notificationService.fetchMyNotifications.mockResolvedValue([]);
+
+    const { container } = render(<Navbar />);
+
+    await waitFor(() => expect(container.querySelector('nav')).toBeTruthy());
+    // No badge since requests defaults to empty array
+    expect(container.querySelector('.navbar-bell-badge')).toBeFalsy();
+  });
+
+  it('approves follow request without showing toast when window.showToast is undefined', async () => {
+    delete window.showToast;
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    followRequestService.getPendingFollowRequests.mockResolvedValue([
+      { pathId: 'p1', followerId: 'fu1', pathTitle: 't', follower: { name: 'B' } },
+    ]);
+    followRequestService.approveFollowRequest.mockResolvedValue({});
+    const { container } = render(<Navbar />);
+    await waitFor(() =>
+      expect(container.querySelector('.navbar-bell-badge')).toBeTruthy(),
+    );
+    fireEvent.click(container.querySelector('.navbar-bell'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.notif-btn--approve'));
+    });
+    expect(followRequestService.approveFollowRequest).toHaveBeenCalled();
+    // window.showToast is undefined, so no toast call
+    expect(window.showToast).toBeUndefined();
+  });
+
+  it('rejects follow request without showing toast when window.showToast is undefined', async () => {
+    delete window.showToast;
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    followRequestService.getPendingFollowRequests.mockResolvedValue([
+      { pathId: 'p1', followerId: 'fu1', pathTitle: 't', follower: { name: 'B' } },
+    ]);
+    followRequestService.rejectFollowRequest.mockResolvedValue({});
+    const { container } = render(<Navbar />);
+    await waitFor(() =>
+      expect(container.querySelector('.navbar-bell-badge')).toBeTruthy(),
+    );
+    fireEvent.click(container.querySelector('.navbar-bell'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.notif-btn--reject'));
+    });
+    expect(followRequestService.rejectFollowRequest).toHaveBeenCalled();
+    expect(window.showToast).toBeUndefined();
+  });
+
+  it('approve failure without toast when window.showToast is undefined', async () => {
+    delete window.showToast;
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    followRequestService.getPendingFollowRequests.mockResolvedValue([
+      { pathId: 'p1', followerId: 'fu1', pathTitle: 't', follower: { name: 'B' } },
+    ]);
+    followRequestService.approveFollowRequest.mockRejectedValue(new Error('fail'));
+    const { container } = render(<Navbar />);
+    await waitFor(() =>
+      expect(container.querySelector('.navbar-bell-badge')).toBeTruthy(),
+    );
+    fireEvent.click(container.querySelector('.navbar-bell'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.notif-btn--approve'));
+    });
+    expect(window.showToast).toBeUndefined();
+  });
+
+  it('reject failure without toast when window.showToast is undefined', async () => {
+    delete window.showToast;
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    followRequestService.getPendingFollowRequests.mockResolvedValue([
+      { pathId: 'p1', followerId: 'fu1', pathTitle: 't', follower: { name: 'B' } },
+    ]);
+    followRequestService.rejectFollowRequest.mockRejectedValue(new Error('fail'));
+    const { container } = render(<Navbar />);
+    await waitFor(() =>
+      expect(container.querySelector('.navbar-bell-badge')).toBeTruthy(),
+    );
+    fireEvent.click(container.querySelector('.navbar-bell'));
+    await act(async () => {
+      fireEvent.click(container.querySelector('.notif-btn--reject'));
+    });
+    expect(window.showToast).toBeUndefined();
+  });
+
+  it('does NOT close bell dropdown when clicking INSIDE it', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    const { container } = render(<Navbar />);
+    fireEvent.click(container.querySelector('.navbar-bell'));
+    expect(container.querySelector('.notif-dropdown')).toBeTruthy();
+    // Click inside the dropdown — should NOT close it
+    fireEvent.mouseDown(container.querySelector('.notif-dropdown'));
+    expect(container.querySelector('.notif-dropdown')).toBeTruthy();
+  });
+
+  it('does NOT close avatar menu when clicking INSIDE it', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'u1', name: 'Alice' },
+      signOut: jest.fn(),
+    });
+    const { container } = render(<Navbar />);
+    fireEvent.click(container.querySelector('.navbar-avatar-btn'));
+    expect(container.querySelector('.avatar-dropdown')).toBeTruthy();
+    // Click inside the avatar dropdown — should NOT close it
+    fireEvent.mouseDown(container.querySelector('.avatar-dropdown'));
+    expect(container.querySelector('.avatar-dropdown')).toBeTruthy();
   });
 });
