@@ -77,6 +77,40 @@ pipeline {
             }
         }
 
+        stage('Ensure Secrets') {
+            steps {
+                script {
+                    try {
+                        // backend/k8s/vault/vault.yaml is gitignored (contains the
+                        // raw OAuth client secret + JWT secret inline). Instead of
+                        // running the Vault → fmp-secret bridge from start-k8s.sh
+                        // inside CI, we create the secret directly from Jenkins
+                        // text credentials. Same shape (5 keys), same downstream
+                        // consumers (every fmp-* deployment's envFrom: fmp-secret).
+                        // Idempotent — `kubectl apply` of a dry-run secret YAML.
+                        withCredentials([
+                            string(credentialsId: 'fmp-jwt-secret',          variable: 'JWT_SECRET'),
+                            string(credentialsId: 'fmp-google-client-id',    variable: 'GOOGLE_CLIENT_ID'),
+                            string(credentialsId: 'fmp-google-client-secret',variable: 'GOOGLE_CLIENT_SECRET')
+                        ]) {
+                            sh '''
+                                kubectl create secret generic fmp-secret -n fmp \
+                                    --from-literal=JWT_SECRET="$JWT_SECRET" \
+                                    --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+                                    --from-literal=GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+                                    --from-literal=DATABASE_URL="mongodb://mongo-external:27017/fmp68?replicaSet=rs0&directConnection=true" \
+                                    --from-literal=RABBITMQ_URL="amqp://guest:guest@rabbitmq.fmp.svc.cluster.local:5672" \
+                                    --dry-run=client -o yaml | kubectl apply -f -
+                            '''
+                        }
+                    } catch (Exception e) {
+                        currentBuild.description = 'Failed Stage: Ensure Secrets\nReason: ' + e.getMessage()
+                        throw e
+                    }
+                }
+            }
+        }
+
         stage('Apply K8s Manifests') {
             steps {
                 script {
