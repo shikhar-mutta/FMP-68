@@ -34,7 +34,7 @@ pipeline {
                 [key: 'removed',  value: '$.commits[*].removed[*]']
             ],
             causeString:               'Push touched backend/tracking-service/',
-            token:                     'fmp-tracking-service-token',
+            token:                     'fmp-webhook-token',
             printContributedVariables: true,
             printPostContent:          false,
             regexpFilterText:          '$ref|$modified|$added|$removed',

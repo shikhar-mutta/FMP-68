@@ -35,7 +35,7 @@ pipeline {
                 [key: 'removed',  value: '$.commits[*].removed[*]']
             ],
             causeString:               'Push touched backend/api-gateway/',
-            token:                     'fmp-api-gateway-token',
+            token:                     'fmp-webhook-token',
             printContributedVariables: true,
             printPostContent:          false,
             regexpFilterText:          '$ref|$modified|$added|$removed',
