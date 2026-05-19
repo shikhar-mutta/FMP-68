@@ -81,8 +81,21 @@ pipeline {
             steps {
                 script {
                     try {
-                        // No -n flag: manifests under backend/k8s/elk and backend/k8s/vault
-                        // declare their own namespaces. Each YAML is self-describing.
+                        // Two-pass apply (same pattern as start-k8s.sh:445/455):
+                        // Pass 1 — namespaces only. Recursive apply sorts files
+                        // alphabetically, so elk/elasticsearch.yaml would race
+                        // ahead of elk/namespace.yaml and fail with
+                        // "namespaces 'elk' not found". Apply namespaces first
+                        // to guarantee they exist before any namespaced resource
+                        // lands. Idempotent — no-op when they already exist.
+                        // (vault namespace is embedded as the first doc in
+                        // backend/k8s/vault/vault.yaml, so it's already handled
+                        // in-order by Pass 2.)
+                        sh '''
+                            kubectl apply -f backend/k8s/namespace.yaml
+                            kubectl apply -f backend/k8s/elk/namespace.yaml
+                        '''
+                        // Pass 2 — everything (services, deployments, jobs, HPAs).
                         sh 'kubectl apply -f backend/k8s/ --recursive'
                         sh "kubectl get pods,svc,hpa -n ${K8S_NAMESPACE}"
                     } catch (Exception e) {
