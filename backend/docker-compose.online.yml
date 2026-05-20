@@ -21,6 +21,15 @@ services:
       FRONTEND_URL: ${ONLINE_PUBLIC_URL}
       GOOGLE_CALLBACK_URL: ${ONLINE_GOOGLE_CALLBACK_URL}
 
+  users-service:
+    environment:
+      DATABASE_URL: ${ONLINE_DATABASE_URL}
+
+  paths-service:
+    environment:
+      DATABASE_URL: ${ONLINE_DATABASE_URL}
+
   tracking-service:
     environment:
       FRONTEND_URL: ${ONLINE_PUBLIC_URL}
+      DATABASE_URL: ${ONLINE_DATABASE_URL}

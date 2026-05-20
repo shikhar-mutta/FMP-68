@@ -44,9 +44,12 @@ command -v minikube >/dev/null || { echo "✖ minikube not installed (needed for
 command -v kubectl  >/dev/null || { echo "✖ kubectl not installed (needed for Vault)."; exit 1; }
 
 echo "▶ Pre-flight: minikube cluster status?"
-status=$(minikube status -p "$MINIKUBE_PROFILE" -f '{{.Host}}' 2>/dev/null || echo "Stopped")
-if [ "$status" != "Running" ]; then
-  echo "  ▶ Starting minikube profile '$MINIKUBE_PROFILE' (driver=$MINIKUBE_DRIVER, cpus=$MINIKUBE_CPUS, mem=${MINIKUBE_MEM}MB)…"
+# Check API-server reachability rather than just the host container — the
+# host container can be Running while kubelet/apiserver are stopped (e.g.
+# after a reboot). `minikube start` is idempotent for a fully-running
+# cluster and will restart stopped k8s components otherwise.
+if ! kubectl cluster-info --request-timeout=5s >/dev/null 2>&1; then
+  echo "  ▶ API server unreachable — starting/restarting minikube (driver=$MINIKUBE_DRIVER, cpus=$MINIKUBE_CPUS, mem=${MINIKUBE_MEM}MB)…"
   minikube start \
     -p "$MINIKUBE_PROFILE" \
     --driver="$MINIKUBE_DRIVER" \
@@ -96,6 +99,25 @@ docker network rm fmp-net >/dev/null 2>&1 || true
 # them, then compose up sees real values instead of the placeholders.
 echo "▶ Deploying Vault FIRST (compose needs real JWT/GOOGLE secrets at boot)…"
 ansible-playbook -i backend/ansible/inventory.ini backend/ansible/site.yml --tags vault 2>&1 | tail -8 | sed 's/^/  /'
+
+echo "▶ Patching Vault with real credentials from backend/.env…"
+# vault.yaml seeds with ${FMP_JWT_SECRET:-CHANGE_ME_*} placeholders unless those
+# env vars were injected before deploy (the Jenkins path does this). For the local
+# online path, patch Vault immediately after deploy so the downstream read gets
+# real values instead of the placeholder strings.
+_env_val() { grep "^${1}=" backend/.env | head -1 | cut -d= -f2- | tr -d '"'; }
+_JWT=$(_env_val JWT_SECRET)
+_GCI=$(_env_val GOOGLE_CLIENT_ID)
+_GCS=$(_env_val GOOGLE_CLIENT_SECRET)
+if [ -z "$_JWT" ] || [ -z "$_GCI" ] || [ -z "$_GCS" ]; then
+  echo "✖ Could not read JWT_SECRET/GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET from backend/.env — copy .env.example → .env and fill in real values."
+  exit 1
+fi
+kubectl exec -n vault deploy/vault -- env \
+  VAULT_TOKEN=fmp-dev-root FMP_JWT="$_JWT" FMP_GCI="$_GCI" FMP_GCS="$_GCS" \
+  sh -c 'vault kv put secret/fmp/auth jwt_secret="$FMP_JWT" google_client_id="$FMP_GCI" google_client_secret="$FMP_GCS"' \
+  || { echo "✖ Failed to patch Vault with real credentials."; exit 1; }
+echo "  ✓ Vault patched with real JWT + Google credentials"
 
 echo "▶ Fetching JWT + GOOGLE secrets from Vault → shell env…"
 # Fail-hard if the read fails: a half-set env would re-introduce the
