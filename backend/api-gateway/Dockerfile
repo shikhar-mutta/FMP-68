@@ -7,6 +7,7 @@
 
 # === Stage 1: builder ===
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --no-audit --no-fund
@@ -19,6 +20,7 @@ RUN npm run build && npm prune --omit=dev
 # === Stage 2: runtime ===
 FROM node:20-alpine
 WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production \
     SERVICE_NAME=api-gateway \
     PORT=4000
