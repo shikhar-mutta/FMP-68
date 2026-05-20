@@ -52,7 +52,7 @@ start_pf() {
 
 stop_all() {
     echo "Stopping all FMP port-forwards..."
-    for pid_file in "$PID_DIR"/*.pid 2>/dev/null; do
+    for pid_file in "$PID_DIR"/*.pid; do
         [ -f "$pid_file" ] || continue
         pid=$(cat "$pid_file")
         name=$(basename "$pid_file" .pid)
