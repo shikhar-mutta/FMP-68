@@ -44,7 +44,8 @@ start_pf() {
     fi
     fuser -k "${local_port}/tcp" 2>/dev/null || true
 
-    nohup $KUBECTL port-forward -n "$namespace" "svc/$svc" \
+    # setsid creates a new session so Jenkins process-group cleanup cannot kill this.
+    setsid nohup $KUBECTL port-forward -n "$namespace" "svc/$svc" \
         "${local_port}:${target_port}" >"$log_file" 2>&1 &
     echo $! > "$pid_file"
     echo "  ✓ $name  localhost:${local_port} → svc/${svc}:${target_port}  (pid $!)"
