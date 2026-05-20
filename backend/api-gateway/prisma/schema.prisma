@@ -1,0 +1,83 @@
+// ─────────────────────────────────────────────────────────
+// Prisma Schema — FMP-68 (MongoDB)
+// ─────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  googleId        String   @unique
+  email           String   @unique
+  name            String
+  username        String?
+  picture         String   @default("")
+  isOnline        Boolean  @default(false)
+  lastSeen        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Paths published by this user
+  publishedPaths  Path[]   @relation("PublishedPaths")
+  
+  // Array of path IDs followed by this user
+  followedPathIds String[] @db.ObjectId @default([])
+
+  @@map("users")
+}
+
+model Path {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Publisher of the path
+  publisherId     String   @db.ObjectId
+  publisher       User     @relation("PublishedPaths", fields: [publisherId], references: [id], onDelete: Cascade)
+
+  // Array of user IDs following this path
+  followerIds     String[] @db.ObjectId @default([])
+  
+  // Array of user IDs requesting to follow (pending requests)
+  followRequests  String[] @db.ObjectId @default([])
+
+  // GPS tracking data
+  coordinates     Json[]   @default([])    // Array of {lat, lng, timestamp}
+  status          String   @default("idle") // idle | recording | paused | ended
+  isLive          Boolean  @default(false)  // Is currently broadcasting live
+
+  @@map("paths")
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  type      String   // "follow_approved"
+  pathId    String   @db.ObjectId
+  pathTitle String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@map("notifications")
+}
+
+model TrackingSession {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  pathId          String   @db.ObjectId
+  userId          String   @db.ObjectId
+  role            String   // "publisher" | "follower"
+  coordinates     Json[]   @default([])    // Array of {lat, lng, timestamp}
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  isActive        Boolean  @default(true)
+
+  @@map("tracking_sessions")
+}

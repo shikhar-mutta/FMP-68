@@ -28,12 +28,11 @@ async function bootstrap() {
   expressInstance.use(buildJwtMiddleware(jwtSecret));
 
   // ── Proxy targets ─────────────────────────────────────────────────
+  // /paths, /follow-requests, /notifications are handled directly by
+  // this service (merged from paths-service) — no proxy needed.
   const routes = [
     { path: '/auth', target: process.env.AUTH_SERVICE_URL || 'http://localhost:4001' },
     { path: '/users', target: process.env.USERS_SERVICE_URL || 'http://localhost:4002' },
-    { path: '/paths', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
-    { path: '/follow-requests', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
-    { path: '/notifications', target: process.env.PATHS_SERVICE_URL || 'http://localhost:4003' },
   ];
 
   for (const { path, target } of routes) {
