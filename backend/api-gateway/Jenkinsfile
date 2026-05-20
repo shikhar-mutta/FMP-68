@@ -54,6 +54,7 @@ pipeline {
         K8S_NAMESPACE   = 'fmp'
         IMAGE_LOCAL     = "fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
         IMAGE_REMOTE    = "${DOCKER_REPO}/fmp-${SERVICE_NAME}:${params.IMAGE_TAG}"
+        IMAGE_LATEST    = "${DOCKER_REPO}/fmp-${SERVICE_NAME}:latest"
     }
 
     stages {
@@ -120,6 +121,8 @@ pipeline {
                                 echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                                 docker tag ${IMAGE_LOCAL} ${IMAGE_REMOTE}
                                 docker push ${IMAGE_REMOTE}
+                                docker tag ${IMAGE_LOCAL} ${IMAGE_LATEST}
+                                docker push ${IMAGE_LATEST}
                                 docker logout
                             '''
                         }
@@ -166,6 +169,7 @@ pipeline {
                         sh "kubectl apply -f backend/k8s/namespace.yaml"
                         sh "kubectl apply -f backend/k8s/${SERVICE_NAME}/"
                         sh "minikube image load ${IMAGE_REMOTE} --overwrite"
+                        sh "minikube image load ${IMAGE_LATEST} --overwrite"
                         sh """
                             kubectl set image deployment/${SERVICE_NAME} \
                                 ${SERVICE_NAME}=${IMAGE_REMOTE} \
