@@ -195,6 +195,9 @@ pipeline {
     post {
         success {
             echo "✅ fmp-infra build #${env.BUILD_NUMBER} applied backend/k8s/ to namespace ${K8S_NAMESPACE}"
+            // Refresh kubectl port-forwards so local endpoints stay live after every infra apply.
+            // start-port-forwards.sh detects jenkins OS user and calls kubectl directly (no sudo).
+            sh 'bash start-port-forwards.sh'
         }
         failure {
             echo "✘ fmp-infra build #${env.BUILD_NUMBER} failed: ${currentBuild.description ?: 'Unknown failure'}"
