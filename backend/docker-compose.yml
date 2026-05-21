@@ -38,6 +38,7 @@ services:
       PATHS_SERVICE_URL: http://paths-service:4003
       TRACKING_SERVICE_URL: http://tracking-service:4004
       NOTIFICATION_SERVICE_URL: http://notification-service:4005
+      DATABASE_URL: mongodb://host.docker.internal:27017/fmp68?replicaSet=rs0&directConnection=true
     depends_on:
       auth-service:
         condition: service_healthy

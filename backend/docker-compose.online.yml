@@ -15,6 +15,7 @@ services:
   api-gateway:
     environment:
       FRONTEND_URL: ${ONLINE_PUBLIC_URL}
+      DATABASE_URL: ${ONLINE_DATABASE_URL}
 
   auth-service:
     environment:
