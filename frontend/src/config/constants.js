@@ -4,10 +4,10 @@
 
 // Polling intervals (in milliseconds)
 export const POLLING_INTERVALS = {
-  PENDING_REQUESTS: 2000,     // 2 seconds - for pending follow requests
-  SENT_REQUESTS: 2000,         // 2 seconds - for monitoring sent requests
-  PATH_REQUESTS: 2000,         // 2 seconds - for path detail page
-  PATH_CARD_REQUESTS: 3000,    // 3 seconds - for path cards on dashboard
+  PENDING_REQUESTS: 15000,    // 15 seconds - for pending follow requests
+  SENT_REQUESTS: 15000,        // 15 seconds - for monitoring sent requests
+  PATH_REQUESTS: 15000,        // 15 seconds - for path detail page
+  PATH_CARD_REQUESTS: 20000,   // 20 seconds - for path cards on dashboard
 };
 
 // Inactivity timeout
