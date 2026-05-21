@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, THEMES } from '../context/ThemeContext';
 import {
   getPendingFollowRequests,
   approveFollowRequest,
@@ -14,7 +14,9 @@ import {
 
 export default function Navbar({ onMenuOpen } = {}) {
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const themeMenuRef = useRef(null);
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [approvalNotifs, setApprovalNotifs] = useState([]);
@@ -80,6 +82,18 @@ export default function Navbar({ onMenuOpen } = {}) {
     return () => document.removeEventListener('mousedown', handler);
   }, [avatarMenuOpen]);
 
+  // Close theme menu when clicking outside
+  useEffect(() => {
+    if (!themeMenuOpen) return;
+    const handler = (e) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target)) {
+        setThemeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [themeMenuOpen]);
+
   const handleApprove = async (pathId, followerId) => {
     const key = `${pathId}-${followerId}`;
     setProcessingId(key);
@@ -136,13 +150,33 @@ export default function Navbar({ onMenuOpen } = {}) {
 
       {user && (
         <div className="navbar-user">
-          <button
-            className="btn btn-theme-toggle"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
+          <div className="theme-picker-wrap" ref={themeMenuRef}>
+            <button
+              className="btn btn-theme-toggle"
+              onClick={() => setThemeMenuOpen((v) => !v)}
+              title="Change theme"
+            >
+              🎨
+            </button>
+            {themeMenuOpen && (
+              <div className="theme-picker-dropdown">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`theme-option${theme === t.id ? ' active' : ''}`}
+                    onClick={() => { setTheme(t.id); setThemeMenuOpen(false); }}
+                  >
+                    <span className="theme-option-swatches">
+                      {t.swatches.map((s, i) => (
+                        <span key={i} className="theme-swatch" style={{ background: s }} />
+                      ))}
+                    </span>
+                    <span className="theme-option-label">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Bell with inline dropdown */}
           <div className="navbar-bell-wrap" ref={dropdownRef}>
