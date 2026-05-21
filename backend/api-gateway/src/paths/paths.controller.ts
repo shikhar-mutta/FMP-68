@@ -39,6 +39,12 @@ export class PathsController {
     return this.pathsService.getFollowedPathsByUser(userId);
   }
 
+  /** Publicly readable — sampled polyline + bbox for SVG thumbnail */
+  @Get(':id/preview')
+  async getPathPreview(@Param('id') pathId: string) {
+    return this.pathsService.getPathPreview(pathId);
+  }
+
   /** Publicly readable */
   @Get(':id')
   async getPathById(@Param('id') pathId: string) {

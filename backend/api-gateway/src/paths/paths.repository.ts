@@ -66,6 +66,14 @@ export class PathsRepository {
     });
   }
 
+  async getCoordinates(pathId: string) {
+    const result = await this.prisma.path.findUnique({
+      where: { id: pathId },
+      select: { coordinates: true },
+    });
+    return (result?.coordinates ?? []) as { lat: number; lng: number }[];
+  }
+
   delete(pathId: string) {
     return this.prisma.path.delete({
       where: { id: pathId },

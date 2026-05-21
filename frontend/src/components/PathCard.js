@@ -6,11 +6,43 @@ import { POLLING_INTERVALS, REQUEST_STATUSES } from '../config/constants';
 import '../styles/PathCard.css';
 import '../styles/PathPublish.css';
 
+function PathThumbnail({ preview }) {
+  if (!preview || preview.points.length < 2) return null;
+  const { points, bbox } = preview;
+  const W = 400, H = 120, pad = 10;
+  const lngRange = bbox.maxLng - bbox.minLng || 0.001;
+  const latRange = bbox.maxLat - bbox.minLat || 0.001;
+  const svgPoints = points
+    .map(({ lat, lng }) => {
+      const x = pad + ((lng - bbox.minLng) / lngRange) * (W - pad * 2);
+      const y = H - pad - ((lat - bbox.minLat) / latRange) * (H - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(' ');
+  const start = points[0];
+  const end = points[points.length - 1];
+  const sx = pad + ((start.lng - bbox.minLng) / lngRange) * (W - pad * 2);
+  const sy = H - pad - ((start.lat - bbox.minLat) / latRange) * (H - pad * 2);
+  const ex = pad + ((end.lng - bbox.minLng) / lngRange) * (W - pad * 2);
+  const ey = H - pad - ((end.lat - bbox.minLat) / latRange) * (H - pad * 2);
+  return (
+    <div className="path-card-thumbnail-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} className="path-card-thumbnail" preserveAspectRatio="xMidYMid meet">
+        <polyline points={svgPoints} fill="none" stroke="var(--accent)" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+        <circle cx={sx} cy={sy} r="4" fill="var(--accent-green)" />
+        <circle cx={ex} cy={ey} r="4" fill="#ff6b5b" />
+      </svg>
+    </div>
+  );
+}
+
 export default function PathCard({ path, isFollowing, onFollowChange, currentUserId, onRequestSent, onPathUpdated, onPathDeleted }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [hasRequest, setHasRequest] = useState(false);
   const [requestLoading, setRequestLoading] = useState(true);
+  const [preview, setPreview] = useState(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
@@ -108,6 +140,14 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
       }
     };
   }, [path.id, currentUserId, isPublisher, isFollowing, onFollowChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.get(`/paths/${path.id}/preview`)
+      .then((res) => { if (!cancelled && res.data) setPreview(res.data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [path.id]);
 
   const handleFollowToggle = async () => {
     setLoading(true);
@@ -272,6 +312,7 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
 
   return (
     <div className="path-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
+      <PathThumbnail preview={preview} />
       <div className="path-card-header">
         <div className="path-title-section">
           <h3 className="path-title">📍 {path.title}</h3>

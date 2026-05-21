@@ -61,6 +61,27 @@ export class PathsService {
     return this.pathFollowersService.removeFollower(pathId, followerId);
   }
 
+  async getPathPreview(pathId: string) {
+    const all = await this.pathsRepository.getCoordinates(pathId);
+    if (!all.length) return null;
+
+    const step = Math.max(1, Math.floor(all.length / 60));
+    const pts = all.filter((_, i) => i % step === 0);
+
+    const lats = pts.map((p) => p.lat);
+    const lngs = pts.map((p) => p.lng);
+
+    return {
+      points: pts.map((p) => ({ lat: p.lat, lng: p.lng })),
+      bbox: {
+        minLat: Math.min(...lats),
+        maxLat: Math.max(...lats),
+        minLng: Math.min(...lngs),
+        maxLng: Math.max(...lngs),
+      },
+    };
+  }
+
   async assertPublisherCanManageFollowers(pathId: string, publisherId: string) {
     await this.pathFollowersService.assertPublisherCanManageFollowers(
       pathId,
