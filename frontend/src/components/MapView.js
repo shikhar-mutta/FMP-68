@@ -81,6 +81,19 @@ const followerPauseIcon  = createDotIcon('#f472b6', 13);          // pink
 const publisherEndIcon = createDotIcon('#3b82f6', 14);            // blue
 const followerEndIcon  = createDotIcon('#cc6600', 14);            // dark amber
 
+// ── Invalidate Leaflet size when container resizes ───────
+function MapInvalidateSize({ trigger }) {
+  const map = useMap();
+  useEffect(() => {
+    // Wait one frame so the CSS flex layout settles before telling Leaflet
+    const id = requestAnimationFrame(() => {
+      map.invalidateSize({ animate: false });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [trigger, map]);
+  return null;
+}
+
 // ── Auto-pan to latest position ──────────────────────────
 function MapAutoCenter({ position, follow }) {
   const map = useMap();
@@ -242,6 +255,7 @@ const MapView = ({
   needsCompassPerm = false,
   onEnableCompass = null,
   onRecenter = null,
+  invalidateSizeTrigger = false,
 }) => {
   // Direction beam icon: SVG cone pointing toward deviceHeading, apex at current position
   const beamIcon = useMemo(() => {
@@ -289,6 +303,7 @@ const MapView = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        <MapInvalidateSize trigger={invalidateSizeTrigger} />
         <MapAutoCenter position={followPosition} follow={autoFollow} />
         <MapRecenter position={followPosition || currentPosition} trigger={recenterTrigger} />
 

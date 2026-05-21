@@ -108,6 +108,7 @@ export default function LiveTrackingPage() {
   const [currentPosition, setCurrentPosition] = useState(null);
   const [autoFollow, setAutoFollow] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   // For publisher: track which follower's path to display (first one who sends data)
   const trackedFollowerRef = useRef(null);
@@ -720,7 +721,7 @@ export default function LiveTrackingPage() {
         {/* ── Content ── */}
         <div className="tracking-content">
           {/* Map */}
-          <div className="tracking-map-wrapper">
+          <div className={`tracking-map-wrapper${mapExpanded ? ' map-fullscreen' : ''}`}>
             <MapView
               publisherCoordinates={publisherCoords}
               followerCoordinates={followerCoords}
@@ -738,6 +739,7 @@ export default function LiveTrackingPage() {
               needsCompassPerm={needsCompassPerm}
               onEnableCompass={handleEnableCompass}
               onRecenter={handleRecenter}
+              invalidateSizeTrigger={mapExpanded}
             />
             <button
               className="btn-auto-follow active"
@@ -746,6 +748,48 @@ export default function LiveTrackingPage() {
             >
               🎯
             </button>
+            <button
+              className={`btn-map-fullscreen${mapExpanded ? ' active' : ''}`}
+              onClick={() => {
+                const next = !mapExpanded;
+                setMapExpanded(next);
+                if (next) {
+                  setAutoFollow(true);
+                  setRecenterTrigger((v) => v + 1);
+                }
+              }}
+              title={mapExpanded ? 'Collapse map' : 'Expand map fullscreen'}
+            >
+              {mapExpanded ? '✕' : '⛶'}
+            </button>
+            {mapExpanded && (
+              <div className="map-compact-stats">
+                <span className="mcs-item">
+                  <span className="mcs-icon">📏</span>
+                  <span className="mcs-val">{formatDistance(myDistance)}</span>
+                </span>
+                <span className="mcs-sep" />
+                <span className="mcs-item">
+                  <span className="mcs-icon">⏱️</span>
+                  <span className="mcs-val">{elapsedTime ? formatDuration(elapsedTime) : '--'}</span>
+                </span>
+                <span className="mcs-sep" />
+                <span className="mcs-item">
+                  <span className="mcs-icon">⚡</span>
+                  <span className="mcs-val">
+                    {((isPublisher && trackingStatus === 'recording') ||
+                      (!isPublisher && followerActive && !followerPaused))
+                      ? `${currentSpeed} km/h`
+                      : '--'}
+                  </span>
+                </span>
+                <span className="mcs-sep" />
+                <span className="mcs-item">
+                  <span className="mcs-icon">📍</span>
+                  <span className="mcs-val">{myCoords.length}</span>
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
