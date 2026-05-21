@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
 import { sendFollowRequest, getSentFollowRequests, getFollowRequestsForPath, cancelFollowRequest } from '../services/followRequestService';
 import apiClient from '../services/api';
 import { POLLING_INTERVALS, REQUEST_STATUSES } from '../config/constants';
@@ -9,30 +10,33 @@ import '../styles/PathPublish.css';
 function PathThumbnail({ preview }) {
   if (!preview || preview.points.length < 2) return null;
   const { points, bbox } = preview;
-  const W = 400, H = 120, pad = 10;
-  const lngRange = bbox.maxLng - bbox.minLng || 0.001;
-  const latRange = bbox.maxLat - bbox.minLat || 0.001;
-  const svgPoints = points
-    .map(({ lat, lng }) => {
-      const x = pad + ((lng - bbox.minLng) / lngRange) * (W - pad * 2);
-      const y = H - pad - ((lat - bbox.minLat) / latRange) * (H - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
-  const start = points[0];
-  const end = points[points.length - 1];
-  const sx = pad + ((start.lng - bbox.minLng) / lngRange) * (W - pad * 2);
-  const sy = H - pad - ((start.lat - bbox.minLat) / latRange) * (H - pad * 2);
-  const ex = pad + ((end.lng - bbox.minLng) / lngRange) * (W - pad * 2);
-  const ey = H - pad - ((end.lat - bbox.minLat) / latRange) * (H - pad * 2);
+  const pad = 0.0005;
+  const bounds = [
+    [bbox.minLat - pad, bbox.minLng - pad],
+    [bbox.maxLat + pad, bbox.maxLng + pad],
+  ];
+  const positions = points.map(({ lat, lng }) => [lat, lng]);
+  const start = positions[0];
+  const end = positions[positions.length - 1];
   return (
     <div className="path-card-thumbnail-wrap">
-      <svg viewBox={`0 0 ${W} ${H}`} className="path-card-thumbnail" preserveAspectRatio="xMidYMid meet">
-        <polyline points={svgPoints} fill="none" stroke="var(--accent)" strokeWidth="2.5"
-          strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-        <circle cx={sx} cy={sy} r="4" fill="var(--accent-green)" />
-        <circle cx={ex} cy={ey} r="4" fill="#ff6b5b" />
-      </svg>
+      <MapContainer
+        bounds={bounds}
+        boundsOptions={{ padding: [6, 6] }}
+        zoomControl={false}
+        dragging={false}
+        scrollWheelZoom={false}
+        doubleClickZoom={false}
+        touchZoom={false}
+        keyboard={false}
+        attributionControl={false}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <Polyline positions={positions} color="#4a90e2" weight={3} opacity={0.9} />
+        <CircleMarker center={start} radius={5} fillColor="#4ade80" color="white" weight={1.5} fillOpacity={1} />
+        <CircleMarker center={end} radius={5} fillColor="#ff6b5b" color="white" weight={1.5} fillOpacity={1} />
+      </MapContainer>
     </div>
   );
 }
