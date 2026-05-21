@@ -9,6 +9,7 @@ import { PathsModule } from './paths/paths.module';
 import { FollowRequestsModule } from './follow-requests/follow-requests.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { KeepAliveModule } from './keep-alive/keep-alive.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { KeepAliveModule } from './keep-alive/keep-alive.module';
     FollowRequestsModule,
     NotificationsModule,
     KeepAliveModule,
+    TrackingModule,
   ],
   providers: [
     {

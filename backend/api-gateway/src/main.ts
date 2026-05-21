@@ -57,41 +57,10 @@ async function bootstrap() {
     logger.log(`Proxy mounted: ${path}/* → ${target}`);
   }
 
-  // Socket.io proxy — Socket.io always uses the /socket.io path regardless of namespace.
-  // The frontend connects via `io('http://localhost:4000/tracking')` but the
-  // underlying HTTP/WebSocket requests hit /socket.io/* — proxy them to tracking-service.
-  const trackingTarget =
-    process.env.TRACKING_SERVICE_URL || 'http://localhost:4004';
-  const socketIoProxy = createProxyMiddleware({
-    target: trackingTarget,
-    changeOrigin: true,
-    ws: true,
-    // Express's app.use('/socket.io', ...) strips the prefix before the proxy sees it.
-    // Prepend it back so the request hits tracking-service at /socket.io/...
-    pathRewrite: (incomingPath: string) => `/socket.io${incomingPath}`,
-    on: {
-      error: (err: any, _req: any, res: any) => {
-        logger.error(`Socket.io proxy → ${trackingTarget} failed: ${err?.message}`);
-        if (res && typeof res.writeHead === 'function' && !res.headersSent) {
-          res.writeHead(502);
-          res.end();
-        }
-      },
-    },
-  });
-  expressInstance.use('/socket.io', socketIoProxy);
-  logger.log(`Socket.io proxy mounted: /socket.io/* → ${trackingTarget}`);
+  // Socket.io is handled directly by the embedded TrackingGateway — no proxy needed.
 
   const port = parseInt(process.env.PORT || '4000', 10);
   await app.listen(port);
-
-  const httpServer = app.getHttpServer();
-  // WebSocket upgrade handler — forward /socket.io upgrades to tracking-service
-  httpServer.on('upgrade', (req: any, socket: any, head: any) => {
-    if (req.url?.startsWith('/socket.io')) {
-      (socketIoProxy as any).upgrade(req, socket, head);
-    }
-  });
 
   logger.log(`${serviceName} listening on http://localhost:${port}`);
 }
