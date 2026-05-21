@@ -1,11 +1,19 @@
-/* Map thumbnail */
+/* Instagram-style top header (avatar + name + actions) */
+.path-card-ig-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Map thumbnail — flush sides, sits between header and body */
 .path-card-thumbnail-wrap {
-  margin: -1.25rem -1.25rem 1rem;
-  border-radius: 11px 11px 0 0;
+  margin: 0 -1.25rem 1rem;
   overflow: hidden;
-  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  height: 120px;
+  height: 200px;
   flex-shrink: 0;
 }
 
@@ -15,9 +23,18 @@
   display: block;
 }
 
+/* Path body: title + description */
+.path-card-body {
+  margin-bottom: 0.5rem;
+}
+
+.path-card-body .path-title {
+  margin-bottom: 0.25rem;
+}
+
 @media (max-width: 640px) {
   .path-card-thumbnail-wrap {
-    margin: -1rem -1rem 0.75rem;
+    margin: 0 -1rem 0.75rem;
   }
 }
 
@@ -98,10 +115,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
   font-size: 0.9rem;
 }
 

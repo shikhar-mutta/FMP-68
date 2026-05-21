@@ -316,77 +316,9 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
 
   return (
     <div className="path-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
-      <PathThumbnail preview={preview} />
-      <div className="path-card-header">
-        <div className="path-title-section">
-          <h3 className="path-title">📍 {path.title}</h3>
-          {isPublisher && <span className="path-badge">Your Path</span>}
-          {isPublisher && pendingRequestsCount > 0 && (
-            <span className="requests-badge">{pendingRequestsCount}</span>
-          )}
-        </div>
-
-        {isPublisher && (
-          <div className="publisher-actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="publisher-action-btn edit-btn"
-              title="Edit / Republish"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(false);
-                setShowEditForm(true);
-              }}
-            >
-              ✏️
-            </button>
-            <button
-              className="publisher-action-btn delete-btn"
-              title="Delete path"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm((v) => !v);
-              }}
-            >
-              🗑️
-            </button>
-          </div>
-        )}
-      </div>
-
-      {showDeleteConfirm && isPublisher && (
-        <div className="delete-confirmation" onClick={(e) => e.stopPropagation()}>
-          <p>Permanently delete this path?</p>
-          <div className="confirmation-buttons">
-            <button
-              className="confirm-cancel-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
-            </button>
-            <button
-              className="confirm-keep-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(false);
-              }}
-              disabled={deleteLoading}
-            >
-              Keep It
-            </button>
-          </div>
-        </div>
-      )}
-
-      {path.description && (
-        <p className="path-description">{path.description}</p>
-      )}
-
-      <div className="path-meta">
-        <span className="path-publisher">
+      {/* Instagram-style header: avatar + name + actions */}
+      <div className="path-card-ig-header">
+        <div className="path-publisher">
           {path.publisher?.picture ? (
             <img
               className="publisher-avatar"
@@ -405,17 +337,72 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
               <span className="publisher-username">@{path.publisher.username}</span>
             )}
           </span>
-        </span>
-        <span className="path-followers">
-          {path.followers?.length || path.followerIds?.length || 0} followers
-        </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {isPublisher && <span className="path-badge">Your Path</span>}
+          {isPublisher && pendingRequestsCount > 0 && (
+            <span className="requests-badge">{pendingRequestsCount}</span>
+          )}
+          {isPublisher && (
+            <div className="publisher-actions" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="publisher-action-btn edit-btn"
+                title="Edit / Republish"
+                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); setShowEditForm(true); }}
+              >✏️</button>
+              <button
+                className="publisher-action-btn delete-btn"
+                title="Delete path"
+                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm((v) => !v); }}
+              >🗑️</button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="path-card-footer">
+      {/* Map thumbnail full-width */}
+      <PathThumbnail preview={preview} />
+
+      {showDeleteConfirm && isPublisher && (
+        <div className="delete-confirmation" onClick={(e) => e.stopPropagation()}>
+          <p>Permanently delete this path?</p>
+          <div className="confirmation-buttons">
+            <button
+              className="confirm-cancel-btn"
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
+            </button>
+            <button
+              className="confirm-keep-btn"
+              onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
+              disabled={deleteLoading}
+            >
+              Keep It
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Path title + description */}
+      <div className="path-card-body">
+        <h3 className="path-title">📍 {path.title}</h3>
+        {path.description && (
+          <p className="path-description">{path.description}</p>
+        )}
+      </div>
+
+      <div className="path-meta">
+        <span className="path-followers">
+          ❤️ {path.followers?.length || path.followerIds?.length || 0} followers
+        </span>
         <small className="path-date">
           {new Date(path.createdAt).toLocaleDateString()}
         </small>
+      </div>
 
+      <div className="path-card-footer">
         <div className="path-card-actions">
           {/* Live Track button — visible to publisher and approved followers */}
           {(isPublisher || isFollowing) && (
