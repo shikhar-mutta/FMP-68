@@ -132,7 +132,7 @@ export default function Navbar({ onMenuOpen } = {}) {
       ) : (
         <div className="navbar-hamburger" aria-hidden="true" style={{ visibility : 'hidden', pointerEvents: 'none' }} />
       )}
-      <div className="navbar-brand">FMP-68</div>
+      <div className="navbar-brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>FMP-68</div>
 
       {user && (
         <div className="navbar-user">

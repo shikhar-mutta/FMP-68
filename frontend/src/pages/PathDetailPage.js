@@ -37,6 +37,12 @@ const PathDetailPage = () => {
   const [processingId, setProcessingId] = useState(null);
   const [unfollowing, setUnfollowing] = useState(false);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
   const pollingRef = useRef(null);
 
   const isPublisher = user?.id && path?.publisherId === user.id;
@@ -160,6 +166,40 @@ const PathDetailPage = () => {
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await apiClient.delete(`/paths/${pathId}`);
+      if (window.showToast) window.showToast('Path deleted', 'success');
+      navigate('/');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Failed to delete path', 'error');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const openEdit = () => {
+    setEditTitle(path.title);
+    setEditDesc(path.description || '');
+    setShowEditForm(true);
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
+    try {
+      const res = await apiClient.put(`/paths/${pathId}`, { title: editTitle, description: editDesc });
+      setPath(res.data);
+      setShowEditForm(false);
+      if (window.showToast) window.showToast('Path updated', 'success');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Failed to update path', 'error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -220,6 +260,12 @@ const PathDetailPage = () => {
               </div>
 
               <div className="pd-header-actions">
+                {isPublisher && (
+                  <div className="pd-owner-actions">
+                    <button className="pd-edit-btn" onClick={openEdit} title="Edit path">✏️ Edit</button>
+                    <button className="pd-delete-btn" onClick={() => setShowDeleteConfirm(true)} title="Delete path">🗑️ Delete</button>
+                  </div>
+                )}
                 {canLiveTrack && (
                   <button
                     className="pd-live-btn"
@@ -388,6 +434,67 @@ const PathDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* Delete confirm modal */}
+      {showDeleteConfirm && (
+        <div className="pd-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Delete this path?</h3>
+            <p>This action cannot be undone. All followers and tracking data will be lost.</p>
+            <div className="pd-modal-actions">
+              <button className="pd-btn-reject" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : '🗑️ Yes, Delete'}
+              </button>
+              <button className="pd-unfollow-confirm-no" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit form modal */}
+      {showEditForm && (
+        <div className="pd-modal-overlay" onClick={() => setShowEditForm(false)}>
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit Path</h3>
+            <form onSubmit={handleEdit}>
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label htmlFor="edit-title">Title *</label>
+                <input
+                  id="edit-title"
+                  className="form-input"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  maxLength="100"
+                  disabled={editLoading}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label htmlFor="edit-desc">Description</label>
+                <textarea
+                  id="edit-desc"
+                  className="form-textarea"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows="3"
+                  maxLength="500"
+                  disabled={editLoading}
+                />
+              </div>
+              <div className="pd-modal-actions">
+                <button type="submit" className="pd-btn-approve" disabled={editLoading || !editTitle.trim()}>
+                  {editLoading ? 'Saving…' : '✓ Save'}
+                </button>
+                <button type="button" className="pd-unfollow-confirm-no" onClick={() => setShowEditForm(false)} disabled={editLoading}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 };

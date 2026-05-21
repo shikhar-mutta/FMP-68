@@ -605,6 +605,10 @@
 
 /* Phones */
 @media (max-width: 640px) {
+  .pd-owner-actions {
+    flex-direction: column;
+  }
+
   .path-detail-page {
     padding: 16px 12px;
   }
@@ -658,4 +662,80 @@
     padding: 7px 14px;
     font-size: 0.82rem;
   }
+}
+
+/* ── Owner actions (Edit / Delete) ────────────────────── */
+.pd-owner-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.pd-edit-btn,
+.pd-delete-btn {
+  flex: 1;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.pd-edit-btn {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.pd-delete-btn {
+  background: var(--accent-red-soft);
+  color: var(--accent-red);
+}
+
+.pd-edit-btn:hover,
+.pd-delete-btn:hover {
+  opacity: 0.8;
+}
+
+/* ── Modal overlay ─────────────────────────────────────── */
+.pd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.pd-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+.pd-modal h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pd-modal p {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.pd-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }

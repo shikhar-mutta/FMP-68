@@ -20,7 +20,8 @@ export default function DashboardPage() {
   const [followedPathIds, setFollowedPathIds] = useState([]);
   const [loadingPaths, setLoadingPaths] = useState(true);
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'paths');
-const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // Selecting a tab on mobile closes the drawer; on desktop it's a no-op.
   const selectTab = (tab) => {
@@ -152,15 +153,26 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
       <main className="dashboard">
         <div className="container">
           <header className="dashboard-header">
-            <h1 className="dashboard-title">
-              Welcome back, {user?.name?.split(' ')[0]} 👋
-            </h1>
-            <p className="dashboard-desc">
-              {totalCount} user{totalCount !== 1 ? 's' : ''}&nbsp;·&nbsp;
-              <span style={{ color: 'var(--accent-green)' }}>
-                {onlineCount} online
-              </span>
-            </p>
+            <div className="dashboard-header-row">
+              <div>
+                <h1 className="dashboard-title">
+                  Welcome back, {user?.name?.split(' ')[0]} 👋
+                </h1>
+                <p className="dashboard-desc">
+                  {totalCount} user{totalCount !== 1 ? 's' : ''}&nbsp;·&nbsp;
+                  <span style={{ color: 'var(--accent-green)' }}>
+                    {onlineCount} online
+                  </span>
+                </p>
+              </div>
+              <button
+                className="header-publish-btn"
+                onClick={() => setPublishOpen(true)}
+                title="Publish New Path"
+              >
+                📍<br />Publish
+              </button>
+            </div>
           </header>
 
           {/* Backdrop — only rendered while the drawer is open on mobile. */}
@@ -331,6 +343,21 @@ const [sidebarOpen, setSidebarOpen] = useState(false);
           )}
         </div>
       </main>
+
+      {publishOpen && (
+        <div className="publish-modal-overlay" onClick={() => setPublishOpen(false)}>
+          <div className="publish-modal" onClick={(e) => e.stopPropagation()}>
+            <PathPublishForm
+              modal
+              onClose={() => setPublishOpen(false)}
+              onPathPublished={(newPath) => {
+                handlePathPublished(newPath);
+                setPublishOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
