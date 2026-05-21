@@ -26,7 +26,7 @@ export default function UserCard({ user, index }) {
         {user.username && (
           <div className="user-username">@{user.username}</div>
         )}
-        <div className="user-email">{user.email}</div>
+        {/* <div className="user-email">{user.email}</div> */}
       </div>
 
       <span className={`user-badge ${isOnline ? 'online' : 'offline'}`}>
