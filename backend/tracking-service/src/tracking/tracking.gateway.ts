@@ -30,6 +30,8 @@ export class TrackingGateway
   private logger = new Logger('TrackingGateway');
 
   private userRooms = new Map<string, Set<string>>();
+  // socket.id → { pathId, userId } for active publishers
+  private publisherSockets = new Map<string, { pathId: string; userId: string }>();
 
   constructor(
     private readonly trackingService: TrackingService,
@@ -46,6 +48,20 @@ export class TrackingGateway
     if (rooms) {
       rooms.forEach((room) => client.leave(room));
       this.userRooms.delete(client.id);
+    }
+    // Auto-end session if a publisher disconnects without ending
+    const pub = this.publisherSockets.get(client.id);
+    if (pub) {
+      this.publisherSockets.delete(client.id);
+      this.trackingService.endTracking(pub.pathId).then(() => {
+        this.server.to(`path-${pub.pathId}`).emit('tracking-ended', {
+          pathId: pub.pathId,
+          userId: pub.userId,
+        });
+        this.logger.log(`Auto-ended path ${pub.pathId} after publisher disconnect`);
+      }).catch((err) => {
+        this.logger.error(`Failed to auto-end path ${pub.pathId}:`, err);
+      });
     }
   }
 
@@ -65,6 +81,7 @@ export class TrackingGateway
       this.addRoom(client.id, room);
 
       this.server.to(room).emit('tracking-started', { pathId, userId });
+      this.publisherSockets.set(client.id, { pathId, userId });
 
       return { success: true, message: 'Tracking started' };
     } catch (error) {
@@ -143,6 +160,7 @@ export class TrackingGateway
     const { pathId, userId } = data;
     try {
       await this.trackingService.endTracking(pathId);
+      this.publisherSockets.delete(client.id);
       const room = `path-${pathId}`;
       this.server.to(room).emit('tracking-ended', { pathId, userId });
       return { success: true, message: 'Tracking ended' };
@@ -222,6 +240,7 @@ export class TrackingGateway
     try {
       await this.trackingService.republishTrack(pathId);
       this.trailCache.clearTrail(pathId);
+      this.publisherSockets.delete(client.id);
 
       const room = `path-${pathId}`;
       // Ensure publisher is in the room so they receive their own broadcast

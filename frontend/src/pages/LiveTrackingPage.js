@@ -101,6 +101,12 @@ export default function LiveTrackingPage() {
   const [isPublisher, setIsPublisher] = useState(false);
   const [isFollower, setIsFollower] = useState(false);
 
+  // Refs so beforeunload / unmount handlers never see stale closures
+  const trackingStatusRef = useRef('idle');
+  const isPublisherRef = useRef(false);
+  const userIdRef = useRef(null);
+  const pathIdRef = useRef(pathId);
+
   // Coordinates
   // Publisher always fills publisherCoords (their own GPS or received from socket)
   // Follower fills followerCoords (their own GPS); publisher fills followerCoords from socket
@@ -159,6 +165,26 @@ export default function LiveTrackingPage() {
         appWrapper.style.height = prevWrapperHeight;
       }
     };
+  }, []);
+
+  // ── Keep stale-closure refs in sync ─────────────────────
+  useEffect(() => { trackingStatusRef.current = trackingStatus; }, [trackingStatus]);
+  useEffect(() => { isPublisherRef.current = isPublisher; }, [isPublisher]);
+  useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
+
+  // ── Warn before tab close / refresh while actively tracking ─
+  useEffect(() => {
+    const handler = (e) => {
+      if (
+        isPublisherRef.current &&
+        (trackingStatusRef.current === 'recording' || trackingStatusRef.current === 'paused')
+      ) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
   // ── Device orientation (compass heading) ────────────────
@@ -606,6 +632,15 @@ export default function LiveTrackingPage() {
     return () => {
       stopWatching();
       clearInterval(timerRef.current);
+      // Auto-end session if publisher navigates away without clicking End
+      if (
+        isPublisherRef.current &&
+        (trackingStatusRef.current === 'recording' || trackingStatusRef.current === 'paused') &&
+        pathIdRef.current &&
+        userIdRef.current
+      ) {
+        endTracking(pathIdRef.current, userIdRef.current);
+      }
     };
   }, []);
 

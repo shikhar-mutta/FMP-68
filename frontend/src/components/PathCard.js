@@ -8,7 +8,7 @@ import '../styles/PathCard.css';
 import '../styles/PathPublish.css';
 
 function PathThumbnail({ preview }) {
-  if (!preview || preview.points.length < 2) {
+  if (!preview || preview.points.length === 0) {
     return (
       <div className="path-card-thumbnail-wrap path-card-thumbnail-empty">
         <span className="thumbnail-empty-icon">🗺️</span>
@@ -40,9 +40,13 @@ function PathThumbnail({ preview }) {
         style={{ width: '100%', height: '100%' }}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <Polyline positions={positions} color="#4a90e2" weight={3} opacity={0.9} />
-        <CircleMarker center={start} radius={5} fillColor="#4ade80" color="white" weight={1.5} fillOpacity={1} />
-        <CircleMarker center={end} radius={5} fillColor="#ff6b5b" color="white" weight={1.5} fillOpacity={1} />
+        {positions.length >= 2 && (
+          <Polyline positions={positions} color="#4a90e2" weight={3} opacity={0.9} />
+        )}
+        <CircleMarker center={start} radius={6} fillColor="#4ade80" color="white" weight={1.5} fillOpacity={1} />
+        {positions.length >= 2 && (
+          <CircleMarker center={end} radius={6} fillColor="#ff6b5b" color="white" weight={1.5} fillOpacity={1} />
+        )}
       </MapContainer>
     </div>
   );
