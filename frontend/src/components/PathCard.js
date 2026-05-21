@@ -316,7 +316,7 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
 
   return (
     <div className="path-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
-      {/* Instagram-style header: avatar + name + actions */}
+      {/* Instagram-style header: avatar + name (left) | path title + desc (right) | actions */}
       <div className="path-card-ig-header">
         <div className="path-publisher">
           {path.publisher?.picture ? (
@@ -338,8 +338,15 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
             )}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {isPublisher && <span className="path-badge">Your Path</span>}
+
+        <div className="path-info-compact">
+          <span className="path-title-compact">📍 {path.title}</span>
+          {path.description && (
+            <span className="path-desc-compact">{path.description}</span>
+          )}
+        </div>
+
+        <div className="path-header-actions">
           {isPublisher && pendingRequestsCount > 0 && (
             <span className="requests-badge">{pendingRequestsCount}</span>
           )}
@@ -384,14 +391,6 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
           </div>
         </div>
       )}
-
-      {/* Path title + description */}
-      <div className="path-card-body">
-        <h3 className="path-title">📍 {path.title}</h3>
-        {path.description && (
-          <p className="path-description">{path.description}</p>
-        )}
-      </div>
 
       <div className="path-meta">
         <span className="path-followers">
