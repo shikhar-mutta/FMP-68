@@ -45,7 +45,7 @@ export default function PathPublishForm({ onPathPublished, modal = false, onClos
       setDescription('');
       setShowForm(false);
       onPathPublished(response.data);
-      navigate(`/path/${response.data.id}`);
+      navigate(`/path/${response.data.id}/live`, { state: { autoStart: true } });
     } catch (err) {
       const errorMsg = err.response?.data?.message 
         || err.response?.data?.error

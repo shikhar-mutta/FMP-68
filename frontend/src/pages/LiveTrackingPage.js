@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MapView from '../components/MapView';
 import Navbar from '../components/Navbar';
@@ -88,6 +88,7 @@ function getBearing(from, to) {
 export default function LiveTrackingPage() {
   const { pathId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   // Path data
@@ -408,6 +409,21 @@ export default function LiveTrackingPage() {
     }
   }, [pathId, user?.id, startGpsWatch, isStarting]);
 
+  // ── Auto-start when arriving from publish form ───────────
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (
+      !loading &&
+      !autoStartedRef.current &&
+      location.state?.autoStart &&
+      isPublisher &&
+      trackingStatus === 'idle'
+    ) {
+      autoStartedRef.current = true;
+      handleStartTracking();
+    }
+  }, [loading, isPublisher, trackingStatus, location.state?.autoStart, handleStartTracking]);
+
   // ── Publisher: Pause ─────────────────────────────────────
   const handlePauseTracking = useCallback(async () => {
     if (!user?.id) {
@@ -448,6 +464,10 @@ export default function LiveTrackingPage() {
       if (window.showToast) window.showToast('Please log in first', 'error');
       return;
     }
+    if (publisherCoords.length === 0) {
+      if (window.showToast) window.showToast('Record at least one GPS point before ending the path', 'error');
+      return;
+    }
     try {
       await endTracking(pathId, user?.id);
       setTrackingStatus('ended');
@@ -457,7 +477,7 @@ export default function LiveTrackingPage() {
     } catch (err) {
       console.error('Error ending tracking:', err);
     }
-  }, [pathId, user?.id]);
+  }, [pathId, user?.id, publisherCoords.length]);
 
   // ── Publisher: Republish Track ───────────────────────────
   const handleRepublishTrack = useCallback(async () => {

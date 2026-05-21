@@ -8,7 +8,14 @@ import '../styles/PathCard.css';
 import '../styles/PathPublish.css';
 
 function PathThumbnail({ preview }) {
-  if (!preview || preview.points.length < 2) return null;
+  if (!preview || preview.points.length < 2) {
+    return (
+      <div className="path-card-thumbnail-wrap path-card-thumbnail-empty">
+        <span className="thumbnail-empty-icon">🗺️</span>
+        <span className="thumbnail-empty-label">No route recorded yet</span>
+      </div>
+    );
+  }
   const { points, bbox } = preview;
   const pad = 0.0005;
   const bounds = [
