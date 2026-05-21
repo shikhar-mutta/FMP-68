@@ -81,15 +81,33 @@ const PathDetailPage = () => {
     fetchPathAndRequests();
   }, [pathId]);
 
-  // Polling for publisher to get new follow requests
+  // Polling for publisher: new follow requests
+  // Polling for follower/requester: path approval status
   useEffect(() => {
-    if (user?.id && path?.publisherId === user.id) {
+    if (!user?.id || !path) return;
+
+    if (path.publisherId === user.id) {
       pollingRef.current = setInterval(() => {
         getFollowRequestsForPath(pathId)
           .then((requests) => setFollowRequests(requests))
           .catch((err) => console.error('Polling error:', err));
       }, POLLING_INTERVALS.PATH_REQUESTS);
+    } else {
+      // Non-publisher: poll path to detect when request is approved/rejected
+      pollingRef.current = setInterval(async () => {
+        try {
+          const [pathRes, sentRes] = await Promise.all([
+            apiClient.get(`/paths/${pathId}`),
+            getSentFollowRequests().catch(() => []),
+          ]);
+          setPath(pathRes.data);
+          setRequestSent(sentRes.some((r) => r.pathId === pathId));
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, POLLING_INTERVALS.PATH_REQUESTS);
     }
+
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
