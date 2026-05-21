@@ -166,6 +166,60 @@
   white-space: nowrap;
 }
 
+/* Follow request button */
+.pd-follow-request-btn {
+  flex-shrink: 0;
+  padding: 10px 22px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0.08));
+  border: 2px solid rgba(16, 185, 129, 0.45);
+  color: #34d399;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.pd-follow-request-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.pd-follow-request-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Cancel request button */
+.pd-cancel-request-btn {
+  flex-shrink: 0;
+  padding: 10px 22px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  color: var(--text-secondary);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+.pd-cancel-request-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--accent-red);
+}
+
+.pd-cancel-request-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Unfollow button */
 .pd-unfollow-btn {
   flex-shrink: 0;

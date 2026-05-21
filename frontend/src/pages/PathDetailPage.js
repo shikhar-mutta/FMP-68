@@ -5,6 +5,9 @@ import {
   approveFollowRequest,
   rejectFollowRequest,
   getFollowRequestsForPath,
+  sendFollowRequest,
+  cancelFollowRequest,
+  getSentFollowRequests,
 } from '../services/followRequestService';
 import {
   getFollowersForPath,
@@ -37,6 +40,9 @@ const PathDetailPage = () => {
   const [processingId, setProcessingId] = useState(null);
   const [unfollowing, setUnfollowing] = useState(false);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -55,8 +61,12 @@ const PathDetailPage = () => {
       if (!skipLoading) setLoading(true);
       const pathData = await apiClient.get(`/paths/${pathId}`);
       setPath(pathData.data);
-      const requestsRes = await getFollowRequestsForPath(pathId);
+      const [requestsRes, sentRes] = await Promise.all([
+        getFollowRequestsForPath(pathId).catch(() => []),
+        getSentFollowRequests().catch(() => []),
+      ]);
       setFollowRequests(requestsRes);
+      setRequestSent(sentRes.some((r) => r.pathId === pathId));
       setError(null);
     } catch (err) {
       console.error('Error fetching path details:', err);
@@ -200,6 +210,32 @@ const PathDetailPage = () => {
     }
   };
 
+  const handleSendRequest = async () => {
+    setRequestLoading(true);
+    try {
+      await sendFollowRequest(pathId, path.publisherId);
+      setRequestSent(true);
+      if (window.showToast) window.showToast('Follow request sent!', 'success');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Failed to send request', 'error');
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    setRequestLoading(true);
+    try {
+      await cancelFollowRequest(pathId);
+      setRequestSent(false);
+      if (window.showToast) window.showToast('Follow request cancelled', 'info');
+    } catch (err) {
+      if (window.showToast) window.showToast(err.message || 'Failed to cancel request', 'error');
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -273,6 +309,25 @@ const PathDetailPage = () => {
                   >
                     🗺️ Open Live Tracking
                   </button>
+                )}
+                {!isPublisher && !isFollower && (
+                  requestSent ? (
+                    <button
+                      className="pd-cancel-request-btn"
+                      onClick={() => setShowCancelConfirm(true)}
+                      disabled={requestLoading}
+                    >
+                      {requestLoading ? '…' : '⏳ Cancel Request'}
+                    </button>
+                  ) : (
+                    <button
+                      className="pd-follow-request-btn"
+                      onClick={handleSendRequest}
+                      disabled={requestLoading}
+                    >
+                      {requestLoading ? '…' : '➕ Request to Follow'}
+                    </button>
+                  )
                 )}
                 {isFollower && !isPublisher && (
                   showUnfollowConfirm ? (
@@ -406,8 +461,8 @@ const PathDetailPage = () => {
             </div>
           )}
 
-          {/* Followers Section */}
-          {path.followerIds && path.followerIds.length > 0 && (
+          {/* Followers Section — publisher only */}
+          {isPublisher && path.followerIds && path.followerIds.length > 0 && (
             <div className="pd-followers-section">
               <div className="pd-section-header">
                 <h2 className="pd-section-title">👥 Followers ({path.followerIds.length})</h2>
@@ -434,6 +489,32 @@ const PathDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* Cancel follow request confirm modal */}
+      {showCancelConfirm && (
+        <div className="pd-modal-overlay" onClick={() => setShowCancelConfirm(false)}>
+          <div className="pd-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Cancel this follow request?</h3>
+            <p>Your request to follow this path will be withdrawn.</p>
+            <div className="pd-modal-actions">
+              <button
+                className="pd-btn-reject"
+                onClick={() => { setShowCancelConfirm(false); handleCancelRequest(); }}
+                disabled={requestLoading}
+              >
+                {requestLoading ? '…' : 'Yes, Remove'}
+              </button>
+              <button
+                className="pd-unfollow-confirm-no"
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={requestLoading}
+              >
+                Keep It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirm modal */}
       {showDeleteConfirm && (
