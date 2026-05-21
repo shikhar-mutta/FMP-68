@@ -18,6 +18,9 @@ export const connectSocket = () => {
     transports: ['polling', 'websocket'],
     withCredentials: true,
     autoConnect: true,
+    extraHeaders: {
+      'ngrok-skip-browser-warning': 'true',
+    },
   });
 
   socket.on('connect', () => {

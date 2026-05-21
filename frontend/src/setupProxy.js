@@ -22,7 +22,7 @@ module.exports = function (app) {
   // `/google/callback` instead of `/auth/google/callback`. pathRewrite
   // restores the prefix so api-gateway's `/auth` route matches. The
   // gateway itself uses the same trick in main.ts.
-  ['/auth', '/users', '/paths', '/follow-requests'].forEach((prefix) => {
+  ['/auth', '/users', '/paths', '/follow-requests', '/notifications'].forEach((prefix) => {
     app.use(
       prefix,
       createProxyMiddleware({
