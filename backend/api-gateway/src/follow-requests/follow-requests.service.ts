@@ -13,6 +13,7 @@ import {
 } from '../paths/path.mapper';
 import { PathsRepository } from '../paths/paths.repository';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class FollowRequestsService {
     private readonly pathsRepository: PathsRepository,
     private readonly usersClient: UsersClientService,
     private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
     private readonly rabbitmq: RabbitmqService,
   ) {}
 
@@ -113,6 +115,11 @@ export class FollowRequestsService {
 
     void this.notificationsService.create(userId, pathId, updatedPath.title);
 
+    this.notificationsGateway.emitToUser(userId, 'follow-request-approved', {
+      pathId,
+      pathTitle: updatedPath.title,
+    });
+
     return {
       message: 'Follow request approved',
       pathId,
@@ -144,6 +151,11 @@ export class FollowRequestsService {
       pathId,
       withoutValue(followRequests, userId),
     );
+
+    this.notificationsGateway.emitToUser(userId, 'follow-request-rejected', {
+      pathId,
+      pathTitle: updatedPath.title,
+    });
 
     return {
       message: 'Follow request rejected',

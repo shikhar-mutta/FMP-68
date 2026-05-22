@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 let socket = null;
+let notifSocket = null;
 
 /**
  * Connect to the tracking WebSocket namespace
@@ -214,3 +215,31 @@ export const onTrackingRepublished = (callback) => {
   s.on('tracking-republished', callback);
   return () => s.off('tracking-republished', callback);
 };
+
+// ── Notifications socket (/notifications namespace) ──────────────────────────
+
+export const connectNotifications = (userId) => {
+  if (notifSocket) return notifSocket;
+
+  notifSocket = io(`${API_URL}/notifications`, {
+    transports: ['polling', 'websocket'],
+    withCredentials: true,
+    autoConnect: true,
+    extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
+  });
+
+  notifSocket.on('connect', () => {
+    notifSocket.emit('subscribe', { userId });
+  });
+
+  return notifSocket;
+};
+
+export const disconnectNotifications = () => {
+  if (notifSocket) {
+    notifSocket.disconnect();
+    notifSocket = null;
+  }
+};
+
+export const getNotifSocket = () => notifSocket;

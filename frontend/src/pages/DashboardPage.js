@@ -8,6 +8,7 @@ import PathPublishForm from '../components/PathPublishForm';
 import PathCard from '../components/PathCard';
 import FollowRequestsPanel from '../components/FollowRequestsPanel';
 import { getSentFollowRequests, getPendingFollowRequests } from '../services/followRequestService';
+import { connectNotifications, disconnectNotifications } from '../services/socketService';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
@@ -124,6 +125,36 @@ export default function DashboardPage() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refreshFollowState]);
+
+  // ── WebSocket: real-time follow request notifications ───────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const socket = connectNotifications(user.id);
+
+    const onApproved = ({ pathId, pathTitle }) => {
+      setFollowedPathIds((prev) => prev.includes(pathId) ? prev : [...prev, pathId]);
+      setSentRequestPathIds((prev) => { const n = new Set(prev); n.delete(pathId); return n; });
+      if (window.showToast) {
+        window.showToast(`Your request to follow "${pathTitle}" was approved! 🎉`, 'success', 8000);
+      }
+    };
+
+    const onRejected = ({ pathId, pathTitle }) => {
+      setSentRequestPathIds((prev) => { const n = new Set(prev); n.delete(pathId); return n; });
+      if (window.showToast) {
+        window.showToast(`Your request to follow "${pathTitle}" was declined.`, 'warning');
+      }
+    };
+
+    socket.on('follow-request-approved', onApproved);
+    socket.on('follow-request-rejected', onRejected);
+
+    return () => {
+      socket.off('follow-request-approved', onApproved);
+      socket.off('follow-request-rejected', onRejected);
+      disconnectNotifications();
+    };
+  }, [user?.id]);
 
   // ── Handle path published ────────────────────────────────
   const handlePathPublished = (newPath) => {
