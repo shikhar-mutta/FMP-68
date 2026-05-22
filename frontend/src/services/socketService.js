@@ -16,8 +16,8 @@ export const connectSocket = () => {
   }
 
   socket = io(`${API_URL}/tracking`, {
-    transports: ['polling', 'websocket'],
-    withCredentials: true,
+    transports: ['websocket', 'polling'],
+    withCredentials: false,
     autoConnect: true,
     extraHeaders: {
       'ngrok-skip-browser-warning': 'true',
@@ -222,8 +222,8 @@ export const connectNotifications = (userId) => {
   if (notifSocket) return notifSocket;
 
   notifSocket = io(`${API_URL}/notifications`, {
-    transports: ['polling', 'websocket'],
-    withCredentials: true,
+    transports: ['websocket', 'polling'],
+    withCredentials: false,
     autoConnect: true,
     extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
   });
