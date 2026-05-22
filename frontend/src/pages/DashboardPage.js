@@ -7,6 +7,7 @@ import UserCard from '../components/UserCard';
 import PathPublishForm from '../components/PathPublishForm';
 import PathCard from '../components/PathCard';
 import FollowRequestsPanel from '../components/FollowRequestsPanel';
+import { getSentFollowRequests, getPendingFollowRequests } from '../services/followRequestService';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes in ms
@@ -22,6 +23,8 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'paths');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [sentRequestPathIds, setSentRequestPathIds] = useState(new Set());
+  const [pendingByPath, setPendingByPath] = useState({});
 
   // Selecting a tab on mobile closes the drawer; on desktop it's a no-op.
   const selectTab = (tab) => {
@@ -88,6 +91,40 @@ export default function DashboardPage() {
       .finally(() => setLoadingPaths(false));
   }, [user]);
 
+  // ── Fetch follow request state once + on tab focus (no per-card polling) ─
+  const refreshFollowState = useCallback(() => {
+    if (!user?.id) return;
+    Promise.all([
+      getSentFollowRequests().catch(() => null),
+      getPendingFollowRequests().catch(() => []),
+    ]).then(([sentRes, pendingRes]) => {
+      if (sentRes !== null) {
+        setSentRequestPathIds((prev) => {
+          const newIds = new Set(sentRes.map((r) => r.pathId));
+          // Detect approvals: was pending, now gone → became a follower
+          prev.forEach((pathId) => {
+            if (!newIds.has(pathId)) {
+              setFollowedPathIds((f) => (f.includes(pathId) ? f : [...f, pathId]));
+            }
+          });
+          return newIds;
+        });
+      }
+      const byPath = {};
+      pendingRes.forEach((r) => { byPath[r.pathId] = (byPath[r.pathId] || 0) + 1; });
+      setPendingByPath(byPath);
+    });
+  }, [user?.id]);
+
+  useEffect(() => { refreshFollowState(); }, [refreshFollowState]);
+
+  // Re-fetch when user switches back to this tab (catches approvals from other tabs/devices)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshFollowState(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refreshFollowState]);
+
   // ── Handle path published ────────────────────────────────
   const handlePathPublished = (newPath) => {
     setPaths([newPath, ...paths]);
@@ -98,15 +135,20 @@ export default function DashboardPage() {
   // ── Handle follow/unfollow path ──────────────────────────
   const handleFollowChange = (pathId, isFollowing) => {
     if (isFollowing) {
-      setFollowedPathIds([...followedPathIds, pathId]);
+      setFollowedPathIds((prev) => [...prev, pathId]);
+      setSentRequestPathIds((prev) => { const n = new Set(prev); n.delete(pathId); return n; });
     } else {
-      setFollowedPathIds(followedPathIds.filter((id) => id !== pathId));
+      setFollowedPathIds((prev) => prev.filter((id) => id !== pathId));
     }
   };
 
-  // ── Handle request sent ──────────────────────────────────
+  // ── Handle request sent / cancelled ─────────────────────
   const handleRequestSent = (pathId) => {
-    console.log('Request sent for path:', pathId);
+    setSentRequestPathIds((prev) => new Set([...prev, pathId]));
+  };
+
+  const handleRequestCancelled = (pathId) => {
+    setSentRequestPathIds((prev) => { const n = new Set(prev); n.delete(pathId); return n; });
   };
 
   // ── Handle path updated (republish) ──────────────────────
@@ -268,7 +310,10 @@ export default function DashboardPage() {
                       isFollowing={followedPathIds.includes(path.id)}
                       onFollowChange={handleFollowChange}
                       currentUserId={user?.id}
+                      hasSentRequest={sentRequestPathIds.has(path.id)}
+                      pendingRequestsCount={pendingByPath[path.id] || 0}
                       onRequestSent={handleRequestSent}
+                      onRequestCancelled={handleRequestCancelled}
                       onPathUpdated={handlePathUpdated}
                       onPathDeleted={handlePathDeleted}
                     />
@@ -302,7 +347,10 @@ export default function DashboardPage() {
                       isFollowing={followedPathIds.includes(path.id)}
                       onFollowChange={handleFollowChange}
                       currentUserId={user?.id}
+                      hasSentRequest={sentRequestPathIds.has(path.id)}
+                      pendingRequestsCount={pendingByPath[path.id] || 0}
                       onRequestSent={handleRequestSent}
+                      onRequestCancelled={handleRequestCancelled}
                       onPathUpdated={handlePathUpdated}
                       onPathDeleted={handlePathDeleted}
                     />

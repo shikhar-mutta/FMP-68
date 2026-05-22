@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, CircleMarker } from 'react-leaflet';
-import { sendFollowRequest, getSentFollowRequests, getFollowRequestsForPath, cancelFollowRequest } from '../services/followRequestService';
+import { sendFollowRequest, cancelFollowRequest } from '../services/followRequestService';
 import apiClient from '../services/api';
-import { POLLING_INTERVALS, REQUEST_STATUSES } from '../config/constants';
 import '../styles/PathCard.css';
 import '../styles/PathPublish.css';
 
@@ -52,13 +51,11 @@ function PathThumbnail({ preview }) {
   );
 }
 
-export default function PathCard({ path, isFollowing, onFollowChange, currentUserId, onRequestSent, onPathUpdated, onPathDeleted }) {
+export default function PathCard({ path, isFollowing, onFollowChange, currentUserId, hasSentRequest, pendingRequestsCount, onRequestSent, onRequestCancelled, onPathUpdated, onPathDeleted }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [hasRequest, setHasRequest] = useState(false);
-  const [requestLoading, setRequestLoading] = useState(true);
+  const [hasRequest, setHasRequest] = useState(hasSentRequest || false);
   const [preview, setPreview] = useState(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -67,94 +64,13 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
   const [editDescription, setEditDescription] = useState(path.description || '');
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const pollingRef = useRef(null);
   const isPublisher = path.publisher?.id === currentUserId;
 
-  // Fetch pending requests count for publishers
-  useEffect(() => {
-    if (!isPublisher) {
-      return;
-    }
+  // Sync hasRequest with parent-driven prop (e.g. when approval detected on tab focus)
+  useEffect(() => { setHasRequest(hasSentRequest || false); }, [hasSentRequest]);
 
-    const fetchPendingCount = async () => {
-      try {
-        const requests = await getFollowRequestsForPath(path.id);
-        setPendingRequestsCount(requests?.length || 0);
-      } catch (err) {
-        console.error('Error fetching pending requests:', err);
-      }
-    };
-
-    fetchPendingCount();
-
-    // Auto-poll for publishers to show real-time request count
-    pollingRef.current = setInterval(() => {
-      getFollowRequestsForPath(path.id)
-        .then((requests) => setPendingRequestsCount(requests?.length || 0))
-        .catch((err) => console.error('Polling error:', err));
-    }, POLLING_INTERVALS.PATH_CARD_REQUESTS);
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, [path.id, isPublisher]);
-
-  // Check if user has already sent a follow request (for non-publishers)
-  useEffect(() => {
-    if (!currentUserId || isPublisher || isFollowing) {
-      setRequestLoading(false);
-      // Becoming a follower invalidates any prior pending-request state. Without
-      // this reset, the click handler below would still route into the cancel-
-      // request branch and the backend would respond "Follow request not found".
-      setHasRequest(false);
-      return;
-    }
-
-    const checkRequest = async () => {
-      try {
-        const sentRequests = await getSentFollowRequests();
-        const hasExisting = sentRequests.some((req) => req.pathId === path.id);
-        setHasRequest(hasExisting);
-      } catch (err) {
-        console.error('Error checking follow request:', err);
-      } finally {
-        setRequestLoading(false);
-      }
-    };
-
-    checkRequest();
-
-    // Auto-poll to detect when request is approved
-    pollingRef.current = setInterval(() => {
-      getSentFollowRequests()
-        .then((sentRequests) => {
-          const request = sentRequests.find((req) => req.pathId === path.id);
-          if (request && request.status === REQUEST_STATUSES.APPROVED) {
-            setHasRequest(false);
-            onFollowChange(path.id, true);
-            if (window.showToast) {
-              window.showToast(
-                `Your follow request for "${path.title}" was approved!`,
-                'success',
-                8000,
-                () => navigate(`/path/${path.id}`)
-              );
-            }
-          } else {
-            setHasRequest(!!request);
-          }
-        })
-        .catch((err) => console.error('Polling error:', err));
-    }, POLLING_INTERVALS.PATH_CARD_REQUESTS);
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, [path.id, currentUserId, isPublisher, isFollowing, onFollowChange]);
+  // Reset hasRequest when user becomes a follower
+  useEffect(() => { if (isFollowing) setHasRequest(false); }, [isFollowing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,6 +117,7 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
       await cancelFollowRequest(path.id);
       setHasRequest(false);
       setShowCancelConfirm(false);
+      if (onRequestCancelled) onRequestCancelled(path.id);
       if (window.showToast) {
         window.showToast('Follow request cancelled', 'warning');
       }
@@ -499,7 +416,7 @@ export default function PathCard({ path, isFollowing, onFollowChange, currentUse
                       handleFollowToggle();
                     }
                   }}
-                  disabled={loading || requestLoading}
+                  disabled={loading}
                 >
                   {isFollowing
                     ? '✓ Following'
